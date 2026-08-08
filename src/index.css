@@ -1,0 +1,509 @@
+@import "tailwindcss";
+
+/* ═══════════════════════════════════════════════════════════════════
+   SlayQL — Global Style Sheet & Theme Extensions
+   ═══════════════════════════════════════════════════════════════════ */
+
+@layer utilities {
+  /* ─── Custom Scrollbar ────────────────────────────────────────── */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #f1f5f9;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 99px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+
+  /* ─── Navigation Glass ────────────────────────────────────────── */
+  .nav-glass {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  /* ─── Hero Grid Background ────────────────────────────────────── */
+  .hero-grid-bg {
+    background-image:
+      linear-gradient(rgba(226, 232, 240, 0.5) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(226, 232, 240, 0.5) 1px, transparent 1px);
+    background-size: 40px 40px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 20%, transparent 100%);
+    -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 20%, transparent 100%);
+  }
+
+  .hero-gradient-text {
+    background: linear-gradient(135deg, #4f46e5 0%, #2563eb 50%, #0ea5e9 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ─── Typewriter Cursor ───────────────────────────────────────── */
+  .typewriter-cursor::after {
+    content: '▋';
+    animation: cursor-blink 1s step-end infinite;
+    color: #818cf8;
+    margin-left: 1px;
+  }
+
+  @keyframes cursor-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  /* ─── SQL Highlights ──────────────────────────────────────────── */
+  .sql-highlight {
+    color: #a5f3fc;
+  }
+  .sql-kw { color: #c084fc; font-weight: 600; }
+  .sql-fn { color: #67e8f9; }
+  .sql-str { color: #86efac; }
+  .sql-num { color: #fcd34d; }
+  .sql-cmt { color: #64748b; font-style: italic; }
+  .sql-tbl { color: #fb923c; }
+  .sql-col { color: #a5f3fc; }
+
+  /* ─── SVG Chart Grow ──────────────────────────────────────────── */
+  @keyframes bar-grow-svg {
+    from { transform: scaleY(0); transform-origin: bottom; }
+    to   { transform: scaleY(1); transform-origin: bottom; }
+  }
+
+  .chart-bar rect {
+    transform-origin: bottom;
+    animation: bar-grow-svg 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* ─── Custom animations ───────────────────────────────────────── */
+  @keyframes fade-in-up {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .animate-fade-in-up {
+    animation: fade-in-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* ─── Feature Card — vertical 4-col hover lift ────────────────── */
+  .feature-card {
+    position: relative;
+    transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+                box-shadow 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+                border-color 0.2s ease;
+    overflow: hidden;
+  }
+  .feature-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--card-accent, #4f46e5);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    border-radius: 2px 2px 0 0;
+  }
+  .feature-card:hover {
+    transform: translateY(-6px);
+  }
+  .feature-card:hover::before {
+    transform: scaleX(1);
+  }
+
+  /* ─── Cognitive Pipeline Tabs ─────────────────────────────────── */
+  .pipeline-tab {
+    position: relative;
+    transition: color 0.2s ease, background-color 0.2s ease;
+  }
+  .pipeline-tab::after {
+    content: '';
+    position: absolute;
+    bottom: -1px; left: 0; right: 0;
+    height: 2px;
+    background: currentColor;
+    transform: scaleX(0);
+    transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .pipeline-tab.active::after {
+    transform: scaleX(1);
+  }
+
+  @keyframes pipeline-progress {
+    from { width: 0%; }
+    to   { width: 100%; }
+  }
+  .pipeline-progress-bar {
+    animation: pipeline-progress var(--progress-duration, 4s) linear forwards;
+  }
+
+  /* ─── Slide-in panel ──────────────────────────────────────────── */
+  @keyframes slide-in-right {
+    from { opacity: 0; transform: translateX(18px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  .slide-in-right {
+    animation: slide-in-right 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @keyframes slide-in-up {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .slide-in-up {
+    animation: slide-in-up 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* ─── Architecture Node ───────────────────────────────────────── */
+  .arch-node {
+    transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+    cursor: pointer;
+  }
+  .arch-node:hover {
+    transform: translateX(4px);
+  }
+  .arch-node.selected {
+    box-shadow: 0 0 0 2px var(--node-color, #4f46e5), 0 4px 20px -4px rgba(79, 70, 229, 0.25);
+  }
+
+  /* ─── Telemetry Pulse ─────────────────────────────────────────── */
+  @keyframes telemetry-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.5; transform: scale(0.85); }
+  }
+  .telemetry-pulse {
+    animation: telemetry-pulse 1.8s ease-in-out infinite;
+  }
+
+  @keyframes telemetry-count-up {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .telemetry-count {
+    animation: telemetry-count-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* ─── Connector line draw ─────────────────────────────────────── */
+  @keyframes dash-draw {
+    from { stroke-dashoffset: 100; }
+    to   { stroke-dashoffset: 0; }
+  }
+  .connector-draw {
+    stroke-dasharray: 6 4;
+    animation: dash-draw 0.6s linear infinite;
+  }
+
+  /* ─── CTA Grid Overlay ────────────────────────────────────────── */
+  .cta-grid-overlay {
+    background-image:
+      linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  /* ─── Schema token highlight ──────────────────────────────────── */
+  .token-highlight {
+    display: inline-block;
+    border-radius: 4px;
+    padding: 0 4px;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+
+  /* ─── Slide-over Drawer ────────────────────────────────────── */
+  @keyframes drawer-slide-in {
+    from { transform: translateX(100%); opacity: 0; }
+    to   { transform: translateX(0);    opacity: 1; }
+  }
+  @keyframes drawer-slide-out {
+    from { transform: translateX(0);    opacity: 1; }
+    to   { transform: translateX(100%); opacity: 0; }
+  }
+  .drawer-enter {
+    animation: drawer-slide-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .drawer-exit {
+    animation: drawer-slide-out 0.24s cubic-bezier(0.4, 0, 1, 1) both;
+  }
+
+  @keyframes backdrop-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  .backdrop-enter {
+    animation: backdrop-in 0.2s ease both;
+  }
+
+  /* ─── Engine Workspace split-pane ─────────────────────────── */
+  .engine-rail {
+    min-width: 0;
+    overflow-y: auto;
+  }
+  .engine-panel {
+    min-width: 0;
+    overflow-y: auto;
+  }
+
+  /* ─── Leaderboard table ────────────────────────────────────── */
+  .leaderboard-row {
+    transition: background 0.15s ease, box-shadow 0.15s ease;
+  }
+  .leaderboard-row:hover {
+    background: #f8fafc;
+  }
+  .leaderboard-row.champion {
+    background: linear-gradient(90deg, #eef2ff 0%, #ffffff 60%);
+  }
+  .leaderboard-bar {
+    transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  @keyframes count-up-bench {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .bench-kpi {
+    animation: count-up-bench 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* ─── Page-level overflow guard ───────────────────────────── */
+  .page-root {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+
+  /* ─── Arch flow connector line ─────────────────────────────── */
+  @keyframes flow-line-draw {
+    from { stroke-dashoffset: 40; opacity: 0; }
+    to   { stroke-dashoffset: 0;  opacity: 1; }
+  }
+  .flow-line {
+    stroke-dasharray: 4 3;
+    animation: flow-line-draw 0.8s ease both;
+  }
+
+  /* ─── Sort button active ──────────────────────────────────── */
+  .sort-btn {
+    transition: all 0.15s ease;
+  }
+  .sort-btn.active {
+    background: #4f46e5;
+    color: #ffffff;
+    border-color: #4f46e5;
+  }
+
+  /* ══════════════════════════════════════════════════════════
+     POLISH ROUND 3 — Scroll reveal, glassmorphism, pipeline
+     ══════════════════════════════════════════════════════════ */
+
+  /* ─── Scroll-reveal (JS adds .is-visible) ───────────────── */
+  .reveal {
+    opacity: 0;
+    transform: translateY(28px);
+    transition: opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+                transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .reveal.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .reveal-delay-1 { transition-delay: 80ms;  }
+  .reveal-delay-2 { transition-delay: 160ms; }
+  .reveal-delay-3 { transition-delay: 240ms; }
+  .reveal-delay-4 { transition-delay: 320ms; }
+
+  /* ─── Glassmorphism card surface ─────────────────────────── */
+  .glass-card {
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(14px) saturate(160%);
+    -webkit-backdrop-filter: blur(14px) saturate(160%);
+    border: 1px solid rgba(255,255,255,0.55);
+    box-shadow: 0 4px 24px -4px rgba(15, 23, 42, 0.08),
+                0 1px 4px rgba(15, 23, 42, 0.04);
+  }
+
+  /* ─── Pipeline progress bar (stage transition) ───────────── */
+  @keyframes pipeline-stage-progress {
+    from { transform: scaleX(0); }
+    to   { transform: scaleX(1); }
+  }
+  .pipeline-stage-bar {
+    transform-origin: left;
+    animation: pipeline-stage-progress var(--bar-duration, 5s) linear forwards;
+  }
+
+  /* ─── Stage transition shimmer ───────────────────────────── */
+  @keyframes shimmer-sweep {
+    0%   { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  .shimmer {
+    background: linear-gradient(90deg,
+      transparent 0%,
+      rgba(79, 70, 229, 0.08) 40%,
+      rgba(79, 70, 229, 0.14) 50%,
+      rgba(79, 70, 229, 0.08) 60%,
+      transparent 100%);
+    background-size: 200% 100%;
+    animation: shimmer-sweep 1.2s ease-in-out;
+  }
+
+  /* ─── Keyword highlight in feature cards ─────────────────── */
+  .kw-highlight {
+    font-weight: 700;
+    color: #4f46e5;
+  }
+  .kw-highlight-amber {
+    font-weight: 700;
+    color: #d97706;
+  }
+  .kw-highlight-emerald {
+    font-weight: 700;
+    color: #059669;
+  }
+  .kw-highlight-violet {
+    font-weight: 700;
+    color: #7c3aed;
+  }
+  .kw-highlight-teal {
+    font-weight: 700;
+    color: #0d9488;
+  }
+  .kw-highlight-rose {
+    font-weight: 700;
+    color: #e11d48;
+  }
+  .kw-highlight-blue {
+    font-weight: 700;
+    color: #2563eb;
+  }
+
+  /* ─── Premium section bg tint ────────────────────────────── */
+  .section-dot-bg {
+    background-image: radial-gradient(circle, #e2e8f0 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+
+  /* ─── Micro-interaction: glow ring on hover ──────────────── */
+  .glow-hover {
+    transition: box-shadow 0.25s ease, transform 0.25s ease;
+  }
+  .glow-hover:hover {
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15),
+                0 8px 28px -4px rgba(79, 70, 229, 0.18);
+    transform: translateY(-2px);
+  }
+
+  /* ─── Architecture node hover ring ──────────────────────── */
+  .arch-node-card {
+    transition: all 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+    cursor: pointer;
+  }
+  .arch-node-card:hover {
+    transform: translateY(-3px);
+  }
+  .arch-node-card.node-active {
+    box-shadow: 0 0 0 2px var(--node-accent, #4f46e5),
+                0 6px 24px -4px rgba(79, 70, 229, 0.2);
+  }
+
+  /* ─── Pipeline step connector ────────────────────────────── */
+  .pipeline-connector {
+    width: 2px;
+    background: linear-gradient(to bottom, #c7d2fe, #e0e7ff);
+    margin: 0 auto;
+    min-height: 24px;
+    border-radius: 2px;
+  }
+  .pipeline-connector.active {
+    background: linear-gradient(to bottom, #4f46e5, #818cf8);
+    animation: connector-pulse 1.8s ease-in-out infinite;
+  }
+  @keyframes connector-pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.5; }
+  }
+
+  /* ─── Floating tag pill ──────────────────────────────────── */
+  .tag-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  /* ─── Stage progress strip ───────────────────────────────── */
+  .stage-strip {
+    height: 3px;
+    border-radius: 2px;
+    overflow: hidden;
+    background: #e2e8f0;
+  }
+  .stage-strip-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.15s linear;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   DASHBOARD — Authenticated workspace utilities
+   ══════════════════════════════════════════════════════════ */
+@layer utilities {
+
+  /* ─── Sidebar collapse transition ────────────────────────── */
+  .sidebar-collapse-transition {
+    transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* ─── Skeleton loading pulse ─────────────────────────────── */
+  @keyframes skeleton-pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.5; }
+  }
+  .skeleton {
+    animation: skeleton-pulse 1.5s ease-in-out infinite;
+    background: #f1f5f9;
+    border-radius: 6px;
+  }
+
+  /* ─── Toast slide in from right ──────────────────────────── */
+  @keyframes toast-slide-in {
+    from { opacity: 0; transform: translateX(24px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  /* ─── Dashboard stat card hover ──────────────────────────── */
+  .stat-card {
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+  }
+  .stat-card:hover {
+    box-shadow: 0 4px 16px -4px rgba(79, 70, 229, 0.12);
+    transform: translateY(-1px);
+  }
+
+  /* ─── Query input focus ring ─────────────────────────────── */
+  .query-input-panel:focus-within {
+    border-color: #a5b4fc;
+    box-shadow: 0 0 0 3px rgba(165, 180, 252, 0.25);
+  }
+
+  /* ─── Mobile drawer transition ───────────────────────────── */
+  @keyframes drawer-in {
+    from { transform: translateX(-100%); }
+    to   { transform: translateX(0); }
+  }
+  .drawer-mobile-enter {
+    animation: drawer-in 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
