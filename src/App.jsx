@@ -32,6 +32,7 @@ export default function App() {
         <DashboardView 
           setView={setView} 
           activeDatabase={activeDatabase} 
+          setActiveDatabase={handleDatabaseConnect}
         />
       )}
     </>

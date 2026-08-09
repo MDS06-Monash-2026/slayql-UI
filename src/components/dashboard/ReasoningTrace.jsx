@@ -121,26 +121,19 @@ export default function ReasoningTrace({ steps, currentStepIndex, dataset, isDon
   if (!steps || steps.length === 0) return null;
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+    <div className="bg-transparent">
       {/* Header */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-100 bg-gradient-to-r from-indigo-50/60 to-slate-50">
-        {!isDone ? (
+      {!isDone && (
+        <div className="flex items-center gap-2 px-1 py-2 mb-2">
           <div className="w-3.5 h-3.5 rounded-full border-2 border-indigo-300 border-t-indigo-600 animate-spin" />
-        ) : (
-          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-        )}
-        <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-          {isDone ? 'SQL Generated' : 'SlayQL Thinking…'}
-        </span>
-        {isDone && (
-          <span className="ml-auto px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-semibold">
-            Done
+          <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider">
+            SlayQL Thinking…
           </span>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Steps */}
-      <div className="px-4 py-3 space-y-3">
+      <div className="py-2 space-y-3">
         {steps.map((step, idx) => {
           const status =
             idx < currentStepIndex ? 'done' :
@@ -171,7 +164,7 @@ export default function ReasoningTrace({ steps, currentStepIndex, dataset, isDon
 
       {/* Collapsible explanation — only when done */}
       {isDone && (
-        <div className="px-4 pb-4">
+        <div className="pb-4">
           <QueryExplanation dataset={dataset} />
         </div>
       )}

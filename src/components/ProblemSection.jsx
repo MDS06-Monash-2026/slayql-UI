@@ -35,7 +35,7 @@ const PROBLEMS = [
     iconBg: 'bg-amber-50 border-amber-100',
     iconColor: 'text-amber-600',
     title: 'Value Ambiguity',
-    text: "Keywords in a user's question may not appear anywhere in a column's name or description — only in its cell values. SlayQL-Lite grounds queries against actual database values instead of guessing which column a literal belongs to.",
+    text: "Keywords in a user's question may not appear anywhere in a column's name or description — only in its cell values. SlayQL grounds queries against actual database values instead of guessing which column a literal belongs to.",
     highlights: [
       { phrase: 'cell values', cls: 'kw-highlight-amber' },
       { phrase: 'grounds queries against actual database values', cls: 'kw-highlight-amber' },
@@ -46,7 +46,7 @@ const PROBLEMS = [
     iconBg: 'bg-blue-50 border-blue-100',
     iconColor: 'text-blue-600',
     title: 'Inefficient Exploration',
-    text: 'A fixed multi-turn exploration budget runs the same number of turns for every query, regardless of complexity — burning tokens and latency on simple questions. SlayQL-Lite exits dynamically once the candidate schema stabilizes.',
+    text: 'A fixed multi-turn exploration budget runs the same number of turns for every query, regardless of complexity — burning tokens and latency on simple questions. SlayQL exits dynamically once the candidate schema stabilizes.',
     highlights: [
       { phrase: 'fixed multi-turn exploration budget', cls: 'kw-highlight-blue' },
       { phrase: 'burning tokens and latency', cls: 'kw-highlight-rose' },

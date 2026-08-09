@@ -1,12 +1,10 @@
 import React from 'react';
-import { Bell, Circle, Menu, ChevronRight } from 'lucide-react';
+import { Bell, ChevronRight, Menu } from 'lucide-react';
 
 const SECTION_LABELS = {
-  home: 'Dashboard',
-  'new-query': 'New Query',
+  home: 'Workspace',
   history: 'Query History',
   databases: 'Databases',
-  saved: 'Saved Queries',
   explorer: 'Data Explorer',
   results: 'Query Results',
   docs: 'Documentation',
@@ -34,7 +32,7 @@ export default function DashboardHeader({ dbStatus, activeSection, onMobileMenuT
         <span className="text-slate-400 font-medium hidden sm:inline">Workspace</span>
         <ChevronRight className="w-3.5 h-3.5 text-slate-300 hidden sm:inline flex-shrink-0" />
         <span className="text-slate-800 font-semibold truncate">
-          {SECTION_LABELS[activeSection] ?? 'Dashboard'}
+          {SECTION_LABELS[activeSection] ?? 'Workspace'}
         </span>
       </nav>
 

@@ -16,7 +16,7 @@ export default function AboutSection() {
         </h2>
 
         <p class="text-lg text-slate-500 leading-relaxed max-w-2xl mx-auto">
-          SlayQL-Lite extends the AutoLink framework by introducing graph-based schema exploration, value grounding, and scalable evaluation pipelines for large-scale Text-to-SQL systems. It is developed by the C-CaSE / MDS06 FYP group at Monash University Malaysia and evaluated on the Spider 2.0-Lite benchmark.
+          SlayQL extends the AutoLink framework by introducing graph-based schema exploration, value grounding, and scalable evaluation pipelines for large-scale Text-to-SQL systems. It is developed by the C-CaSE / MDS06 FYP group at Monash University Malaysia and evaluated on the Spider 2.0-Lite benchmark.
         </p>
 
         <div class="mt-8 flex flex-wrap items-center justify-center gap-4">

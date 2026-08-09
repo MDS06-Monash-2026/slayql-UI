@@ -48,15 +48,6 @@ export default function Hero({ setView }) {
       <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center max-w-5xl mx-auto">
 
-          {/* Eyebrow */}
-          <div class="inline-flex items-center gap-2 px-3.5 py-1.5 mb-6 rounded-full border border-indigo-200 bg-indigo-50 text-indigo-700 text-xs font-semibold uppercase tracking-wider shadow-sm">
-            <span class="relative flex h-2 w-2">
-              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-500 opacity-75"></span>
-              <span class="relative inline-flex rounded-full h-2 w-2 bg-indigo-600"></span>
-            </span>
-            SlayQL-Lite
-          </div>
-
           <p class="text-sm sm:text-base font-medium text-slate-500 mb-4 tracking-wide uppercase">
             Scalable Schema Exploration &amp; Value-Grounded Text-to-SQL
           </p>
@@ -72,7 +63,7 @@ export default function Hero({ setView }) {
 
           {/* Subheadline */}
           <p class="mt-6 text-lg sm:text-xl text-slate-500 max-w-3xl mx-auto leading-relaxed font-light">
-            SlayQL-Lite is an agentic Text-to-SQL framework that intelligently explores database schemas, reasons over complex join relationships, and grounds queries with real data values. Generate accurate SQL, visualize results, and explore large-scale datasets without manually navigating thousands of tables.
+            SlayQL is an agentic Text-to-SQL framework that intelligently explores database schemas, reasons over complex join relationships, and grounds queries with real data values. Generate accurate SQL, visualize results, and explore large-scale datasets without manually navigating thousands of tables.
           </p>
 
           {/* CTAs */}
@@ -118,7 +109,7 @@ export default function Hero({ setView }) {
                 <div class="w-3 h-3 rounded-full bg-amber-400"></div>
                 <div class="w-3 h-3 rounded-full bg-emerald-400"></div>
               </div>
-              <span class="text-xs font-medium text-slate-500 font-mono">slayql-lite — interactive workspace</span>
+              <span class="text-xs font-medium text-slate-500 font-mono">slayql — interactive workspace</span>
               <div class="flex items-center gap-1 text-xs text-emerald-600 font-medium">
                 <span class="relative flex h-2 w-2">
                   <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>

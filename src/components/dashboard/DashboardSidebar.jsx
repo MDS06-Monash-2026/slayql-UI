@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import {
-  Home, Plus, Clock, Database, Bookmark,
-  LayoutGrid, Table2, BookOpen,
+  Home, Clock, Database,
+  LayoutGrid, BookOpen,
   Settings, HelpCircle, LogOut,
   ChevronLeft, ChevronRight, Zap,
-  X, Menu
+  X,
 } from 'lucide-react';
 
 // ─── Navigation config ────────────────────────────────────────────────────────
@@ -12,19 +12,16 @@ import {
 const NAV_SECTIONS = [
   {
     items: [
-      { id: 'home',          icon: Home,        label: 'Home' },
-      { id: 'new-query',     icon: Plus,         label: 'New Query' },
-      { id: 'history',       icon: Clock,        label: 'Query History' },
-      { id: 'databases',     icon: Database,     label: 'Databases' },
-      { id: 'saved',         icon: Bookmark,     label: 'Saved Queries' },
+      { id: 'home',      icon: Home,     label: 'Home' },
+      { id: 'history',   icon: Clock,    label: 'Query History' },
+      { id: 'databases', icon: Database, label: 'Databases' },
     ],
   },
   {
     heading: 'Workspace',
     items: [
-      { id: 'explorer',      icon: LayoutGrid,   label: 'Data Explorer' },
-      { id: 'results',       icon: Table2,        label: 'Query Results' },
-      { id: 'docs',          icon: BookOpen,      label: 'Documentation' },
+      { id: 'explorer', icon: LayoutGrid, label: 'Data Explorer' },
+      { id: 'docs',     icon: BookOpen,   label: 'Documentation' },
     ],
   },
 ];
@@ -34,7 +31,7 @@ const BOTTOM_NAV = [
   { id: 'help',     icon: HelpCircle, label: 'Help & Support' },
 ];
 
-// ─── Pill badge ───────────────────────────────────────────────────────────────
+// ─── NavItem ──────────────────────────────────────────────────────────────────
 
 function NavItem({ item, active, collapsed, onClick }) {
   return (
@@ -76,7 +73,6 @@ export default function DashboardSidebar({
   mobileOpen,
   onMobileClose,
 }) {
-  // Sidebar content shared between desktop and mobile drawer
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
 
@@ -117,7 +113,7 @@ export default function DashboardSidebar({
       )}
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-1" role="navigation" aria-label="Dashboard navigation">
+      <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-1" role="navigation" aria-label="Workspace navigation">
         {NAV_SECTIONS.map((section, si) => (
           <div key={si} className={si > 0 ? 'pt-3' : ''}>
             {section.heading && !isCollapsed && (

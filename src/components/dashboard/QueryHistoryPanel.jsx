@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, Play, Trash2, Bookmark, BookmarkCheck, ChevronRight } from 'lucide-react';
+import { Clock, Play, Trash2, ChevronRight } from 'lucide-react';
 import { formatRelativeTime } from '../../lib/api/history';
 
 // ─── Status dot ───────────────────────────────────────────────────────────────
@@ -51,16 +51,6 @@ function HistoryItem({ item, onOpen, onRunAgain, onDelete, onToggleSave }) {
           className="p-1.5 rounded-md hover:bg-emerald-50 hover:text-emerald-600 text-slate-400 transition-all"
         >
           <Play className="w-3 h-3" />
-        </button>
-        <button
-          onClick={() => onToggleSave(item.id)}
-          title={item.saved ? 'Unsave' : 'Save'}
-          className="p-1.5 rounded-md hover:bg-indigo-50 hover:text-indigo-600 text-slate-400 transition-all"
-        >
-          {item.saved
-            ? <BookmarkCheck className="w-3 h-3 text-indigo-500" />
-            : <Bookmark className="w-3 h-3" />
-          }
         </button>
         <button
           onClick={() => onDelete(item.id)}

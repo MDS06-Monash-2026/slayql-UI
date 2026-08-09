@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════
-   SlayQL-Lite — Mock Data & Services
+   SlayQL — Mock Data & Services
    Query examples, agentic reasoning trace, benchmark & ablation figures
    drawn from the Spider 2.0-Lite evaluation artifacts.
    ═══════════════════════════════════════════════════════════════════ */
@@ -150,14 +150,14 @@ export const MOCK_SCHEMA = {
 export const BENCHMARK_DATA = {
   total: 178,
   baseline: { label: 'AutoLink Baseline', correct: 71, pct: 39.89 },
-  slayql: { label: 'SlayQL-Lite', correct: 72, pct: 40.45 },
+  slayql: { label: 'SlayQL', correct: 72, pct: 40.45 },
   categories: [
     { label: 'Improved (Baseline ✗ → SlayQL ✓)', count: 16, tone: 'emerald' },
     { label: 'Degraded (Baseline ✓ → SlayQL ✗)', count: 15, tone: 'rose' },
     { label: 'Both Correct', count: 56, tone: 'indigo' },
     { label: 'Both Incorrect', count: 91, tone: 'slate' },
   ],
-  sourceNote: 'Figures from run/comparison_report.md. run/csv_only_comparison_report.md reports a 67/178 (37.64%) baseline under a stricter comparison artifact — SlayQL-Lite is 72/178 (40.45%) under both.',
+  sourceNote: 'Figures from run/comparison_report.md. run/csv_only_comparison_report.md reports a 67/178 (37.64%) baseline under a stricter comparison artifact — SlayQL is 72/178 (40.45%) under both.',
 };
 
 /* ─── Leave-one-out component ablation ───────────────────────────────── */
@@ -196,7 +196,7 @@ export const ABLATION_DATA = [
 export const LEADERBOARD_ROWS = [
   {
     rank: 1,
-    system: 'SlayQL-Lite',
+    system: 'SlayQL',
     description: 'Full pipeline: RBP + BM25 + IT-EE + QOC',
     ex_pct: 40.45,
     correct: 72,

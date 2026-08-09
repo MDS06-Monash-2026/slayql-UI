@@ -16,7 +16,7 @@ export default function AblationSection() {
             Component Contribution
           </h2>
           <p class="mt-4 text-lg text-slate-500 max-w-2xl mx-auto">
-            Leave-one-out dropout experiments isolate how much each module contributes to SlayQL-Lite's accuracy.
+            Leave-one-out dropout experiments isolate how much each module contributes to SlayQL's accuracy.
           </p>
         </div>
 

@@ -157,7 +157,7 @@ function ComplexityBar({ label, desc, slayql, baseline, count }) {
       <div className="space-y-2">
         <div>
           <div className="flex justify-between text-[11px] text-slate-500 mb-1">
-            <span className="font-semibold text-indigo-700">SlayQL-Lite</span><span>{slayql}%</span>
+            <span className="font-semibold text-indigo-700">SlayQL</span><span>{slayql}%</span>
           </div>
           <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
             <div className="leaderboard-bar h-full rounded-full bg-indigo-600" style={{ width: `${(slayql / 80) * 100}%` }} />

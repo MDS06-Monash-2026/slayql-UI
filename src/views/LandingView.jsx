@@ -54,7 +54,7 @@ export default function LandingView({ setView, onDatabaseConnect }) {
         <div className="cta-grid-overlay absolute inset-0 pointer-events-none opacity-10" />
         <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight mb-4 animate-fade-in-up">
-            Try SlayQL-Lite on Your Own Questions.
+            Try SlayQL on Your Own Questions.
           </h2>
           <p className="text-xl text-indigo-200 mb-10 max-w-2xl mx-auto font-light">
             Explore the interactive workspace, read the architecture, or dig into the code and evaluation pipeline on GitHub.

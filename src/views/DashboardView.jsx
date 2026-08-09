@@ -3,18 +3,15 @@ import React, { useState, useEffect, useCallback } from 'react';
 // ─── Dashboard-specific components ───────────────────────────────────────────
 import DashboardSidebar    from '../components/dashboard/DashboardSidebar';
 import DashboardHeader     from '../components/dashboard/DashboardHeader';
-import WelcomeBanner       from '../components/dashboard/WelcomeBanner';
-import DbStatusCard        from '../components/dashboard/DbStatusCard';
-import QueryInputPanel     from '../components/dashboard/QueryInputPanel';
-import ReasoningTrace      from '../components/dashboard/ReasoningTrace';
-import SqlResultPanel      from '../components/dashboard/SqlResultPanel';
 import DataExplorer        from '../components/dashboard/DataExplorer';
 import QueryHistoryPanel   from '../components/dashboard/QueryHistoryPanel';
+import WorkspaceHome       from '../components/dashboard/WorkspaceHome';
+import DatabasesSection    from '../components/dashboard/DatabasesSection';
 
 // ─── API / service layer ──────────────────────────────────────────────────────
 import { generateSql, executeQuery } from '../lib/api/query';
 import { getDbStatus, getSchema }    from '../lib/api/database';
-import { getHistory, addToHistory, deleteHistoryItem, toggleSaved } from '../lib/api/history';
+import { getHistory, addToHistory, deleteHistoryItem } from '../lib/api/history';
 import { SSE_STEPS } from '../mock/mockData';
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
@@ -31,27 +28,9 @@ function Toast({ message, type = 'info' }) {
   );
 }
 
-// ─── Quick Stats row ──────────────────────────────────────────────────────────
-
-function StatCard({ label, value, delta }) {
-  return (
-    <div className="bg-white border border-slate-200 rounded-xl px-4 py-3 flex-1 min-w-0">
-      <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-1">{label}</p>
-      <p className="text-xl font-bold text-slate-900">{value}</p>
-      {delta != null && (
-        <p className="text-[10px] text-emerald-600 mt-0.5">↑ {delta} this week</p>
-      )}
-    </div>
-  );
-}
-
 // ─── DashboardView ─────────────────────────────────────────────────────────────
 
-/**
- * Query state machine:
- *   idle → generating → generated → executing → success | error
- */
-export default function DashboardView({ setView, activeDatabase }) {
+export default function DashboardView({ setView, activeDatabase, setActiveDatabase }) {
   // ── Layout state ─────────────────────────────────────────────────────────
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen,   setMobileMenuOpen]   = useState(false);
@@ -64,6 +43,7 @@ export default function DashboardView({ setView, activeDatabase }) {
 
   // ── Query state machine ───────────────────────────────────────────────────
   const [queryInput,       setQueryInput]       = useState('');
+  const [submittedPrompt,  setSubmittedPrompt]  = useState('');
   const [queryState,       setQueryState]       = useState('idle'); // idle|generating|generated|executing|success|error
   const [currentDataset,   setCurrentDataset]   = useState(null);
   const [currentStepIndex, setCurrentStepIndex] = useState(-1);
@@ -79,17 +59,24 @@ export default function DashboardView({ setView, activeDatabase }) {
 
   // ── Bootstrap data ────────────────────────────────────────────────────────
   useEffect(() => {
-    getDbStatus().then(setDbStatus);
+    const dbName = 
+      activeDatabase === 'sqlite' || activeDatabase === 'spider2_sqlite_demo' || activeDatabase === 'local_postgres_demo' ? 'Spider2 / SQLite' : 
+      activeDatabase === 'bigquery' ? 'BigQuery' : 
+      activeDatabase === 'snowflake' ? 'Snowflake' : activeDatabase;
+      
+    setDbStatus({ id: activeDatabase, name: dbName });
+    
     getSchema('spider2_sqlite_demo').then(setSchema);
     getHistory().then(setHistory);
-  }, []);
+  }, [activeDatabase]);
 
   // ── Submit query (NL → SQL) ───────────────────────────────────────────────
   const handleSubmit = useCallback(async (promptOverride) => {
     const prompt = (promptOverride ?? queryInput).trim();
     if (!prompt) return;
 
-    setQueryInput(prompt);
+    setQueryInput(''); // Clear input for the next follow-up
+    setSubmittedPrompt(prompt);
     setQueryState('generating');
     setCurrentDataset(null);
     setCurrentStepIndex(-1);
@@ -133,8 +120,8 @@ export default function DashboardView({ setView, activeDatabase }) {
 
   // ── Regenerate ────────────────────────────────────────────────────────────
   const handleRegenerate = useCallback(() => {
-    if (queryInput) handleSubmit(queryInput);
-  }, [queryInput, handleSubmit]);
+    if (submittedPrompt) handleSubmit(submittedPrompt);
+  }, [submittedPrompt, handleSubmit]);
 
   // ── Clear ─────────────────────────────────────────────────────────────────
   const handleClear = () => {
@@ -148,11 +135,13 @@ export default function DashboardView({ setView, activeDatabase }) {
 
   // ── History actions ───────────────────────────────────────────────────────
   const handleHistoryOpen = (item) => {
+    setActiveSection('home');
     setQueryInput(item.prompt);
     handleSubmit(item.prompt);
   };
 
   const handleHistoryRunAgain = (item) => {
+    setActiveSection('home');
     setQueryInput(item.prompt);
     handleSubmit(item.prompt);
   };
@@ -163,20 +152,87 @@ export default function DashboardView({ setView, activeDatabase }) {
     showToast('Query removed from history');
   };
 
-  const handleHistoryToggleSave = (id) => {
-    const updated = toggleSaved(id);
-    setHistory((prev) =>
-      prev.map((h) => (h.id === id ? { ...h, saved: !h.saved } : h))
-    );
-    showToast(updated?.saved ? 'Query saved ✓' : 'Query unsaved');
-  };
-
-  // ── Section change clears query if navigating away ────────────────────────
+  // ── Section change ────────────────────────
   const handleSectionChange = (sectionId) => {
     setActiveSection(sectionId);
-    if (sectionId === 'new-query') {
-      handleClear();
+  };
+
+  const handleManageDatabases = () => {
+    setActiveSection('databases');
+  };
+  
+  const handleDatabaseSelect = (dbId) => {
+    if (setActiveDatabase) setActiveDatabase(dbId);
+    showToast(`Connected to ${dbId}`, 'success');
+  };
+
+  // ── Render main content based on section ──────────────────────────────────
+  const renderMainContent = () => {
+    if (activeSection === 'home') {
+      return (
+        <WorkspaceHome
+          userName="Jane"
+          dbStatus={dbStatus}
+          queryInput={queryInput}
+          setQueryInput={setQueryInput}
+          submittedPrompt={submittedPrompt}
+          queryState={queryState}
+          currentDataset={currentDataset}
+          currentStepIndex={currentStepIndex}
+          traceVisible={traceVisible}
+          traceComplete={traceComplete}
+          recentHistory={history.slice(0, 5)}
+          handleSubmit={handleSubmit}
+          handleClear={handleClear}
+          handleExecute={handleExecute}
+          handleRegenerate={handleRegenerate}
+          onManageDatabases={handleManageDatabases}
+          onHistoryOpen={handleHistoryOpen}
+          setActiveDatabase={handleDatabaseSelect}
+        />
+      );
     }
+    
+    if (activeSection === 'history') {
+      return (
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
+          <h2 className="text-2xl font-bold text-slate-900 mb-6">Query History</h2>
+          <QueryHistoryPanel
+            history={history}
+            onOpen={handleHistoryOpen}
+            onRunAgain={handleHistoryRunAgain}
+            onDelete={handleHistoryDelete}
+            maxItems={50} // show more items on the dedicated page
+          />
+        </div>
+      );
+    }
+    
+    if (activeSection === 'databases') {
+      return (
+        <DatabasesSection 
+          activeDatabase={activeDatabase || 'sqlite'} 
+          onConnect={handleDatabaseSelect} 
+        />
+      );
+    }
+
+    if (activeSection === 'explorer') {
+      return (
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+          <h2 className="text-2xl font-bold text-slate-900 mb-6">Data Explorer</h2>
+          <DataExplorer schema={schema} />
+        </div>
+      );
+    }
+
+    // Default fallback
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+        <h2 className="text-xl font-semibold mb-2">Section under construction</h2>
+        <p className="text-sm">This section is not implemented yet.</p>
+      </div>
+    );
   };
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -206,80 +262,7 @@ export default function DashboardView({ setView, activeDatabase }) {
 
         {/* Scrollable main content */}
         <main className="flex-1 overflow-y-auto">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-5">
-
-            {/* Welcome banner */}
-            <WelcomeBanner userName="Jane" />
-
-            {/* ── Quick stats + DB status row ─────────────────────────── */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="lg:col-span-2">
-                <DbStatusCard
-                  dbStatus={dbStatus}
-                  onManage={() => setActiveSection('databases')}
-                />
-              </div>
-              <div className="flex gap-3 flex-col sm:flex-row lg:flex-col">
-                <StatCard
-                  label="Queries Today"
-                  value={history.filter(h => {
-                    const d = new Date(h.createdAt);
-                    return d.toDateString() === new Date().toDateString();
-                  }).length || 1}
-                  delta={null}
-                />
-                <StatCard
-                  label="Total Queries"
-                  value={history.length || 4}
-                  delta={null}
-                />
-              </div>
-            </div>
-
-            {/* ── Query input ──────────────────────────────────────────── */}
-            <QueryInputPanel
-              value={queryInput}
-              onChange={setQueryInput}
-              onSubmit={handleSubmit}
-              onClear={handleClear}
-              queryState={queryState}
-            />
-
-            {/* ── Reasoning trace — shown while generating / after done ─ */}
-            {traceVisible && (
-              <ReasoningTrace
-                steps={SSE_STEPS}
-                currentStepIndex={currentStepIndex}
-                dataset={currentDataset}
-                isDone={traceComplete}
-              />
-            )}
-
-            {/* ── SQL result panel — shown once SQL is generated ──────── */}
-            {(queryState === 'generated' || queryState === 'executing' || queryState === 'success' || queryState === 'error') && currentDataset && (
-              <SqlResultPanel
-                dataset={currentDataset}
-                queryState={queryState}
-                onExecute={handleExecute}
-                onRegenerate={handleRegenerate}
-              />
-            )}
-
-            {/* ── Lower two-column: history + explorer ────────────────── */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-              <QueryHistoryPanel
-                history={history}
-                onOpen={handleHistoryOpen}
-                onRunAgain={handleHistoryRunAgain}
-                onDelete={handleHistoryDelete}
-                onToggleSave={handleHistoryToggleSave}
-              />
-              <DataExplorer schema={schema} />
-            </div>
-
-            {/* Breathing room at the bottom */}
-            <div className="h-8" />
-          </div>
+          {renderMainContent()}
         </main>
       </div>
 

@@ -19,7 +19,7 @@ export default function Footer({ setView }) {
                   <path d="M21.5 19.5L23 21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                 </svg>
               </div>
-              <span class="text-white font-bold text-lg">SlayQL-Lite</span>
+              <span class="text-white font-bold text-lg">SlayQL</span>
             </div>
             <p class="text-sm leading-relaxed max-w-xs">
               Scalable Schema Exploration &amp; Value-Grounded Text-to-SQL. A C-CaSE / MDS06 FYP research project extending the AutoLink framework.
@@ -51,7 +51,7 @@ export default function Footer({ setView }) {
 
         {/* Footer Bottom */}
         <div class="py-6 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-          <div>© 2026 C-CaSE / SlayQL-Lite — Monash University Malaysia, MDS06 FYP Group.</div>
+          <div>© 2026 C-CaSE / SlayQL — Monash University Malaysia, MDS06 FYP Group.</div>
           <a href="https://github.com/MDS06-Monash-2026/C-CaSE" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1.5 hover:text-slate-300 transition-colors">
             <Github class="w-4 h-4" />
             <span>View on GitHub</span>
