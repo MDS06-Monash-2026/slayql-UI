@@ -44,7 +44,8 @@ export default function Navbar({ setView, currentView }) {
                 </svg>
               </div>
               <div class="flex items-center gap-2">
-                <span class="text-lg font-bold tracking-tight text-slate-900">SlayQL</span>
+                <span class="text-lg font-bold tracking-tight text-slate-900">SlayQL-Lite</span>
+                <span class="hidden sm:inline-flex items-center px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700 text-[11px] font-semibold tracking-wide uppercase">Research</span>
               </div>
             </div>
 
