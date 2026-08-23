@@ -27,7 +27,7 @@ const ARCH_NODES = [
       { label: 'Req/min', value: '240', unit: '/min', icon: Activity },
       { label: 'Uptime', value: '99.98', unit: '%', icon: CheckCircle2 },
     ],
-    description: 'Accepts raw natural language questions. Performs tokenization, language detection, and preliminary intent classification before forwarding to the semantic engine.',
+    description: '• Accepts raw natural language questions\n• Tokenization + language detection\n• Intent classification before forwarding to semantic engine',
     dataFlow: ['User Browser', 'NL Input Layer', 'Semantic Retrieval'],
   },
   {
@@ -46,7 +46,7 @@ const ARCH_NODES = [
       { label: 'Candidate cols', value: '12–40', unit: 'cols', icon: Database },
       { label: 'Recall@10', value: '91.4', unit: '%', icon: CheckCircle2 },
     ],
-    description: 'BGE-Large generates dense vector embeddings for the query and all schema columns. Cosine similarity ranks top candidate columns by semantic proximity.',
+    description: '• BGE-Large dense vector embeddings\n• Cosine similarity over all schema columns\n• Returns top 12–40 candidate columns ranked by semantic proximity',
     dataFlow: ['NL Input', 'BGE-Large Encoder', 'Graph Reasoner'],
   },
   {
@@ -65,7 +65,7 @@ const ARCH_NODES = [
       { label: 'RBP latency', value: '55', unit: 'ms', icon: Clock },
       { label: 'Recall gain', value: '+18', unit: '%', icon: Activity },
     ],
-    description: 'Random-walk RBP traverses the foreign-key graph to recover bridge tables that dense retrieval alone misses. Ensures multi-hop join paths are included in schema context.',
+    description: '• Random-walk RBP traverses the FK graph\n• Recovers bridge tables dense retrieval misses\n• Ensures multi-hop join paths are included in context',
     dataFlow: ['Semantic Retrieval', 'FK Graph Walk (RBP)', 'Value Grounding'],
   },
   {
@@ -84,7 +84,7 @@ const ARCH_NODES = [
       { label: 'Value matches', value: '1–3', unit: '/query', icon: Target },
       { label: 'Precision', value: '94.7', unit: '%', icon: CheckCircle2 },
     ],
-    description: 'A BM25 inverted index over all column values maps string literals in the question to their exact table-column location, preventing hallucinated column references.',
+    description: '• BM25 inverted index over all column values\n• Maps string literals → exact table-column location\n• Prevents hallucinated column references',
     dataFlow: ['Graph Reasoner', 'BM25 Value Index', 'Agentic Explorer'],
   },
   {
@@ -103,7 +103,7 @@ const ARCH_NODES = [
       { label: 'Token savings', value: '31', unit: '%', icon: Cpu },
       { label: 'Latency', value: '420', unit: 'ms', icon: Clock },
     ],
-    description: 'The LLM requests additional schema context turn by turn. IT-EE monitors schema-candidate stability and exits early once the set of relevant columns stabilizes, saving tokens.',
+    description: '• LLM requests additional schema context turn-by-turn\n• IT-EE monitors schema-candidate stability\n• Exits early once relevant columns stabilise — saves tokens',
     dataFlow: ['Value Grounding', 'Schema Refinement Loop', 'SQL Compiler'],
   },
   {
@@ -122,7 +122,7 @@ const ARCH_NODES = [
       { label: 'Retry rate', value: '2.8', unit: '%', icon: Activity },
       { label: 'Avg SQL length', value: '14', unit: 'lines', icon: FileCheck2 },
     ],
-    description: 'Enforces Strict Output Contracts: SQL must appear in a single fenced code block. Rejects and retries outputs containing conversational text, eliminating silent parsing failures.',
+    description: '• Enforces Strict Output Contracts (QOC)\n• SQL must appear in a single fenced code block\n• Rejects & retries conversational output — eliminates silent parse failures',
     dataFlow: ['Agentic Explorer', 'LLM (GPT-4o) + QOC', 'Execution Voter'],
   },
   {
@@ -141,7 +141,7 @@ const ARCH_NODES = [
       { label: 'Exec latency', value: '310', unit: 'ms', icon: Clock },
       { label: 'DB connections', value: '3', unit: 'active', icon: Database },
     ],
-    description: 'Three candidate SQL statements are executed against the real database. Pairwise consistency voting selects the result returned by the majority, reducing single-point LLM errors.',
+    description: '• 3 candidate SQL statements executed against real DB\n• Pairwise consistency voting selects majority result\n• Reduces single-point LLM errors',
     dataFlow: ['SQL Compiler', 'BigQuery / SQLite / Snowflake', 'Answer Visualizer'],
   },
   {
@@ -160,7 +160,7 @@ const ARCH_NODES = [
       { label: 'Avg result rows', value: '6.2', unit: 'rows', icon: Database },
       { label: 'Satisfaction', value: '4.6', unit: '/ 5.0', icon: CheckCircle2 },
     ],
-    description: 'The final answer is rendered as three parallel views: executable SQL with syntax highlighting, a paginated data table, and an auto-generated chart for immediate data exploration.',
+    description: '• Three parallel output views: SQL · Table · Chart\n• Syntax-highlighted executable SQL\n• Paginated data table + auto-generated chart',
     dataFlow: ['Execution Voter', 'Answer Renderer', 'User Browser'],
   },
 ];
@@ -279,7 +279,11 @@ function NodeDrawer({ node, onClose, onPrev, onNext, hasPrev, hasNext }) {
           {/* Description */}
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">How It Works</p>
-            <p className="text-sm text-slate-600 leading-relaxed">{node.description}</p>
+            <ul className="space-y-1.5">
+              {node.description.split('\n').map((line, i) => (
+                <li key={i} className="text-sm text-slate-600 leading-relaxed">{line}</li>
+              ))}
+            </ul>
           </div>
         </div>
 
@@ -463,7 +467,7 @@ export default function ArchitectureSection() {
     || openNodeId === 'value-grounding' || openNodeId === 'agentic-explorer';
 
   return (
-    <section id="architecture" ref={sectionRef} className="py-16 lg:py-24 bg-gradient-to-b from-white to-slate-50 border-t border-slate-200 relative overflow-hidden">
+    <section id="architecture" ref={sectionRef} className="py-16 lg:py-24 bg-white border-t border-slate-200 relative overflow-hidden">
       {/* Background dot grid */}
       <div className="section-dot-bg absolute inset-0 pointer-events-none opacity-25" />
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[400px] bg-gradient-to-b from-indigo-50/60 via-blue-50/20 to-transparent rounded-full blur-3xl pointer-events-none" />

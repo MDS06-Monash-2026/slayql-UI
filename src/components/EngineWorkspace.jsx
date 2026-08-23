@@ -363,7 +363,7 @@ export default function EngineWorkspace() {
   const activeStageData  = STAGES.find(s => s.id === activeStage);
 
   return (
-    <section id="workspace" className="py-16 lg:py-24 bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 border-t border-slate-200 relative overflow-hidden">
+    <section id="workspace" className="py-16 lg:py-24 bg-slate-50 border-t border-slate-200 relative overflow-hidden">
       {/* subtle grid texture */}
       <div className="section-dot-bg absolute inset-0 pointer-events-none opacity-30" />
 

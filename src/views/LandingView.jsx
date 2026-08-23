@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import Hero from '../components/Hero';
 import EngineWorkspace from '../components/EngineWorkspace';
-import ProblemSection from '../components/ProblemSection';
+
 import ArchitectureSection from '../components/ArchitectureSection';
 import BentoGrid from '../components/BentoGrid';
 import BenchmarkSection from '../components/BenchmarkSection';
@@ -32,14 +32,13 @@ export default function LandingView({ setView, onDatabaseConnect }) {
       {/* Unified Engine + Live Workspace */}
       <EngineWorkspace />
 
-      {/* Problem Section */}
-      <ProblemSection />
 
-      {/* Interactive Architecture */}
-      <ArchitectureSection />
 
       {/* Feature Grid — 4-col vertical cards */}
       <BentoGrid />
+
+      {/* Interactive Architecture */}
+      <ArchitectureSection />
 
       {/* Enterprise Benchmark Leaderboard (includes ablation) */}
       <BenchmarkSection />

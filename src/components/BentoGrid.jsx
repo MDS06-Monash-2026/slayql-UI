@@ -21,14 +21,14 @@ const CARDS = [
   {
     icon: Network,
     heading: 'Intelligent Schema Exploration',
-    desc: 'SlayQL automatically discovers relevant tables, columns, and relationships using graph-based reasoning over the foreign-key structure — no manual schema navigation required.',
+    desc: 'Automatically discovers tables, columns and relationships using graph-based reasoning over the foreign-key structure.',
     highlights: [
       { phrase: 'graph-based reasoning', cls: 'kw-highlight' },
       { phrase: 'foreign-key structure', cls: 'kw-highlight' },
     ],
     bullets: [
       { text: 'Multi-hop relationship discovery', kwClass: 'kw-highlight' },
-      { text: 'Foreign-key propagation engine', kwClass: 'kw-highlight' },
+      { text: 'FK propagation — no manual mapping', kwClass: null },
       { text: 'Reduced schema noise by design', kwClass: null },
     ],
     accent: '#4f46e5',
@@ -42,14 +42,14 @@ const CARDS = [
   {
     icon: Target,
     heading: 'Value-Grounded Query Understanding',
-    desc: 'SlayQL connects user intent with actual database values using sub-second BM25 retrieval — not just column descriptions. Zero-data hallucination, precise entity mapping.',
+    desc: 'Connects user intent to actual database values via sub-second BM25 retrieval — zero hallucination, precise entity mapping.',
     highlights: [
       { phrase: 'sub-second BM25 retrieval', cls: 'kw-highlight-amber' },
-      { phrase: 'Zero-data hallucination', cls: 'kw-highlight-emerald' },
+      { phrase: 'zero hallucination', cls: 'kw-highlight-emerald' },
     ],
     bullets: [
       { text: 'Sub-second value retrieval', kwClass: 'kw-highlight-amber' },
-      { text: 'Context-aware entity matching', kwClass: 'kw-highlight-amber' },
+      { text: 'Context-aware entity matching', kwClass: null },
       { text: 'Ambiguous literal resolution', kwClass: null },
     ],
     accent: '#d97706',
@@ -63,15 +63,15 @@ const CARDS = [
   {
     icon: Repeat,
     heading: 'Agentic SQL Generation',
-    desc: 'Generate reliable SQL through iterative reasoning with destructive guardrails and dynamic schema exploration — not a single blind pass.',
+    desc: 'Generates reliable SQL through iterative reasoning with dynamic schema exploration and strict output guardrails.',
     highlights: [
-      { phrase: 'destructive guardrails', cls: 'kw-highlight-violet' },
       { phrase: 'dynamic schema exploration', cls: 'kw-highlight-violet' },
+      { phrase: 'strict output guardrails', cls: 'kw-highlight-violet' },
     ],
     bullets: [
-      { text: 'Context-aware schema discovery (IT-EE)', kwClass: 'kw-highlight-violet' },
-      { text: 'SQL revision loop with guardrails', kwClass: 'kw-highlight-violet' },
-      { text: 'Strict output formatting (QOC)', kwClass: null },
+      { text: 'IT-EE: early exit on stable schema', kwClass: 'kw-highlight-violet' },
+      { text: 'SQL revision loop with guardrails', kwClass: null },
+      { text: 'Strict output contracts (QOC)', kwClass: null },
     ],
     accent: '#7c3aed',
     accentLight: '#f5f3ff',
@@ -84,15 +84,15 @@ const CARDS = [
   {
     icon: LineChart,
     heading: 'Interactive Data Exploration',
-    desc: 'Understand results beyond raw SQL — inspect the generated query, returned table, and automatic visualization side by side with zero-data retention after session close.',
+    desc: 'View generated SQL, result table and auto-generated chart side by side — with zero-data retention after session close.',
     highlights: [
       { phrase: 'zero-data retention', cls: 'kw-highlight-teal' },
-      { phrase: 'automatic visualization', cls: 'kw-highlight-teal' },
+      { phrase: 'auto-generated chart', cls: 'kw-highlight-teal' },
     ],
     bullets: [
-      { text: 'Automatic chart generation', kwClass: 'kw-highlight-teal' },
+      { text: 'Auto chart generation', kwClass: 'kw-highlight-teal' },
       { text: 'Zero-data retention guarantee', kwClass: 'kw-highlight-teal' },
-      { text: 'Dataset insight explanations', kwClass: null },
+      { text: 'SQL · Table · Chart — side by side', kwClass: null },
     ],
     accent: '#0d9488',
     accentLight: '#f0fdfa',
@@ -126,7 +126,7 @@ export default function FeaturesGrid() {
     <section
       id="features"
       ref={sectionRef}
-      className="py-20 lg:py-28 bg-white border-t border-slate-200 relative overflow-hidden"
+      className="py-20 lg:py-28 bg-slate-50 border-t border-slate-200 relative overflow-hidden"
     >
       {/* Subtle dot background */}
       <div className="section-dot-bg absolute inset-0 pointer-events-none opacity-40" />
