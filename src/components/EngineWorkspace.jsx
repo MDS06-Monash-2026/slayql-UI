@@ -340,7 +340,7 @@ export default function EngineWorkspace() {
 
     for (let i = 0; i < SSE_STEPS.length; i++) {
       setStepIndex(i);
-      await new Promise(r => setTimeout(r, SSE_STEPS[i].duration));
+      await new Promise(r => setTimeout(r, 2000 + Math.floor(Math.random() * 2001)));
     }
     setSseActive(false);
     setResultsActive(true);

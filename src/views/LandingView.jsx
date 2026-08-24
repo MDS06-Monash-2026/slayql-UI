@@ -60,7 +60,7 @@ export default function LandingView({ setView, onDatabaseConnect }) {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <button
-              onClick={() => setView('onboarding')}
+              onClick={() => setView('demo')}
               className="inline-flex items-center gap-2 px-8 py-4 bg-white hover:bg-slate-50 text-indigo-700 font-bold text-base rounded-xl transition-all shadow-2xl"
             >
               Try Live Demo
