@@ -1,0 +1,16 @@
+:80 {
+    # Serve static frontend with SPA routing fallback
+    root * /usr/share/caddy
+    file_server
+
+    # Reverse proxy for API requests to FastAPI backend
+    handle /api/* {
+        reverse_proxy api:8000 {
+            # Disable buffering for Server-Sent Events (SSE) streaming
+            flush_interval -1
+        }
+    }
+
+    # SPA fallback to index.html for all client routes
+    try_files {path} /index.html
+}

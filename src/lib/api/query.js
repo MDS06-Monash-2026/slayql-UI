@@ -51,7 +51,9 @@ export async function generateSql(prompt, { onStep, onSql } = {}) {
 
   for (let i = 0; i < SSE_STEPS.length; i++) {
     if (onStep) onStep(SSE_STEPS[i], i, SSE_STEPS.length);
-    await new Promise((r) => setTimeout(r, SSE_STEPS[i].duration));
+    // Keep the visual mock human-paced and slightly different on each run.
+    const duration = 2000 + Math.floor(Math.random() * 2001);
+    await new Promise((r) => setTimeout(r, duration));
   }
 
   if (onSql) onSql(dataset);

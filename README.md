@@ -7,7 +7,36 @@
 
 SlayQL is an advanced, agentic Text-to-SQL framework designed for graph-based schema reasoning and value grounding. This repository contains the **interactive frontend prototype**, built with **React**, **Vite**, and **Tailwind CSS v4**, serving as a product-prototype landing page and interactive mock workspace to demonstrate the reasoning trace end-to-end.
 
-> **Note**: This is a frontend-only mock. Query execution, reasoning traces, and database connections are simulated via timed state machines and static datasets found in `src/mock/mockData.js`. It is not wired to the actual SlayQL Python pipeline.
+> **Note**: Product-tour screens remain mock-driven, while the Live Demo can use the FastAPI pipeline for real catalog, connection, and query operations.
+
+## Data source setup
+
+SlayQL supports two connection modes:
+
+* **Managed upload**: upload a `.db`, `.sqlite`, or `.sqlite3` file. The API validates it and stores a private copy under `CONNECTION_DATA_DIR`.
+* **Direct connection**: enter read-only credentials for PostgreSQL, Supabase, MySQL, or Snowflake. The API performs a `SELECT 1` check and discovers the catalog through SQLAlchemy.
+
+Generate a persistent encryption key before running a production API:
+
+```bash
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Set it as `FIELD_ENCRYPTION_KEY`. Credentials are encrypted in the control SQLite database (`CONTROL_DB_PATH`) and never returned by connection list/create responses. Keep the key in a secret manager and make `CONNECTION_DATA_DIR` a persistent, access-controlled volume.
+
+For Supabase, use the direct Postgres host, database, username, password, and TLS mode from the project connection settings. Anon/publishable API keys are not SQL credentials. Snowflake accepts account, user, warehouse, role, and either a password or PEM private key; provider auth JSON is normalized server-side and encrypted as one payload.
+
+## Gemini database workbench
+
+Put the workbench key in the repository root `.env` file:
+
+```env
+GEMINI_API_KEY=your_key_here
+```
+
+SQL assistance, chart selection, report composition, and database health interpretation are hard-locked in code to `gemini-3.5-flash-lite`. When no key is configured, the same screens use deterministic local fallbacks and do not consume provider credits. AI requests receive schema metadata and bounded result profiles; connection credentials and the full database are never included.
+
+The demo SQLite source contains 16 related tables and more than 3,000 rows, including bridge tables and multi-hop foreign-key paths for the workbench and ER diagram.
 
 ---
 

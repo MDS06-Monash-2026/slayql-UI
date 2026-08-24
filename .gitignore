@@ -12,6 +12,21 @@ dist
 dist-ssr
 *.local
 
+# Local environment files and secrets
+.env
+.env.*
+!.env.example
+
+# Python runtime and test artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.pytest_tmp/
+
+# Runtime data-source metadata and managed uploads
+backend/data/slayql_control.sqlite3
+backend/data/connections/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

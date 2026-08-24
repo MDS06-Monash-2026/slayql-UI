@@ -110,11 +110,14 @@ LIMIT 6;`,
 };
 
 export const SSE_STEPS = [
-  { id: 'step-1', text: 'Retrieving candidate schema via dense retrieval (BGE-Large)…', duration: 700, detail: 'schema' },
-  { id: 'step-2', text: 'Propagating relevance across the foreign-key graph (RBP)…', duration: 800, detail: 'graph' },
-  { id: 'step-3', text: 'Grounding query values against column contents (BM25)…', duration: 700, detail: 'value' },
-  { id: 'step-4', text: 'Generating SQL under a strict output contract (QOC)…', duration: 600, detail: null },
-  { id: 'step-5', text: 'Executing candidates & selecting by pairwise consistency…', duration: 500, detail: null },
+  // Keep the mock trace paced like a real streamed run: retrieval and model
+  // generation take longer than the lightweight validation/execution steps.
+  { id: 'step-1', text: 'Retrieving candidate schema via dense retrieval (BGE-Large)…', duration: 1800, detail: 'schema' },
+  { id: 'step-2', text: 'Propagating relevance across the foreign-key graph (RBP)…', duration: 2400, detail: 'graph' },
+  { id: 'step-3', text: 'Grounding query values against column contents (BM25)…', duration: 1900, detail: 'value' },
+  { id: 'step-4', text: 'Generating SQL under a strict output contract (QOC)…', duration: 2800, detail: null },
+  { id: 'step-5', text: 'Checking SQL safety, dialect rules, and row limits…', duration: 1700, detail: null },
+  { id: 'step-6', text: 'Executing the read-only query and profiling the result shape…', duration: 1500, detail: null },
 ];
 
 export const DB_CONNECTORS = [

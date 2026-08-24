@@ -81,8 +81,8 @@ export default function DashboardSidebar({
         'flex items-center border-b border-slate-100 flex-shrink-0',
         isCollapsed ? 'justify-center px-2 py-4' : 'gap-3 px-4 py-4',
       ].join(' ')}>
-        <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-600 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-200">
-          <Zap className="w-4 h-4 text-white" />
+        <div className="flex-shrink-0 w-11 h-11 rounded-xl overflow-hidden shadow-sm flex items-center justify-center">
+          <img src="/SlayQLlogo.png" alt="SlayQL Logo" className="w-full h-full object-contain" />
         </div>
         {!isCollapsed && (
           <div className="min-w-0">

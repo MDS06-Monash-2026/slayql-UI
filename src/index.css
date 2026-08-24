@@ -1,6 +1,29 @@
 @import "tailwindcss";
 
 /* ═══════════════════════════════════════════════════════════════════
+   Global Interactive & Cursor Styles
+   ═══════════════════════════════════════════════════════════════════ */
+
+button,
+[role="button"],
+a,
+select,
+summary,
+input[type="checkbox"],
+input[type="radio"],
+.btn,
+.clickable {
+  cursor: pointer;
+}
+
+button:disabled,
+[disabled],
+[aria-disabled="true"],
+.disabled {
+  cursor: not-allowed !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
    SlayQL — Global Style Sheet & Theme Extensions
    ═══════════════════════════════════════════════════════════════════ */
 
@@ -454,6 +477,193 @@
     border-radius: 2px;
     transition: width 0.15s linear;
   }
+}
+
+/* Live workspace appearance. The demo keeps the public site light while the
+   authenticated chat can switch between calm light and charcoal dark surfaces. */
+.live-demo-shell {
+  --demo-canvas: #f7f9fc;
+  --demo-sidebar: #f1f4f9;
+  --demo-surface: #ffffff;
+  --demo-surface-muted: #f8fafc;
+  --demo-border: #e2e8f0;
+  --demo-text: #0f172a;
+  --demo-muted: #64748b;
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+.live-demo-shell.theme-dark {
+  --demo-canvas: #171a21;
+  --demo-sidebar: #12151b;
+  --demo-surface: #20242d;
+  --demo-surface-muted: #1b1f27;
+  --demo-border: #323844;
+  --demo-text: #f8fafc;
+  --demo-muted: #9aa4b2;
+  background: var(--demo-canvas) !important;
+  color: var(--demo-text);
+}
+
+.live-demo-shell.theme-dark .bg-white,
+.live-demo-shell.theme-dark .bg-white\/95,
+.live-demo-shell.theme-dark .bg-white\/90 {
+  background-color: var(--demo-surface) !important;
+}
+
+.live-demo-shell.theme-dark .bg-slate-50,
+.live-demo-shell.theme-dark .bg-slate-50\/70,
+.live-demo-shell.theme-dark .bg-slate-50\/80,
+.live-demo-shell.theme-dark .bg-slate-100,
+.live-demo-shell.theme-dark .bg-slate-100\/50,
+.live-demo-shell.theme-dark .bg-slate-100\/70 {
+  background-color: var(--demo-surface-muted) !important;
+}
+
+.live-demo-shell.theme-dark .bg-\[\#f7f9fc\],
+.live-demo-shell.theme-dark .bg-\[\#f5f7fb\],
+.live-demo-shell.theme-dark .bg-\[\#f1f4f9\]\/95 {
+  background-color: var(--demo-canvas) !important;
+}
+
+.live-demo-shell.theme-dark aside {
+  background-color: var(--demo-sidebar) !important;
+  border-color: var(--demo-border) !important;
+}
+
+.live-demo-shell.theme-dark header {
+  background-color: var(--demo-surface) !important;
+  border-color: var(--demo-border) !important;
+}
+
+.live-demo-shell.theme-dark .border-slate-100,
+.live-demo-shell.theme-dark .border-slate-200,
+.live-demo-shell.theme-dark .border-slate-200\/60,
+.live-demo-shell.theme-dark .border-slate-200\/70,
+.live-demo-shell.theme-dark .border-slate-200\/80,
+.live-demo-shell.theme-dark .border-slate-200\/90 {
+  border-color: var(--demo-border) !important;
+}
+
+.live-demo-shell.theme-dark .text-slate-950,
+.live-demo-shell.theme-dark .text-slate-900,
+.live-demo-shell.theme-dark .text-slate-800,
+.live-demo-shell.theme-dark .text-slate-700 {
+  color: var(--demo-text) !important;
+}
+
+.live-demo-shell.theme-dark .text-slate-600,
+.live-demo-shell.theme-dark .text-slate-500,
+.live-demo-shell.theme-dark .text-slate-400 {
+  color: var(--demo-muted) !important;
+}
+
+.live-demo-shell.theme-dark input,
+.live-demo-shell.theme-dark textarea,
+.live-demo-shell.theme-dark select {
+  color: var(--demo-text);
+  caret-color: #a5b4fc;
+}
+
+.live-demo-shell.theme-dark input::placeholder,
+.live-demo-shell.theme-dark textarea::placeholder {
+  color: #778195;
+}
+
+.live-demo-shell.theme-dark .shadow-sm,
+.live-demo-shell.theme-dark .shadow-xs,
+.live-demo-shell.theme-dark .shadow-xl,
+.live-demo-shell.theme-dark .shadow-2xl {
+  box-shadow: 0 12px 30px -18px rgba(0, 0, 0, 0.75);
+}
+
+.live-demo-shell.theme-dark .hover\:bg-slate-50:hover,
+.live-demo-shell.theme-dark .hover\:bg-slate-100:hover,
+.live-demo-shell.theme-dark .hover\:bg-slate-200\/60:hover {
+  background-color: #2a303b !important;
+}
+
+.live-demo-shell.theme-dark .bg-indigo-50,
+.live-demo-shell.theme-dark .bg-indigo-50\/50,
+.live-demo-shell.theme-dark .bg-indigo-50\/70 {
+  background-color: #282844 !important;
+}
+
+.live-demo-shell.theme-dark .live-demo-profile {
+  background-color: var(--demo-sidebar) !important;
+  border-color: var(--demo-border) !important;
+}
+
+.live-demo-shell .live-demo-profile {
+  background-color: var(--demo-sidebar);
+}
+
+.live-demo-shell.theme-dark .bg-emerald-50,
+.live-demo-shell.theme-dark .bg-cyan-50,
+.live-demo-shell.theme-dark .bg-rose-50,
+.live-demo-shell.theme-dark .bg-amber-50,
+.live-demo-shell.theme-dark .bg-red-50 {
+  background-color: var(--demo-surface-muted) !important;
+}
+
+.live-demo-shell.theme-dark .live-demo-profile-menu {
+  background-color: var(--demo-surface) !important;
+  border-color: var(--demo-border) !important;
+  color: var(--demo-text);
+}
+
+.live-demo-shell.theme-dark .live-demo-profile-menu .border-slate-100 {
+  border-color: var(--demo-border) !important;
+}
+
+.live-demo-shell.theme-dark .live-demo-profile-menu .text-red-600 {
+  color: #fda4af !important;
+}
+
+.live-demo-shell.theme-dark .live-demo-profile-menu .hover\:bg-red-50:hover {
+  background-color: #3a2229 !important;
+}
+
+.db-center-cta {
+  background: #172033;
+  border: 1px solid #273653;
+}
+
+.db-center-cta:hover {
+  background: #24304a;
+  transform: translateY(-1px);
+}
+
+.live-demo-shell.theme-dark .db-center-cta {
+  background: #4f46e5;
+  border-color: #6366f1;
+}
+
+.live-demo-shell.theme-dark .db-center-cta:hover {
+  background: #6366f1;
+}
+
+.er-canvas {
+  background-image: radial-gradient(circle, rgba(148, 163, 184, 0.45) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+@keyframes er-relation-flow {
+  from { stroke-dashoffset: 20; }
+  to { stroke-dashoffset: 0; }
+}
+
+.er-relation-line {
+  stroke-dasharray: 5 5;
+  animation: er-relation-flow 1.15s linear infinite;
+  transition: stroke 180ms ease, stroke-width 180ms ease, opacity 180ms ease;
+}
+
+.er-table-node {
+  cursor: default;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .er-relation-line { animation: none; }
 }
 
 /* ══════════════════════════════════════════════════════════
