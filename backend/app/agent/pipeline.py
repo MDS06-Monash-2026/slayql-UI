@@ -423,6 +423,8 @@ class SlayQLPipeline:
             "token_usage": {},
             "reasoning": "",
             "intent_validation": intent_decision,
+            "is_sql_query": bool(intent_decision.get("is_sql_query")),
+            "response_model": intent_decision.get("response_model"),
             "resolution_code": resolution_code,
             "reportable": True,
             "total_duration_ms": int((time.perf_counter() - started) * 1000),
@@ -440,6 +442,52 @@ class SlayQLPipeline:
         metadata["status"] = "completed"
         metadata["result"] = result_payload
         SlayQLPipeline._emit(run_id, "completion", "run.completed", result_payload)
+
+    @staticmethod
+    async def _complete_general_turn(
+        run_id: str,
+        *,
+        question: str,
+        started: float,
+        intent_decision: Dict[str, Any],
+        catalog_summary: Optional[Dict[str, Any]] = None,
+        catalog: Any = None,
+    ) -> None:
+        """Generate and stream a Gemini answer for turns that do not require SQL."""
+        metadata = RUN_METADATA_STORE[run_id]
+        SlayQLPipeline._emit(
+            run_id,
+            "answer_generation",
+            "general_response.started",
+            {"model": GEMINI_WORKBENCH_MODEL, "summary": "Gemini is preparing a conversational response."},
+        )
+        response = await gemini_workbench_agent.answer_general_question(
+            question,
+            catalog_summary or (SlayQLPipeline._intent_catalog_summary(catalog) if catalog is not None else {}),
+            metadata["conversation_messages"],
+        )
+        answer = response["answer"]
+        SlayQLPipeline._emit(
+            run_id,
+            "answer_generation",
+            "assistant.delta",
+            {"delta": answer, "model": response.get("model", GEMINI_WORKBENCH_MODEL), "mode": response.get("mode", "gemini")},
+        )
+        SlayQLPipeline._emit(
+            run_id,
+            "answer_generation",
+            "general_response.completed",
+            {"model": response.get("model", GEMINI_WORKBENCH_MODEL), "mode": response.get("mode", "gemini"), "summary": "Conversational response ready."},
+        )
+        intent_decision = {**intent_decision, "response_model": response.get("model", GEMINI_WORKBENCH_MODEL)}
+        SlayQLPipeline._complete_without_generated_sql(
+            run_id,
+            answer=answer,
+            started=started,
+            intent_decision=intent_decision,
+            status="success" if intent_decision["intent"] in {"business_guidance", "general_question"} else "no_query",
+            resolution_code=intent_decision["intent"],
+        )
 
     @staticmethod
     def _schema_context(catalog: Any, table_names: List[str]) -> str:
@@ -537,7 +585,7 @@ class SlayQLPipeline:
             preflight = _fallback_chat_intent(question, metadata["conversation_messages"])
             if (
                 not thinking_profile.use_model_intent
-                and preflight["intent"] in {"business_guidance", "unsupported", "clarification"}
+                and preflight["intent"] in {"business_guidance", "general_question", "unsupported", "clarification"}
             ):
                 SlayQLPipeline._emit(
                     run_id,
@@ -559,24 +607,12 @@ class SlayQLPipeline:
                         "summary": f"Classified this turn as {preflight['intent'].replace('_', ' ')}.",
                     },
                 )
-                if preflight["intent"] == "business_guidance":
-                    SlayQLPipeline._complete_without_generated_sql(
-                        run_id,
-                        answer=SlayQLPipeline._business_guidance_answer(),
-                        started=started,
-                        intent_decision=preflight,
-                        status="success",
-                        resolution_code="business_guidance",
-                    )
-                else:
-                    SlayQLPipeline._complete_without_generated_sql(
-                        run_id,
-                        answer=SlayQLPipeline._no_query_answer(run_id, question),
-                        started=started,
-                        intent_decision=preflight,
-                        status="no_query",
-                        resolution_code=preflight["intent"],
-                    )
+                await SlayQLPipeline._complete_general_turn(
+                    run_id,
+                    question=question,
+                    started=started,
+                    intent_decision=preflight,
+                )
                 return
             try:
                 if connection.get("engine") == "sqlite":
@@ -662,14 +698,13 @@ class SlayQLPipeline:
                         rows=overview["rows"],
                         is_truncated=overview["is_truncated"],
                     )
-                elif intent_decision["intent"] == "business_guidance":
-                    SlayQLPipeline._complete_without_generated_sql(
+                elif intent_decision["intent"] in {"business_guidance", "general_question", "unsupported", "clarification"}:
+                    await SlayQLPipeline._complete_general_turn(
                         run_id,
-                        answer=SlayQLPipeline._business_guidance_answer(catalog),
+                        question=question,
                         started=started,
                         intent_decision=intent_decision,
-                        status="success",
-                        resolution_code="business_guidance",
+                        catalog=catalog,
                     )
                 else:
                     SlayQLPipeline._complete_without_generated_sql(
