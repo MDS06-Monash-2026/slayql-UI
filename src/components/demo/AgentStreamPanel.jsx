@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, Check, ChevronDown, Loader2, Radio } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { AlertCircle, Check, ChevronDown, Radio, Activity, Terminal } from 'lucide-react';
 
 const SAFE_PAYLOAD_KEYS = new Set([
   'attempt', 'phase', 'kind', 'label', 'status', 'summary', 'error', 'delta',
@@ -12,6 +12,27 @@ const SAFE_PAYLOAD_KEYS = new Set([
   'is_semantically_valid', 'missing_requirements',
   'thinking_effort', 'provider_reasoning_effort', 'max_repair_attempts',
 ]);
+
+const EVENT_TYPE_LABELS = {
+  'stage.started': 'Stage Initialized',
+  'stage.completed': 'Stage Completed',
+  'stage.failed': 'Stage Error',
+  'provider.request_started': 'Model Request Dispatched',
+  'provider.reasoning_delta': 'Reasoning Streamed',
+  'provider.completed': 'Model Inference Completed',
+  'provider.usage_finalized': 'Token Usage Finalized',
+  'sql.candidate_ready': 'SQL Generated',
+  'sql.validation_check': 'Safety Check Executed',
+  'sql.validation_completed': 'SQL Validation Passed',
+  'execution.started': 'Read-Only Query Started',
+  'execution.columns': 'Result Schema Discovered',
+  'execution.rows': 'Data Rows Streamed',
+  'execution.completed': 'Query Execution Completed',
+  'visualization.recommended': 'Visualization Selected',
+  'visualization.not_recommended': 'Table View Recommended',
+  'run.completed': 'Agent Run Completed',
+  'run.failed': 'Agent Run Failed',
+};
 
 export function normalizeStreamEvent(event, fallbackType) {
   const source = event && typeof event === 'object' ? event : {};
@@ -27,7 +48,7 @@ export function normalizeStreamEvent(event, fallbackType) {
     payload.is_final = Boolean(sourcePayload.is_final);
   }
   if (sourcePayload.sql && !payload.summary) {
-    payload.summary = `SQL candidate streamed (${String(sourcePayload.sql).length} characters)`;
+    payload.summary = `SQL candidate generated (${String(sourcePayload.sql).length} chars)`;
   }
   if (sourcePayload.chart && typeof sourcePayload.chart === 'object') {
     payload.chart = Object.fromEntries(
@@ -54,20 +75,17 @@ function eventSummary(event) {
   if (payload.detail?.summary || payload.detail?.text) return payload.detail.summary || payload.detail.text;
   if (payload.usage || payload.token_usage) {
     const usage = payload.usage || payload.token_usage;
-    return `${usage.total_tokens || 0} total tokens${usage.cost !== undefined ? `, $${Number(usage.cost).toFixed(6)}` : ''}`;
+    return `${usage.total_tokens || 0} tokens${usage.cost !== undefined ? ` ($${Number(usage.cost).toFixed(5)})` : ''}`;
   }
-  if (payload.chart) return `${payload.chart.idiom || payload.chart.type || 'chart'}: ${payload.chart.title || 'visualization ready'}`;
-  if (payload.row_count !== undefined) return `${payload.row_count} rows streamed${payload.offset ? ` from offset ${payload.offset}` : ''}`;
-  if (payload.resolved_model_id) return `Resolved to ${payload.resolved_model_id}`;
+  if (payload.chart) return `${payload.chart.idiom || payload.chart.type || 'Chart'}: ${payload.chart.title || 'Ready'}`;
+  if (payload.row_count !== undefined) return `${payload.row_count} rows received${payload.offset ? ` (offset ${payload.offset})` : ''}`;
+  if (payload.resolved_model_id) return `Model: ${payload.resolved_model_id}`;
   if (payload.finish_reason) return `Finish reason: ${payload.finish_reason}`;
   return '';
 }
 
 export default function AgentStreamPanel({ events = [], isRunning = false }) {
-  const [isOpen, setIsOpen] = useState(isRunning);
-  useEffect(() => {
-    if (isRunning) setIsOpen(true);
-  }, [isRunning]);
+  const [isOpen, setIsOpen] = useState(false);
 
   const normalizedEvents = useMemo(
     () => events.map((event) => normalizeStreamEvent(event, event?.type)),
@@ -76,41 +94,59 @@ export default function AgentStreamPanel({ events = [], isRunning = false }) {
   if (normalizedEvents.length === 0) return null;
 
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+    <div className="overflow-hidden rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-[#161c27] shadow-xs transition-all">
       <button
         type="button"
         onClick={() => setIsOpen((current) => !current)}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-slate-600 hover:bg-slate-50"
+        className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
       >
-        <Radio className={`h-3.5 w-3.5 ${isRunning ? 'text-emerald-600' : 'text-slate-500'}`} />
-        <span className="font-semibold">SSE stream</span>
-        <span className="font-mono text-[10px] text-slate-400">{normalizedEvents.length} events</span>
-        {isRunning ? <Loader2 className="ml-auto h-3.5 w-3.5 animate-spin text-indigo-600" /> : <Check className="ml-auto h-3.5 w-3.5 text-emerald-600" />}
-        <ChevronDown className={`h-3.5 w-3.5 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <Activity className={`h-3.5 w-3.5 ${isRunning ? 'text-indigo-500 animate-pulse' : 'text-slate-400'}`} />
+        <span className="font-semibold text-slate-700 dark:text-slate-200">Execution Telemetry</span>
+        <span className="font-mono text-[10px] text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-full">
+          {normalizedEvents.length} events
+        </span>
+        <div className="ml-auto flex items-center gap-1.5">
+          <span className="text-[10px] text-slate-400">{isOpen ? 'Hide' : 'Expand'}</span>
+          <ChevronDown className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+        </div>
       </button>
 
       {isOpen && (
-        <div className="max-h-80 overflow-auto border-t border-slate-100 bg-slate-50/60 px-3 py-2">
+        <div className="max-h-80 overflow-auto border-t border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-[#0f141c] p-3">
           <div className="space-y-2">
             {normalizedEvents.map((event, index) => {
               const summary = eventSummary(event);
               const failed = event.type.includes('failed');
+              const humanLabel = EVENT_TYPE_LABELS[event.type] || event.type;
+
               return (
-                <div key={`${event.event_id}-${index}`} className="grid grid-cols-[34px_minmax(0,1fr)] gap-2 text-[11px]">
-                  <span className="pt-0.5 text-right font-mono text-slate-400">{event.sequence ?? index + 1}</span>
-                  <div className="min-w-0 border-l border-slate-200 pl-2.5">
+                <div key={`${event.event_id}-${index}`} className="grid grid-cols-[28px_minmax(0,1fr)] gap-2 text-[11px]">
+                  <span className="pt-0.5 text-right font-mono text-slate-400 dark:text-slate-600 text-[10px] select-none">
+                    {event.sequence ?? index + 1}
+                  </span>
+                  <div className="min-w-0 border-l border-slate-200 dark:border-slate-800 pl-2.5">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                      {failed && <AlertCircle className="h-3 w-3 text-red-500" />}
-                      <span className={`font-mono font-semibold ${failed ? 'text-red-700' : 'text-slate-700'}`}>{event.type}</span>
-                      <span className="text-[10px] text-slate-400">{event.stage}</span>
-                      {event.payload?.attempt && <span className="text-[10px] text-indigo-600">attempt {event.payload.attempt}</span>}
+                      {failed ? (
+                        <AlertCircle className="h-3 w-3 text-red-500 shrink-0" />
+                      ) : (
+                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0 inline-block" />
+                      )}
+                      <span className={`font-semibold ${failed ? 'text-red-600 dark:text-red-400' : 'text-slate-800 dark:text-slate-200'}`}>
+                        {humanLabel}
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500">
+                        {event.stage}
+                      </span>
+                      {event.payload?.attempt && (
+                        <span className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.2 rounded">
+                          attempt {event.payload.attempt}
+                        </span>
+                      )}
                     </div>
-                    {summary && <p className="mt-0.5 break-words leading-relaxed text-slate-500 whitespace-pre-wrap">{summary}</p>}
-                    {Object.keys(event.payload || {}).length > 0 && (
-                      <details className="mt-1">
-                        <summary className="cursor-pointer select-none text-[10px] text-slate-400 hover:text-slate-600">Payload</summary>
-                        <pre className="mt-1 overflow-auto whitespace-pre-wrap break-words rounded bg-slate-950 p-2 font-mono text-[10px] leading-relaxed text-slate-200">{JSON.stringify(event.payload, null, 2)}</pre>
-                      </details>
+                    {summary && (
+                      <p className="mt-0.5 break-words leading-relaxed text-slate-600 dark:text-slate-400 font-mono text-[10.5px]">
+                        {summary}
+                      </p>
                     )}
                   </div>
                 </div>

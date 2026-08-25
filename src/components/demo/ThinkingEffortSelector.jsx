@@ -1,78 +1,129 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { BrainCircuit, Check, ChevronDown } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
 
 export const THINKING_EFFORT_LEVELS = [
-  { id: 'minimal', label: 'Minimal', bars: 1 },
-  { id: 'low', label: 'Low', bars: 2 },
-  { id: 'medium', label: 'Medium', bars: 3 },
-  { id: 'high', label: 'High', bars: 4 },
-  { id: 'max', label: 'Max', bars: 5 },
+  { id: 'minimal', label: 'Minimal', color: '#ef4444', text: 'Fastest response' },
+  { id: 'low',     label: 'Low',     color: '#f59e0b', text: 'Quick analysis' },
+  { id: 'medium',  label: 'Balanced', color: '#6366f1', text: 'Balanced reasoning' },
+  { id: 'high',    label: 'Thorough', color: '#8b5cf6', text: 'Deep exploration' },
+  { id: 'max',     label: 'Max',     color: '#7c3aed', text: 'Maximum depth' },
 ];
 
+const INDEX_MAP = THINKING_EFFORT_LEVELS.reduce((acc, lvl, i) => {
+  acc[lvl.id] = i; return acc;
+}, {});
+
 export default function ThinkingEffortSelector({ value, onChange, disabled = false }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const rootRef = useRef(null);
-  const activeLevel = THINKING_EFFORT_LEVELS.find((level) => level.id === value)
-    || THINKING_EFFORT_LEVELS[0];
+  const [isHolding, setIsHolding] = useState(false);
+  const activeIdx = INDEX_MAP[value] ?? 0;
+  const activeLevel = THINKING_EFFORT_LEVELS[activeIdx];
+
+  // Travel range math:
+  // bar width: 104px, padding: 3px each side, knob size: 16px
+  // available travel distance = 104 - 6 - 16 = 82px
+  const knobLeft = 3 + (activeIdx / (THINKING_EFFORT_LEVELS.length - 1)) * 82;
 
   useEffect(() => {
-    const handleOutsideClick = (event) => {
-      if (rootRef.current && !rootRef.current.contains(event.target)) setIsOpen(false);
+    if (!isHolding) return;
+    const handleRelease = () => setIsHolding(false);
+    window.addEventListener('mouseup', handleRelease);
+    window.addEventListener('touchend', handleRelease);
+    return () => {
+      window.removeEventListener('mouseup', handleRelease);
+      window.removeEventListener('touchend', handleRelease);
     };
-    document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, []);
+  }, [isHolding]);
 
   return (
-    <div ref={rootRef} className="relative">
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => setIsOpen((current) => !current)}
-        className="h-7 min-w-7 inline-flex items-center justify-center gap-1.5 rounded-lg px-1.5 text-slate-500 hover:bg-amber-50 hover:text-amber-700 disabled:opacity-40 transition-colors"
-        title={`Thinking effort: ${activeLevel.label}`}
-        aria-label={`Thinking effort: ${activeLevel.label}`}
-        aria-expanded={isOpen}
+    <div
+      className="relative flex flex-col items-center justify-center select-none"
+      style={{ width: 104 }}
+    >
+      {/* Floating Animated Bubble Tooltip — ONLY visible when holding to move */}
+      <div
+        className="absolute pointer-events-none transition-all duration-150"
+        style={{
+          bottom: '100%',
+          left: `clamp(18px, ${knobLeft + 8}px, 86px)`,
+          transform: isHolding ? 'translateX(-50%) scale(1)' : 'translateX(-50%) scale(0.85)',
+          opacity: isHolding ? 1 : 0,
+          marginBottom: 7,
+        }}
       >
-        <BrainCircuit className="w-3.5 h-3.5" />
-        <span className="hidden sm:inline text-[11px] font-semibold">{activeLevel.label}</span>
-        <ChevronDown className={`hidden sm:block w-3 h-3 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
-
-      {isOpen && (
-        <div className="absolute bottom-full left-0 mb-2 w-44 overflow-hidden rounded-lg border border-slate-200 bg-white p-1 shadow-xl z-50">
-          {THINKING_EFFORT_LEVELS.map((level) => {
-            const selected = level.id === activeLevel.id;
-            return (
-              <button
-                key={level.id}
-                type="button"
-                onClick={() => {
-                  onChange(level.id);
-                  setIsOpen(false);
-                }}
-                className={`w-full h-8 px-2 flex items-center justify-between rounded-md text-xs font-medium transition-colors ${
-                  selected
-                    ? 'bg-amber-50 text-amber-900'
-                    : 'text-slate-700 hover:bg-slate-50'
-                }`}
-              >
-                <span>{level.label}</span>
-                <span className="flex items-end gap-0.5 h-3" aria-hidden="true">
-                  {[1, 2, 3, 4, 5].map((bar) => (
-                    <span
-                      key={bar}
-                      className={`w-1 ${bar <= level.bars ? 'bg-amber-500' : 'bg-slate-200'}`}
-                      style={{ height: `${3 + bar * 1.5}px` }}
-                    />
-                  ))}
-                  {selected && <Check className="w-3.5 h-3.5 ml-1 text-amber-700" />}
-                </span>
-              </button>
-            );
-          })}
+        <div
+          className="text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-md whitespace-nowrap relative flex items-center gap-1"
+          style={{
+            backgroundColor: activeLevel.color,
+            boxShadow: `0 0 12px ${activeLevel.color}77`,
+          }}
+        >
+          <span>{activeLevel.label}</span>
+          <span
+            className="absolute left-1/2 -translate-x-1/2 top-full"
+            style={{
+              width: 0,
+              height: 0,
+              borderLeft: '3.5px solid transparent',
+              borderRight: '3.5px solid transparent',
+              borderTop: `3.5px solid ${activeLevel.color}`,
+            }}
+          />
         </div>
-      )}
+      </div>
+
+      {/* Encapsulating Capsule Bar */}
+      <div
+        className="relative w-[104px] h-[22px] rounded-full p-[3px] border border-slate-200/90 dark:border-slate-700/90 shadow-2xs flex items-center cursor-pointer transition-all hover:border-slate-300 dark:hover:border-slate-600"
+        style={{
+          background: 'linear-gradient(90deg, rgba(239,68,68,0.18) 0%, rgba(245,158,11,0.18) 25%, rgba(99,102,241,0.22) 65%, rgba(139,92,246,0.28) 100%)',
+        }}
+        title={`Thinking effort: ${activeLevel.label} (${activeLevel.text})`}
+      >
+        {/* Subtle track gradient line inside capsule */}
+        <div
+          className="absolute inset-x-2.5 h-[3px] rounded-full opacity-60 pointer-events-none"
+          style={{
+            background: 'linear-gradient(90deg, #ef4444, #f59e0b, #6366f1, #8b5cf6)',
+          }}
+        />
+
+        {/* Encapsulated Sliding Circle / Thumb */}
+        <div
+          className="absolute w-[16px] h-[16px] rounded-full bg-white dark:bg-slate-100 shadow-sm border border-slate-200/90 dark:border-slate-600 pointer-events-none transition-all duration-100 flex items-center justify-center"
+          style={{
+            left: `${knobLeft}px`,
+            boxShadow: isHolding
+              ? `0 1px 6px rgba(0,0,0,0.25), 0 0 8px ${activeLevel.color}`
+              : `0 1px 4px rgba(0,0,0,0.15), 0 0 5px ${activeLevel.color}66`,
+            transform: isHolding ? 'scale(1.08)' : 'scale(1)',
+          }}
+        >
+          <span
+            className="w-[6px] h-[6px] rounded-full transition-colors duration-150"
+            style={{ backgroundColor: activeLevel.color }}
+          />
+        </div>
+
+        {/* Invisible native range input for smooth drag & keyboard accessibility */}
+        <input
+          type="range"
+          min={0}
+          max={THINKING_EFFORT_LEVELS.length - 1}
+          step={1}
+          value={activeIdx}
+          onMouseDown={() => setIsHolding(true)}
+          onTouchStart={() => setIsHolding(true)}
+          onKeyDown={() => setIsHolding(true)}
+          onKeyUp={() => setTimeout(() => setIsHolding(false), 800)}
+          onBlur={() => setIsHolding(false)}
+          onChange={(e) => {
+            setIsHolding(true);
+            onChange(THINKING_EFFORT_LEVELS[Number(e.target.value)].id);
+          }}
+          disabled={disabled}
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+          aria-label={`Thinking effort level: ${activeLevel.label}`}
+        />
+      </div>
     </div>
   );
 }

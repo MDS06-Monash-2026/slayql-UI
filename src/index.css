@@ -1,4 +1,174 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,900&family=Cinzel:wght@800;900&display=swap');
 @import "tailwindcss";
+
+/* ── SlayQL Premium Typography Logo ─────────────────────────── */
+.slayql-logo {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  display: inline-flex;
+  align-items: baseline;
+  user-select: none;
+  font-size: 1.45rem;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+.slayql-logo .slay {
+  font-weight: 900;
+  background: linear-gradient(135deg, #2563eb 0%, #4f46e5 50%, #7c3aed 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 10px rgba(99, 102, 241, 0.45)) drop-shadow(0 2px 4px rgba(37, 99, 235, 0.25));
+  transition: all 0.3s ease;
+  padding-right: 0.5px;
+}
+
+.slayql-logo .ql {
+  font-weight: 900;
+  color: #0f172a;
+  letter-spacing: -0.035em;
+  transition: color 0.3s ease;
+}
+
+/* Dark Mode Typography */
+.live-demo-shell.theme-dark .slayql-logo .slay {
+  background: linear-gradient(135deg, #60a5fa 0%, #818cf8 45%, #c084fc 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 14px rgba(129, 140, 248, 0.75)) drop-shadow(0 0 28px rgba(99, 102, 241, 0.4));
+}
+
+.live-demo-shell.theme-dark .slayql-logo .ql {
+  color: #ffffff !important;
+  text-shadow: 0 0 12px rgba(255, 255, 255, 0.2);
+}
+
+.slayql-logo:hover .slay {
+  filter: drop-shadow(0 0 16px rgba(99, 102, 241, 0.75)) drop-shadow(0 0 32px rgba(129, 140, 248, 0.5));
+}
+
+/* ── Effort Slider ────────────────────────────────────────── */
+.effort-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 99px;
+  outline: none;
+  cursor: pointer;
+  background: linear-gradient(to right, #ef4444, #f59e0b, #6366f1, #8b5cf6);
+}
+.effort-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid #6366f1;
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.2), 0 1px 4px rgba(0,0,0,0.15);
+  cursor: grab;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.effort-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 0 0 5px rgba(99,102,241,0.25), 0 2px 8px rgba(0,0,0,0.2);
+}
+.effort-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid #6366f1;
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.2);
+  cursor: grab;
+}
+.live-demo-shell.theme-dark .effort-slider::-webkit-slider-thumb {
+  background: #1e293b;
+  border-color: #818cf8;
+}
+
+/* ── Empty Chat Welcoming Message ─────────────────────────── */
+.empty-chat-fancy-title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.12;
+  color: #0f172a;
+  user-select: none;
+}
+
+.empty-chat-fancy-title .fancy-accent {
+  font-style: italic;
+  background: linear-gradient(135deg, #2563eb 0%, #4f46e5 50%, #7c3aed 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  padding-right: 3px;
+  filter: drop-shadow(0 0 12px rgba(99, 102, 241, 0.3));
+}
+
+.live-demo-shell.theme-dark .empty-chat-fancy-title {
+  color: #f8fafc !important;
+  text-shadow: 0 0 35px rgba(255, 255, 255, 0.08);
+}
+
+.live-demo-shell.theme-dark .empty-chat-fancy-title .fancy-accent {
+  background: linear-gradient(135deg, #60a5fa 0%, #818cf8 50%, #c084fc 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 16px rgba(129, 140, 248, 0.6));
+}
+
+.empty-chat-subtitle {
+  color: #64748b;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  max-width: 24rem;
+  margin-left: auto;
+  margin-right: auto;
+  transition: color 0.2s;
+}
+.live-demo-shell.theme-dark .empty-chat-subtitle {
+  color: #94a3b8 !important;
+}
+
+.empty-chat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.875rem;
+  border-radius: 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #334155;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  transition: all 0.18s ease;
+  cursor: pointer;
+}
+.empty-chat-pill:hover {
+  border-color: #a5b4fc;
+  background-color: #f8fafc;
+  color: #4338ca;
+  box-shadow: 0 4px 12px -2px rgba(99, 102, 241, 0.12);
+  transform: translateY(-1px);
+}
+.live-demo-shell.theme-dark .empty-chat-pill {
+  color: #e2e8f0 !important;
+  background-color: #20242d !important;
+  border-color: #323844 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+.live-demo-shell.theme-dark .empty-chat-pill:hover {
+  background-color: #272c37 !important;
+  border-color: #818cf8 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 16px rgba(129, 140, 248, 0.25);
+  transform: translateY(-1px);
+}
 
 /* ═══════════════════════════════════════════════════════════════════
    Global Interactive & Cursor Styles
@@ -630,6 +800,31 @@ button:disabled,
   border-color: var(--demo-border) !important;
 }
 
+.live-demo-shell.theme-dark .live-demo-profile button {
+  background-color: #1a202c !important;
+  border-color: var(--demo-border) !important;
+}
+
+.live-demo-shell.theme-dark .live-demo-profile button:hover {
+  background-color: #222938 !important;
+}
+
+.live-demo-shell.theme-dark .live-demo-profile .text-slate-900 {
+  color: #f8fafc !important;
+}
+
+.live-demo-shell.theme-dark .live-demo-profile .text-slate-600 {
+  color: #cbd5e1 !important;
+}
+
+.live-demo-shell.theme-dark .live-demo-profile .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+.live-demo-shell.theme-dark .live-demo-profile .ring-white {
+  --tw-ring-color: #12151b !important;
+}
+
 .live-demo-shell .live-demo-profile {
   background-color: var(--demo-sidebar);
 }
@@ -680,8 +875,19 @@ button:disabled,
   color: var(--demo-text);
 }
 
-.live-demo-shell.theme-dark .live-demo-profile-menu .border-slate-100 {
+.live-demo-shell.theme-dark .live-demo-profile-menu .border-slate-100,
+.live-demo-shell.theme-dark .live-demo-profile-menu .border-slate-200 {
   border-color: var(--demo-border) !important;
+}
+
+.live-demo-shell.theme-dark .live-demo-profile-menu .bg-slate-50,
+.live-demo-shell.theme-dark .live-demo-profile-menu .bg-slate-100 {
+  background-color: #202633 !important;
+}
+
+.live-demo-shell.theme-dark .live-demo-profile-menu .hover\:bg-slate-50:hover,
+.live-demo-shell.theme-dark .live-demo-profile-menu .hover\:bg-slate-100:hover {
+  background-color: #272f3d !important;
 }
 
 .live-demo-shell.theme-dark .live-demo-profile-menu .text-red-600 {
@@ -1134,6 +1340,201 @@ button:disabled,
   fill: #f8fafc !important;
 }
 
+/* Table list rail (left sidebar of catalog modal) */
+.live-demo-shell.theme-dark .w-64.border-r.border-slate-100 {
+  background-color: var(--demo-sidebar) !important;
+  border-color: var(--demo-border) !important;
+}
+
+/* Unselected table items in catalog rail */
+.live-demo-shell.theme-dark .text-slate-700.hover\:bg-slate-100 {
+  color: #cbd5e1 !important;
+}
+
+/* Column count badges (unselected) */
+.live-demo-shell.theme-dark .bg-slate-200\/60.text-slate-500 {
+  background-color: #2a303b !important;
+  color: #94a3b8 !important;
+}
+
+/* Add Database button in catalog */
+.live-demo-shell.theme-dark .border.border-slate-200.hover\:bg-slate-100.text-slate-700 {
+  background-color: var(--demo-surface-muted) !important;
+  border-color: var(--demo-border) !important;
+  color: #cbd5e1 !important;
+}
+.live-demo-shell.theme-dark .border.border-slate-200.hover\:bg-slate-100.text-slate-700:hover {
+  background-color: #2a303b !important;
+}
+
+/* Close button in catalog modal */
+.live-demo-shell.theme-dark .p-2.rounded-xl.text-slate-400.hover\:text-slate-700 {
+  color: #94a3b8 !important;
+}
+.live-demo-shell.theme-dark .p-2.rounded-xl.text-slate-400.hover\:text-slate-700:hover {
+  color: #f8fafc !important;
+  background-color: #2a303b !important;
+}
+
+/* Catalog table detail area */
+.live-demo-shell.theme-dark .border-b.border-slate-100.pb-3 {
+  border-color: var(--demo-border) !important;
+}
+
+/* Column type color in catalog */
+.live-demo-shell.theme-dark .text-indigo-600 {
+  color: #818cf8 !important;
+}
+
+/* Nullable / not-null text */
+.live-demo-shell.theme-dark .text-slate-400 {
+  color: #64748b !important;
+}
+.live-demo-shell.theme-dark .text-slate-600 {
+  color: #94a3b8 !important;
+}
+
+/* ── SlayQLTraceTimeline ─────────────────────────────────── */
+
+/* Collapsible trace header button */
+.live-demo-shell.theme-dark .bg-white.hover\:bg-slate-50.text-slate-600.border.border-slate-200\/80 {
+  background-color: var(--demo-surface) !important;
+  border-color: var(--demo-border) !important;
+  color: #94a3b8 !important;
+}
+.live-demo-shell.theme-dark .bg-white.hover\:bg-slate-50.text-slate-600.border.border-slate-200\/80:hover {
+  background-color: #2a303b !important;
+  color: #f8fafc !important;
+}
+
+/* Expanded trace detail panel */
+.live-demo-shell.theme-dark .rounded-2xl.bg-white.border.border-slate-200\/80 {
+  background-color: var(--demo-surface) !important;
+  border-color: var(--demo-border) !important;
+}
+
+/* Progress bar track */
+.live-demo-shell.theme-dark .h-1.rounded-full.bg-slate-100 {
+  background-color: #2a303b !important;
+}
+
+/* Stage item text for pending stages */
+.live-demo-shell.theme-dark .text-slate-400 {
+  color: #475569 !important;
+}
+
+/* Passed stage text */
+.live-demo-shell.theme-dark .text-slate-800 {
+  color: #e2e8f0 !important;
+}
+
+/* Evidence text */
+.live-demo-shell.theme-dark .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+/* Token usage section */
+.live-demo-shell.theme-dark .pt-2.border-t.border-slate-100 {
+  border-color: var(--demo-border) !important;
+}
+
+/* ── VisualizationStudio ─────────────────────────────────── */
+
+/* Chart card container */
+.live-demo-shell.theme-dark .bg-white.rounded-2xl.border.border-slate-200\/90 {
+  background-color: var(--demo-surface) !important;
+  border-color: var(--demo-border) !important;
+}
+
+/* Studio header separator */
+.live-demo-shell.theme-dark .border-b.border-slate-100.pb-4 {
+  border-color: var(--demo-border) !important;
+}
+
+/* "AI Recommended" badge in chart view */
+.live-demo-shell.theme-dark .bg-indigo-50.text-indigo-700.border-indigo-200\/60 {
+  background-color: #24273e !important;
+  color: #a5b4fc !important;
+  border-color: #3730a3 !important;
+}
+
+/* "Custom view" badge */
+.live-demo-shell.theme-dark .bg-slate-50.text-slate-500.border-slate-200 {
+  background-color: #1b1f27 !important;
+  color: #94a3b8 !important;
+  border-color: var(--demo-border) !important;
+}
+
+/* Chart type selector (select dropdown) */
+.live-demo-shell.theme-dark select.bg-slate-50.border-slate-200 {
+  background-color: var(--demo-surface-muted) !important;
+  border-color: var(--demo-border) !important;
+  color: #f8fafc !important;
+}
+.live-demo-shell.theme-dark select.bg-slate-50.border-slate-200:focus {
+  border-color: #6366f1 !important;
+  background-color: var(--demo-surface) !important;
+}
+.live-demo-shell.theme-dark select option {
+  background-color: var(--demo-surface) !important;
+  color: var(--demo-text) !important;
+}
+
+/* "No data" empty state in chart */
+.live-demo-shell.theme-dark .py-16.text-center.text-slate-400.bg-white {
+  background-color: var(--demo-surface) !important;
+  border-color: var(--demo-border) !important;
+}
+
+/* ── Shared scrollbar override for dark mode ─────────────── */
+.live-demo-shell.theme-dark ::-webkit-scrollbar-track {
+  background: var(--demo-sidebar) !important;
+}
+.live-demo-shell.theme-dark ::-webkit-scrollbar-thumb {
+  background: #3c4453 !important;
+}
+.live-demo-shell.theme-dark ::-webkit-scrollbar-thumb:hover {
+  background: #556070 !important;
+}
+
+/* ── Main chat thread canvas and results card ────────────── */
+
+/* The main <main> element uses bg-[#f7f9fc] */
+.live-demo-shell.theme-dark main {
+  background-color: var(--demo-canvas) !important;
+}
+
+/* Results Studio card — the outer wrapper uses bg-white directly */
+.live-demo-shell.theme-dark .rounded-2xl.border.bg-white {
+  background-color: var(--demo-surface) !important;
+  border-color: var(--demo-border) !important;
+}
+
+/* The main logo icon background */
+.live-demo-shell.theme-dark .bg-indigo-50.border.border-indigo-100 {
+  background-color: #1e213e !important;
+  border-color: #2f3266 !important;
+}
+
+/* "Working through your request" status text */
+.live-demo-shell.theme-dark .text-slate-800 {
+  color: #e2e8f0 !important;
+}
+
+/* ── ER Diagram — React Flow controls dark mode ───────────── */
+
+/* Controls panel buttons */
+.live-demo-shell.theme-dark .react-flow__controls-button {
+  background-color: #20242d !important;
+  border-color: #323844 !important;
+  fill: #94a3b8 !important;
+  color: #94a3b8 !important;
+}
+.live-demo-shell.theme-dark .react-flow__controls-button:hover {
+  background-color: #2a303b !important;
+  fill: #f8fafc !important;
+}
+
 /* MiniMap dark overlay */
 .live-demo-shell.theme-dark .react-flow__minimap {
   background-color: #12151b !important;
@@ -1142,4 +1543,48 @@ button:disabled,
 /* React Flow panel (attribution etc) */
 .live-demo-shell.theme-dark .react-flow__panel {
   color: #475569 !important;
+}
+
+/* ─── Animated Profile Name Shimmer ─── */
+@keyframes profile-name-shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+.profile-name-shimmer {
+  background: linear-gradient(
+    90deg,
+    #0f172a 0%,
+    #4338ca 25%,
+    #818cf8 50%,
+    #4338ca 75%,
+    #0f172a 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  display: inline-block;
+  animation: profile-name-shimmer 4.5s ease-in-out infinite;
+}
+
+.live-demo-shell.theme-dark .profile-name-shimmer {
+  background: linear-gradient(
+    90deg,
+    #ffffff 0%,
+    #818cf8 25%,
+    #c084fc 50%,
+    #818cf8 75%,
+    #ffffff 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  display: inline-block;
+  animation: profile-name-shimmer 4.5s ease-in-out infinite;
 }
