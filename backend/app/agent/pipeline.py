@@ -30,6 +30,7 @@ from backend.app.queries.executor import QueryExecutor
 from backend.app.queries.validator import SqlValidator
 from backend.app.workbench.gemini_agent import (
     GEMINI_WORKBENCH_MODEL,
+    _fallback_chat_intent,
     gemini_workbench_agent,
     materialize_chart_recommendation,
     summarize_result,
@@ -363,8 +364,8 @@ class SlayQLPipeline:
         return responses[digest[0] % len(responses)]
 
     @staticmethod
-    def _business_guidance_answer(catalog: Any) -> str:
-        table_names = list(catalog.tables)[:6]
+    def _business_guidance_answer(catalog: Any = None) -> str:
+        table_names = list(catalog.tables)[:6] if catalog is not None else []
         table_hint = ", ".join(table_names) if table_names else "your connected tables"
         return (
             "For a useful dashboard, start with questions that measure business outcomes: "
@@ -528,6 +529,54 @@ class SlayQLPipeline:
             connection = get_connection(connection_id)
             if not connection:
                 SlayQLPipeline._fail(run_id, "schema_discovery", "Selected data source was not found.")
+                return
+
+            # Short-circuit clearly non-SQL turns before touching the selected
+            # source. This keeps greetings and business questions useful even
+            # when a source file is unavailable locally.
+            preflight = _fallback_chat_intent(question, metadata["conversation_messages"])
+            if (
+                not thinking_profile.use_model_intent
+                and preflight["intent"] in {"business_guidance", "unsupported", "clarification"}
+            ):
+                SlayQLPipeline._emit(
+                    run_id,
+                    "intent_validation",
+                    "intent.validator_started",
+                    {
+                        "model": "slayql/local-intent",
+                        "summary": "Checking whether this turn requires SQL or database metadata.",
+                    },
+                )
+                SlayQLPipeline._emit(
+                    run_id,
+                    "intent_validation",
+                    "intent.validator_completed",
+                    {
+                        **preflight,
+                        "model": "slayql/local-intent",
+                        "mode": "local_heuristic",
+                        "summary": f"Classified this turn as {preflight['intent'].replace('_', ' ')}.",
+                    },
+                )
+                if preflight["intent"] == "business_guidance":
+                    SlayQLPipeline._complete_without_generated_sql(
+                        run_id,
+                        answer=SlayQLPipeline._business_guidance_answer(),
+                        started=started,
+                        intent_decision=preflight,
+                        status="success",
+                        resolution_code="business_guidance",
+                    )
+                else:
+                    SlayQLPipeline._complete_without_generated_sql(
+                        run_id,
+                        answer=SlayQLPipeline._no_query_answer(run_id, question),
+                        started=started,
+                        intent_decision=preflight,
+                        status="no_query",
+                        resolution_code=preflight["intent"],
+                    )
                 return
             try:
                 if connection.get("engine") == "sqlite":
