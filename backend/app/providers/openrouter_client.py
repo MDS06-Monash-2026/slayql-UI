@@ -242,6 +242,10 @@ class OpenRouterClient:
             "X-Title": "SlayQL",
             "Content-Type": "application/json",
         }
+        # DeepSeek V4 Flash may still consume a large hidden-reasoning budget
+        # when sent `minimal`. Keep the public profile/event as minimal, but
+        # use the provider's explicit no-reasoning wire mode for its fast path.
+        wire_reasoning_effort = "none" if reasoning_effort == "minimal" else reasoning_effort
         payload: Dict[str, Any] = {
             "model": TEST_EXECUTION_MODEL,
             "messages": messages,
@@ -249,8 +253,8 @@ class OpenRouterClient:
             "max_tokens": max_tokens,
             "stream": True,
             "reasoning": {
-                "effort": reasoning_effort,
-                "exclude": reasoning_effort == "none",
+                "effort": wire_reasoning_effort,
+                "exclude": wire_reasoning_effort == "none",
             },
         }
         if session_id:

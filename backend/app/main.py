@@ -24,6 +24,7 @@ from backend.app.connections.registry import (
     get_connection,
     get_credentials,
     get_sqlite_path,
+    require_sqlite_path,
 )
 from backend.app.control_database import control_database
 from backend.app.history.store import history_store
@@ -468,11 +469,16 @@ async def list_connections(request: Request):
     for conn_id, conn in all_connections.items():
         tbl_count = int(conn.get("table_count", 0))
         if conn["engine"] == "sqlite":
+            sqlite_path = get_sqlite_path(conn_id)
             try:
-                cat = CatalogService.get_sqlite_catalog(conn.get("path", settings.SQLITE_DEMO_PATH))
+                if not sqlite_path:
+                    raise FileNotFoundError("SQLite file is unavailable on this deployment")
+                cat = CatalogService.get_sqlite_catalog(sqlite_path)
                 tbl_count = len(cat.tables)
             except Exception:
-                pass
+                conn = {**conn, "status": "error", "catalog_error": "SQLite file is unavailable on this deployment."}
+            else:
+                conn = {**conn, "path": sqlite_path}
         result.append({
             **{key: value for key, value in conn.items() if key not in {"credentials", "encrypted_credentials"}},
             "table_count": tbl_count
@@ -574,10 +580,12 @@ async def upload_connection(
         description=description.strip(),
         status="connected",
         credentials={"original_filename": file.filename or "database.sqlite3"},
-        data_path=str(destination),
+        # Store a deployment-portable reference. The absolute container path
+        # differs between local development and the VPS.
+        data_path=f"connections/{conn_id}.sqlite3",
         owner_id=owner_id,
     )
-    metadata.update({"path": str(destination), "status": "connected"})
+    metadata.update({"path": f"connections/{conn_id}.sqlite3", "status": "connected"})
     DYNAMIC_CONNECTIONS[conn_id] = metadata
     return metadata
 
@@ -612,8 +620,9 @@ async def delete_connection(connection_id: str, request: Request):
     if not conn:
         raise HTTPException(status_code=404, detail="Database connection not found.")
     data_path = conn.get("path")
-    if data_path and Path(data_path).resolve().parent == connection_store.data_dir.resolve():
-        Path(data_path).unlink(missing_ok=True)
+    sqlite_path = get_sqlite_path(connection_id) if conn.get("engine") == "sqlite" else None
+    if sqlite_path and Path(sqlite_path).resolve().parent == connection_store.data_dir.resolve():
+        Path(sqlite_path).unlink(missing_ok=True)
     DYNAMIC_CONNECTIONS.pop(connection_id, None)
     connection_store.delete(connection_id)
     return {"status": "deleted"}
@@ -628,14 +637,16 @@ async def get_connection_catalog(connection_id: str, request: Request):
             return get_external_catalog(conn["engine"], get_credentials(connection_id))
         except Exception as exc:
             raise HTTPException(status_code=502, detail=f"Could not inspect this data source: {exc}") from exc
-    db_path = conn.get("path", settings.SQLITE_DEMO_PATH) if conn else settings.SQLITE_DEMO_PATH
+    db_path = get_sqlite_path(connection_id)
+    if not db_path:
+        raise HTTPException(status_code=409, detail="The SQLite file is unavailable on this deployment. Re-upload this database file.")
     catalog = CatalogService.get_sqlite_catalog(db_path)
     return catalog
 
 
 def _catalog_for_connection(conn: Dict[str, Any], connection_id: str):
     if conn.get("engine") == "sqlite":
-        return CatalogService.get_sqlite_catalog(get_sqlite_path(connection_id) or settings.SQLITE_DEMO_PATH)
+        return CatalogService.get_sqlite_catalog(require_sqlite_path(connection_id))
     return get_external_catalog(conn["engine"], get_credentials(connection_id))
 
 
@@ -682,7 +693,7 @@ async def execute_workbench_query(connection_id: str, req: ExecuteSqlRequest, re
     if not validation.is_valid:
         raise HTTPException(status_code=400, detail=validation.error_message or "SQL validation failed.")
     if conn["engine"] == "sqlite":
-        result = await QueryExecutor.execute_sqlite(get_sqlite_path(connection_id) or settings.SQLITE_DEMO_PATH, validation.sanitized_sql, settings.QUERY_TIMEOUT_SECONDS, settings.MAX_RESULT_ROWS)
+        result = await QueryExecutor.execute_sqlite(require_sqlite_path(connection_id), validation.sanitized_sql, settings.QUERY_TIMEOUT_SECONDS, settings.MAX_RESULT_ROWS)
     else:
         result = await QueryExecutor.execute_external(conn["engine"], get_credentials(connection_id), validation.sanitized_sql, settings.QUERY_TIMEOUT_SECONDS, settings.MAX_RESULT_ROWS)
     if result.error:
@@ -751,7 +762,7 @@ async def inspect_workbench_health(connection_id: str, request: Request):
     try:
         _ensure_workbench_credit(request)
         if conn["engine"] == "sqlite":
-            diagnostics = inspect_sqlite_health(get_sqlite_path(connection_id) or settings.SQLITE_DEMO_PATH)
+            diagnostics = inspect_sqlite_health(require_sqlite_path(connection_id))
         else:
             catalog = _catalog_for_connection(conn, connection_id)
             diagnostics = {"engine": conn["engine"], "integrity": "provider-managed", "foreign_key_violations": [], "missing_fk_indexes": [], "tables": [{"name": name, "row_count": table.row_count_estimate, "foreign_key_count": len(table.foreign_keys)} for name, table in catalog.tables.items()], "table_count": len(catalog.tables)}
@@ -935,7 +946,7 @@ async def execute_edited_sql(run_id: str, req: ExecuteSqlRequest, request: Reque
         raise HTTPException(status_code=404, detail="Database connection not found.")
     try:
         if conn.get("engine") == "sqlite":
-            catalog = CatalogService.get_sqlite_catalog(get_sqlite_path(connection_id) or settings.SQLITE_DEMO_PATH)
+            catalog = CatalogService.get_sqlite_catalog(require_sqlite_path(connection_id))
             dialect = "sqlite"
         else:
             catalog = get_external_catalog(conn["engine"], get_credentials(connection_id))
@@ -949,7 +960,7 @@ async def execute_edited_sql(run_id: str, req: ExecuteSqlRequest, request: Reque
 
     if conn.get("engine") == "sqlite":
         result = await QueryExecutor.execute_sqlite(
-            db_path=get_sqlite_path(connection_id) or settings.SQLITE_DEMO_PATH,
+            db_path=require_sqlite_path(connection_id),
             sql=val.sanitized_sql,
             timeout_seconds=settings.QUERY_TIMEOUT_SECONDS,
             max_rows=settings.MAX_RESULT_ROWS

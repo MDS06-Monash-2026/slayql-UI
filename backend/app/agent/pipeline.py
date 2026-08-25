@@ -18,7 +18,7 @@ from backend.app.agent.effort import (
 from backend.app.agent.rbp import RBPGraphEngine
 from backend.app.catalog.discovery import CatalogService
 from backend.app.config import settings
-from backend.app.connections.registry import get_connection, get_credentials, get_sqlite_path
+from backend.app.connections.registry import get_connection, get_credentials, get_sqlite_path, require_sqlite_path
 from backend.app.connections.runtime import get_external_catalog
 from backend.app.history.conversation_store import conversation_store
 from backend.app.providers.openrouter_client import (
@@ -524,7 +524,7 @@ class SlayQLPipeline:
     async def _execute_query(connection: Dict[str, Any], connection_id: str, sql: str):
         if connection.get("engine") == "sqlite":
             return await QueryExecutor.execute_sqlite(
-                db_path=get_sqlite_path(connection_id) or settings.SQLITE_DEMO_PATH,
+                db_path=require_sqlite_path(connection_id),
                 sql=sql,
                 timeout_seconds=settings.QUERY_TIMEOUT_SECONDS,
                 max_rows=settings.MAX_RESULT_ROWS,
@@ -616,8 +616,16 @@ class SlayQLPipeline:
                 return
             try:
                 if connection.get("engine") == "sqlite":
+                    db_path = get_sqlite_path(connection_id)
+                    if not db_path:
+                        SlayQLPipeline._fail(
+                            run_id,
+                            "schema_discovery",
+                            "The selected SQLite file is unavailable on this deployment. Re-upload the database file.",
+                        )
+                        return
                     catalog = CatalogService.get_sqlite_catalog(
-                        get_sqlite_path(connection_id) or settings.SQLITE_DEMO_PATH
+                        db_path
                     )
                 else:
                     catalog = get_external_catalog(connection["engine"], get_credentials(connection_id))

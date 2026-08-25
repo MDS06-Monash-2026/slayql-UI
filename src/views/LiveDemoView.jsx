@@ -303,6 +303,10 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
       const cat = await fetchCatalog(connId);
       if (catalogRequestRef.current === requestId) setCatalog(cat);
     } catch (err) {
+      if (catalogRequestRef.current === requestId) {
+        setCatalog(null);
+        setErrorMessage(err.message || 'The selected database catalog is unavailable.');
+      }
       console.warn('Catalog load error:', err);
     }
   }, []);
@@ -1042,6 +1046,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
                     {connections.map((c) => (
                       <button
                         key={c.id}
+                        title={c.status === 'error' ? (c.catalog_error || 'Database file is unavailable on this deployment.') : `${c.name} (${c.table_count ?? 0} tables)`}
                         onClick={() => {
                           if (c.id !== selectedConnectionId) handleNewThread();
                           setSelectedConnectionId(c.id);
@@ -1056,7 +1061,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
                         }`}
                       >
                         <span className="truncate">{c.name}</span>
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
+                        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${c.status === 'error' ? 'bg-red-500' : 'bg-emerald-500'}`} />
                       </button>
                     ))}
                   </div>
