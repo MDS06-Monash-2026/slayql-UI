@@ -6,12 +6,25 @@ import OnboardingView from './views/OnboardingView';
 import DashboardView from './views/DashboardView';
 import ProfileView from './views/ProfileView';
 import DatabaseCenterView from './views/DatabaseCenterView';
-import { getStoredSession, logout, setStoredSession } from './services/api';
+import { fetchSession, getStoredSession, logout, setStoredSession } from './services/api';
 
 export default function App() {
   const [view, setView] = useState('landing'); // 'landing' | 'login' | 'demo' | 'onboarding' | 'dashboard'
   const [session, setSession] = useState(() => getStoredSession());
   const [activeDatabase, setActiveDatabase] = useState('sqlite_demo');
+
+  useEffect(() => {
+    let active = true;
+    if (!session) return () => { active = false; };
+
+    fetchSession().then((persistedSession) => {
+      if (!active) return;
+      setSession(persistedSession);
+      setStoredSession(persistedSession);
+    });
+
+    return () => { active = false; };
+  }, []);
 
   const handleDatabaseConnect = (dbName) => {
     setActiveDatabase(dbName);

@@ -9,16 +9,19 @@ import {
 } from 'lucide-react';
 
 const STAGE_LABELS = {
+  intent_validation: 'Checking request intent and conversation context',
   schema_discovery: 'Reading schema and finding candidate tables',
   graph_expansion: 'Following relationships across the data graph',
   value_grounding: 'Grounding values to real columns',
   model_generation: 'Drafting SQL with model guardrails',
   sql_validation: 'Checking SQL safety and dialect',
+  semantic_validation: 'Checking whether SQL answers the request',
   execution: 'Running a read-only query',
   visualization: 'Choosing the clearest visualization',
+  answer_generation: 'Summarizing the validated result',
 };
 
-export default function SlayQLTraceTimeline({ stages = {}, activeStageKey, isRunning, tokenUsage }) {
+export default function SlayQLTraceTimeline({ stages = {}, activeStageKey, isRunning, tokenUsage, reasoning = '' }) {
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
@@ -26,13 +29,16 @@ export default function SlayQLTraceTimeline({ stages = {}, activeStageKey, isRun
   }, [isRunning]);
 
   const stageKeys = [
+    'intent_validation',
     'schema_discovery',
     'graph_expansion',
     'value_grounding',
     'model_generation',
     'sql_validation',
+    'semantic_validation',
     'execution',
     'visualization',
+    'answer_generation',
   ];
 
   const completedStages = stageKeys.filter(
@@ -136,13 +142,19 @@ export default function SlayQLTraceTimeline({ stages = {}, activeStageKey, isRun
             })}
           </div>
 
+          {reasoning && (
+            <div className="max-h-32 overflow-auto rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-[11px] leading-relaxed text-slate-500 whitespace-pre-wrap">
+              {reasoning}
+            </div>
+          )}
+
           {/* Tokens and Cost */}
           {tokenUsage && (
             <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 font-mono">
-              <span>Tokens: {tokenUsage.total_tokens || tokenUsage.input_tokens + tokenUsage.output_tokens || 0}</span>
-              {tokenUsage.estimated_cost_usd !== undefined && (
+              <span>Tokens: {tokenUsage.total_tokens || tokenUsage.prompt_tokens + tokenUsage.completion_tokens || tokenUsage.input_tokens + tokenUsage.output_tokens || 0}</span>
+              {(tokenUsage.cost !== undefined || tokenUsage.estimated_cost_usd !== undefined) && (
                 <span className="text-emerald-700 font-medium">
-                  Cost: ${(tokenUsage.estimated_cost_usd).toFixed(5)}
+                  Cost: ${Number(tokenUsage.cost ?? tokenUsage.estimated_cost_usd ?? 0).toFixed(5)}
                 </span>
               )}
             </div>

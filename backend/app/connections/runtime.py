@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import time
 from typing import Any, Dict
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urlsplit, urlunsplit
 import json
 
 from backend.app.catalog.discovery import CatalogSchema, ColumnInfo, ForeignKeyInfo, TableInfo
@@ -18,7 +18,7 @@ def connection_url(provider: str, credentials: Dict[str, Any]) -> str:
     provider = provider.lower()
     credentials = normalized_credentials(credentials)
     if credentials.get("connection_string"):
-        return str(credentials["connection_string"])
+        return normalize_connection_string(provider, str(credentials["connection_string"]))
     user = quote_plus(str(credentials.get("username", "")))
     password = quote_plus(str(credentials.get("password", "")))
     host = str(credentials.get("host", ""))
@@ -43,6 +43,20 @@ def connection_url(provider: str, credentials: Dict[str, Any]) -> str:
         query = ("?" + "&".join(query_parts)) if query_parts else ""
         return f"snowflake://{user}:{password}@{account}{suffix}{query}"
     raise ValueError(f"Unsupported provider: {provider}")
+
+
+def normalize_connection_string(provider: str, value: str) -> str:
+    """Select the installed SQLAlchemy driver without exposing or rebuilding credentials."""
+    raw_url = value.strip()
+    parsed = urlsplit(raw_url)
+    if provider.lower() in {"postgresql", "supabase"}:
+        if parsed.scheme in {"postgres", "postgresql"}:
+            parsed = parsed._replace(scheme="postgresql+psycopg")
+            return urlunsplit(parsed)
+        if parsed.scheme == "postgresql+psycopg":
+            return raw_url
+        raise ValueError("Use a PostgreSQL connection URL, not a Supabase HTTP API URL.")
+    return raw_url
 
 
 def normalized_credentials(credentials: Dict[str, Any]) -> Dict[str, Any]:

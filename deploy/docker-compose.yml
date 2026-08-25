@@ -9,13 +9,15 @@ services:
     restart: unless-stopped
     environment:
       - APP_ENV=production
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENROUTER_KEY=${OPENROUTER_KEY}
       - OPENROUTER_BASE_URL=${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - GEMINI_BASE_URL=${GEMINI_BASE_URL:-https://generativelanguage.googleapis.com/v1beta}
+      - DATABASE_URL=${DATABASE_URL}
+      - BACKEND_DATABASE_SCHEMA=${BACKEND_DATABASE_SCHEMA:-slayql}
       - DEMO_POSTGRES_URL=${DEMO_POSTGRES_URL}
       - FIELD_ENCRYPTION_KEY=${FIELD_ENCRYPTION_KEY}
       - CONNECTION_DATA_DIR=/app/backend/data/connections

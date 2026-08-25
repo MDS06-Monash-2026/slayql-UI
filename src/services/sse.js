@@ -1,88 +1,67 @@
+import { getSessionToken } from './api';
+
 /**
- * SlayQL SSE Stream Manager
- * Listens to versioned backend Server-Sent Events and dispatches typed callbacks.
+ * Authenticated SSE reader. Fetch streaming keeps the session token in the
+ * Authorization header instead of placing it in a URL or browser event log.
  */
-
 export function connectRunEventStream(runId, { onEvent, onError, onComplete }) {
-  const eventSource = new EventSource(`/api/v1/agent-runs/${runId}/events`);
-  let isCompleted = false;
+  const controller = new AbortController();
+  let closed = false;
+  let completed = false;
 
-  const eventTypes = [
-    'run.accepted',
-    'stream.ready',
-    'stage.started',
-    'stage.evidence',
-    'stage.completed',
-    'stage.failed',
-    'provider.request_started',
-    'provider.connected',
-    'provider.first_delta',
-    'provider.request_completed',
-    'provider.completed',
-    'provider.usage_finalized',
-    'sql.candidate_ready',
-    'sql.validation_started',
-    'sql.validation_check',
-    'sql.validation_completed',
-    'sql.ready',
-    'execution.started',
-    'execution.columns',
-    'execution.rows',
-    'execution.truncated',
-    'execution.completed',
-    'execution.failed',
-    'visualization.started',
-    'visualization.recommended',
-    'visualization.not_recommended',
-    'run.completed',
-    'run.failed',
-    'run.cancelled',
-  ];
-
-  const handleParsedData = (type, rawData) => {
-    try {
-      const data = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
-      if (onEvent) onEvent(data, type);
-
-      if (type === 'run.completed' || type === 'run.failed' || type === 'run.cancelled') {
-        isCompleted = true;
-        eventSource.close();
-        if (onComplete) onComplete(type, data);
-      }
-    } catch (err) {
-      console.error('Error parsing SSE event payload:', err, rawData);
-    }
-  };
-
-  eventTypes.forEach((type) => {
-    eventSource.addEventListener(type, (e) => {
-      handleParsedData(type, e.data);
+  const dispatchBlock = (block) => {
+    if (!block || block.startsWith(':')) return;
+    let eventType = 'message';
+    const dataLines = [];
+    block.split(/\r?\n/).forEach((line) => {
+      if (line.startsWith('event:')) eventType = line.slice(6).trim();
+      if (line.startsWith('data:')) dataLines.push(line.slice(5).trimStart());
     });
-  });
-
-  // Also listen for default SSE message events
-  eventSource.onmessage = (e) => {
+    if (dataLines.length === 0) return;
     try {
-      const data = JSON.parse(e.data);
-      const type = data.type || 'message';
-      handleParsedData(type, data);
-    } catch (err) {
-      console.warn('Unhandled SSE message:', e.data);
+      const data = JSON.parse(dataLines.join('\n'));
+      onEvent?.(data, eventType);
+      if (['run.completed', 'run.failed', 'run.cancelled'].includes(eventType)) {
+        completed = true;
+        onComplete?.(eventType, data);
+      }
+    } catch (error) {
+      onError?.(new Error('The event stream returned an invalid payload.'));
     }
   };
 
-  eventSource.onerror = (err) => {
-    if (!isCompleted) {
-      console.warn('SSE connection interrupted:', err);
-      if (onError) onError(err);
+  (async () => {
+    try {
+      const token = getSessionToken();
+      const response = await fetch(`/api/v1/agent-runs/${encodeURIComponent(runId)}/events`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        signal: controller.signal,
+      });
+      if (!response.ok || !response.body) {
+        throw new Error(`The event stream could not be opened (${response.status}).`);
+      }
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      while (!closed && !completed) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const blocks = buffer.split(/\r?\n\r?\n/);
+        buffer = blocks.pop() || '';
+        blocks.forEach(dispatchBlock);
+      }
+      if (buffer.trim()) dispatchBlock(buffer.trim());
+      if (!closed && !completed) throw new Error('The event stream ended before the run completed.');
+    } catch (error) {
+      if (!closed && error?.name !== 'AbortError') onError?.(error);
     }
-  };
+  })();
 
   return {
     close: () => {
-      isCompleted = true;
-      eventSource.close();
+      closed = true;
+      controller.abort();
     },
   };
 }
-

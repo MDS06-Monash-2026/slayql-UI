@@ -205,11 +205,21 @@ export async function deleteConnection(connectionId) {
   return res.json();
 }
 
-export async function fetchCatalog(connectionId = 'sqlite_demo') {
+export async function fetchCatalog(connectionId) {
+  if (!connectionId) throw new Error('A database connection must be selected');
   const res = await fetch(`${API_BASE}/connections/${connectionId}/catalog`, {
     headers: { ...getAuthHeaders() },
   });
   if (!res.ok) throw new Error('Failed to load schema catalog');
+  return res.json();
+}
+
+export async function fetchExploreSuggestions(connectionId) {
+  if (!connectionId) return { suggestions: [] };
+  const res = await fetch(`${API_BASE}/connections/${connectionId}/explore-suggestions`, {
+    headers: { ...getAuthHeaders() },
+  });
+  if (!res.ok) throw new Error('Failed to generate exploration suggestions');
   return res.json();
 }
 
@@ -283,7 +293,7 @@ export function inspectWorkbenchHealth(connectionId) {
   return workbenchRequest(`/connections/${connectionId}/workbench/ai/health`);
 }
 
-export async function createAgentRun({ question, modelId, connectionId = 'sqlite_demo' }) {
+export async function createAgentRun({ question, modelId, connectionId, conversationId }) {
   const res = await fetch(`${API_BASE}/agent-runs`, {
     method: 'POST',
     headers: {
@@ -294,6 +304,7 @@ export async function createAgentRun({ question, modelId, connectionId = 'sqlite
       question,
       model_id: modelId,
       connection_id: connectionId,
+      conversation_id: conversationId || null,
     }),
   });
   if (!res.ok) {
@@ -311,7 +322,7 @@ export async function cancelAgentRun(runId) {
   return res.json();
 }
 
-export async function executeCustomSql(runId, sql, connectionId = 'sqlite_demo') {
+export async function executeCustomSql(runId, sql, connectionId) {
   const res = await fetch(`${API_BASE}/agent-runs/${runId}/execute`, {
     method: 'POST',
     headers: {
@@ -343,6 +354,53 @@ export async function deleteHistory(historyId) {
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: 'Failed to delete chat' }));
     throw new Error(err.detail || 'Failed to delete chat');
+  }
+  return res.json();
+}
+
+export async function fetchConversations() {
+  const res = await fetch(`${API_BASE}/conversations`, {
+    headers: { ...getAuthHeaders() },
+  });
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function fetchConversation(conversationId) {
+  const res = await fetch(`${API_BASE}/conversations/${encodeURIComponent(conversationId)}`, {
+    headers: { ...getAuthHeaders() },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to load conversation' }));
+    throw new Error(err.detail || 'Failed to load conversation');
+  }
+  return res.json();
+}
+
+export async function deleteConversation(conversationId) {
+  const res = await fetch(`${API_BASE}/conversations/${encodeURIComponent(conversationId)}`, {
+    method: 'DELETE',
+    headers: { ...getAuthHeaders() },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to delete conversation' }));
+    throw new Error(err.detail || 'Failed to delete conversation');
+  }
+  return res.json();
+}
+
+export async function reportChatMessage(messageId, { category = 'incorrect_or_unhelpful', note = '' } = {}) {
+  const res = await fetch(`${API_BASE}/chat-reports`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeaders(),
+    },
+    body: JSON.stringify({ message_id: messageId, category, note }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to report response' }));
+    throw new Error(err.detail || 'Failed to report response');
   }
   return res.json();
 }

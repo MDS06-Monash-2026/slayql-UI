@@ -492,6 +492,10 @@ button:disabled,
   transition: background-color 180ms ease, color 180ms ease;
 }
 
+.live-demo-composer-footer {
+  background: linear-gradient(to top, #f7f9fc 0%, rgba(247, 249, 252, 0.95) 75%, transparent 100%);
+}
+
 .live-demo-shell.theme-dark {
   --demo-canvas: #171a21;
   --demo-sidebar: #12151b;
@@ -504,6 +508,21 @@ button:disabled,
   color: var(--demo-text);
 }
 
+.live-demo-shell.theme-dark .live-demo-composer-footer {
+  background: linear-gradient(to top, #171a21 0%, rgba(23, 26, 33, 0.95) 75%, transparent 100%) !important;
+}
+
+/* Gradient overrides for tailwind utility classes in dark mode */
+.live-demo-shell.theme-dark .from-\[\#f7f9fc\] {
+  --tw-gradient-from: #171a21 var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgba(23, 26, 33, 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+.live-demo-shell.theme-dark .via-\[\#f7f9fc\]\/95 {
+  --tw-gradient-to: rgba(23, 26, 33, 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), rgba(23, 26, 33, 0.95) var(--tw-gradient-via-position), var(--tw-gradient-to) !important;
+}
+
 .live-demo-shell.theme-dark .bg-white,
 .live-demo-shell.theme-dark .bg-white\/95,
 .live-demo-shell.theme-dark .bg-white\/90 {
@@ -511,11 +530,15 @@ button:disabled,
 }
 
 .live-demo-shell.theme-dark .bg-slate-50,
+.live-demo-shell.theme-dark .bg-slate-50\/40,
+.live-demo-shell.theme-dark .bg-slate-50\/50,
+.live-demo-shell.theme-dark .bg-slate-50\/60,
 .live-demo-shell.theme-dark .bg-slate-50\/70,
 .live-demo-shell.theme-dark .bg-slate-50\/80,
 .live-demo-shell.theme-dark .bg-slate-100,
 .live-demo-shell.theme-dark .bg-slate-100\/50,
-.live-demo-shell.theme-dark .bg-slate-100\/70 {
+.live-demo-shell.theme-dark .bg-slate-100\/70,
+.live-demo-shell.theme-dark .bg-slate-100\/80 {
   background-color: var(--demo-surface-muted) !important;
 }
 
@@ -560,13 +583,15 @@ button:disabled,
 .live-demo-shell.theme-dark input,
 .live-demo-shell.theme-dark textarea,
 .live-demo-shell.theme-dark select {
+  background-color: var(--demo-surface-muted);
   color: var(--demo-text);
-  caret-color: #a5b4fc;
+  border-color: var(--demo-border);
+  caret-color: #818cf8;
 }
 
 .live-demo-shell.theme-dark input::placeholder,
 .live-demo-shell.theme-dark textarea::placeholder {
-  color: #778195;
+  color: #64748b;
 }
 
 .live-demo-shell.theme-dark .shadow-sm,
@@ -578,14 +603,26 @@ button:disabled,
 
 .live-demo-shell.theme-dark .hover\:bg-slate-50:hover,
 .live-demo-shell.theme-dark .hover\:bg-slate-100:hover,
-.live-demo-shell.theme-dark .hover\:bg-slate-200\/60:hover {
+.live-demo-shell.theme-dark .hover\:bg-slate-200\/60:hover,
+.live-demo-shell.theme-dark .hover\:bg-slate-200\/70:hover {
   background-color: #2a303b !important;
+}
+
+/* High contrast primary CTA and button overrides in dark mode */
+.live-demo-shell.theme-dark .bg-slate-900 {
+  background-color: #4f46e5 !important;
+  color: #ffffff !important;
+}
+.live-demo-shell.theme-dark .bg-slate-900:hover,
+.live-demo-shell.theme-dark .hover\:bg-slate-800:hover {
+  background-color: #4338ca !important;
 }
 
 .live-demo-shell.theme-dark .bg-indigo-50,
 .live-demo-shell.theme-dark .bg-indigo-50\/50,
 .live-demo-shell.theme-dark .bg-indigo-50\/70 {
-  background-color: #282844 !important;
+  background-color: #24273e !important;
+  border-color: #373b5e !important;
 }
 
 .live-demo-shell.theme-dark .live-demo-profile {
@@ -597,12 +634,44 @@ button:disabled,
   background-color: var(--demo-sidebar);
 }
 
-.live-demo-shell.theme-dark .bg-emerald-50,
-.live-demo-shell.theme-dark .bg-cyan-50,
+.live-demo-shell.theme-dark .bg-emerald-50 {
+  background-color: #172b26 !important;
+  border-color: #1f4239 !important;
+}
+.live-demo-shell.theme-dark .text-emerald-700 {
+  color: #34d399 !important;
+}
+
+.live-demo-shell.theme-dark .bg-cyan-50 {
+  background-color: #162a33 !important;
+  border-color: #1e3d4c !important;
+}
+
 .live-demo-shell.theme-dark .bg-rose-50,
-.live-demo-shell.theme-dark .bg-amber-50,
 .live-demo-shell.theme-dark .bg-red-50 {
-  background-color: var(--demo-surface-muted) !important;
+  background-color: #321d23 !important;
+  border-color: #4a242f !important;
+}
+.live-demo-shell.theme-dark .text-red-700,
+.live-demo-shell.theme-dark .text-red-600 {
+  color: #f87171 !important;
+}
+
+.live-demo-shell.theme-dark .bg-amber-50 {
+  background-color: #2e2617 !important;
+  border-color: #47391c !important;
+}
+.live-demo-shell.theme-dark .text-amber-700 {
+  color: #fbbf24 !important;
+}
+
+.live-demo-shell.theme-dark .bg-purple-50 {
+  background-color: #271f38 !important;
+  border-color: #3d2f58 !important;
+}
+.live-demo-shell.theme-dark .text-purple-800,
+.live-demo-shell.theme-dark .text-purple-700 {
+  color: #c084fc !important;
 }
 
 .live-demo-shell.theme-dark .live-demo-profile-menu {
@@ -621,6 +690,78 @@ button:disabled,
 
 .live-demo-shell.theme-dark .live-demo-profile-menu .hover\:bg-red-50:hover {
   background-color: #3a2229 !important;
+}
+
+/* User message bubble in dark theme */
+.live-demo-shell.theme-dark .user-chat-bubble {
+  background-color: #272d39 !important;
+  border: 1px solid #384152 !important;
+  color: #f8fafc !important;
+}
+
+/* Composer styling in dark theme */
+.live-demo-shell.theme-dark .composer-card {
+  background-color: #20242d !important;
+  border-color: #323844 !important;
+}
+.live-demo-shell.theme-dark .composer-card:hover {
+  border-color: #475060 !important;
+}
+.live-demo-shell.theme-dark .composer-card.composer-focused {
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2), 0 10px 25px -5px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* SQL Syntax Highlighting in dark theme */
+.live-demo-shell.theme-dark .sql-kw {
+  color: #818cf8 !important;
+}
+.live-demo-shell.theme-dark .sql-str {
+  color: #34d399 !important;
+}
+.live-demo-shell.theme-dark .sql-num {
+  color: #fbbf24 !important;
+}
+.live-demo-shell.theme-dark .sql-comment {
+  color: #94a3b8 !important;
+}
+
+/* Tables in dark theme */
+.live-demo-shell.theme-dark table th {
+  background-color: #1b1f27 !important;
+  border-color: #323844 !important;
+  color: #94a3b8 !important;
+}
+.live-demo-shell.theme-dark table td {
+  border-color: #242934 !important;
+  color: #e2e8f0;
+}
+.live-demo-shell.theme-dark table tr:hover td {
+  background-color: #252a35 !important;
+}
+
+/* Recharts in dark theme */
+.live-demo-shell.theme-dark .recharts-cartesian-grid line {
+  stroke: #2d3442 !important;
+}
+.live-demo-shell.theme-dark .recharts-text {
+  fill: #94a3b8 !important;
+}
+.live-demo-shell.theme-dark .recharts-default-tooltip {
+  background-color: #1b1f27 !important;
+  border: 1px solid #323844 !important;
+  color: #f8fafc !important;
+  border-radius: 12px !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6) !important;
+}
+.live-demo-shell.theme-dark .recharts-tooltip-label {
+  color: #f8fafc !important;
+}
+.live-demo-shell.theme-dark .recharts-tooltip-item {
+  color: #cbd5e1 !important;
+}
+.live-demo-shell.theme-dark .recharts-legend-item-text {
+  color: #cbd5e1 !important;
 }
 
 .db-center-cta {
@@ -716,4 +857,289 @@ button:disabled,
   .drawer-mobile-enter {
     animation: drawer-in 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
+}
+
+/* ══════════════════════════════════════════════════════════
+   DARK MODE — Component-level contrast overrides (Round 2)
+   Targeting DataTablePanel, CatalogDrawer, TraceTimeline,
+   VisualizationStudio, and other sub-components.
+   ══════════════════════════════════════════════════════════ */
+
+/* ── DataTablePanel ─────────────────────────────────────── */
+
+/* Outer card and table wrapper */
+.live-demo-shell.theme-dark .bg-white.rounded-2xl,
+.live-demo-shell.theme-dark .bg-white.rounded-2xl.border {
+  background-color: var(--demo-surface) !important;
+  border-color: var(--demo-border) !important;
+}
+
+/* Filter input */
+.live-demo-shell.theme-dark .bg-slate-50.border.border-slate-200.rounded-xl {
+  background-color: var(--demo-surface-muted) !important;
+  border-color: var(--demo-border) !important;
+  color: var(--demo-text) !important;
+}
+.live-demo-shell.theme-dark .bg-slate-50.border.border-slate-200.rounded-xl:focus {
+  background-color: var(--demo-surface) !important;
+  border-color: #6366f1 !important;
+}
+
+/* Export CSV button */
+.live-demo-shell.theme-dark .bg-slate-100.hover\:bg-slate-200 {
+  background-color: #2a303b !important;
+  color: #cbd5e1 !important;
+  border-color: var(--demo-border) !important;
+}
+.live-demo-shell.theme-dark .bg-slate-100.hover\:bg-slate-200:hover {
+  background-color: #323844 !important;
+  color: #f8fafc !important;
+}
+
+/* Table toolbar separator */
+.live-demo-shell.theme-dark .border-b.border-slate-100 {
+  border-color: var(--demo-border) !important;
+}
+
+/* Data table container */
+.live-demo-shell.theme-dark .rounded-xl.border.border-slate-200.overflow-hidden {
+  border-color: var(--demo-border) !important;
+}
+
+/* Pagination footer */
+.live-demo-shell.theme-dark .flex.items-center.gap-1\.5 > button {
+  background-color: var(--demo-surface-muted) !important;
+  border-color: var(--demo-border) !important;
+  color: #cbd5e1 !important;
+}
+.live-demo-shell.theme-dark .flex.items-center.gap-1\.5 > button:hover:not(:disabled) {
+  background-color: #2a303b !important;
+  color: #f8fafc !important;
+}
+.live-demo-shell.theme-dark .flex.items-center.gap-1\.5 > button:disabled {
+  opacity: 0.3 !important;
+}
+
+/* Table dividers */
+.live-demo-shell.theme-dark .divide-y.divide-slate-100 > * + * {
+  border-color: var(--demo-border) !important;
+}
+
+/* ── CatalogDrawer ──────────────────────────────────────── */
+
+/* Modal backdrop and container */
+.live-demo-shell.theme-dark .bg-white.rounded-3xl {
+  background-color: var(--demo-surface) !important;
+  border-color: var(--demo-border) !important;
+}
+
+/* Catalog header bar */
+.live-demo-shell.theme-dark .border-b.border-slate-100.bg-slate-50\/80 {
+  background-color: var(--demo-surface-muted) !important;
+  border-color: var(--demo-border) !important;
+}
+
+/* Table list rail (left sidebar of catalog modal) */
+.live-demo-shell.theme-dark .w-64.border-r.border-slate-100 {
+  background-color: var(--demo-sidebar) !important;
+  border-color: var(--demo-border) !important;
+}
+
+/* Unselected table items in catalog rail */
+.live-demo-shell.theme-dark .text-slate-700.hover\:bg-slate-100 {
+  color: #cbd5e1 !important;
+}
+
+/* Column count badges (unselected) */
+.live-demo-shell.theme-dark .bg-slate-200\/60.text-slate-500 {
+  background-color: #2a303b !important;
+  color: #94a3b8 !important;
+}
+
+/* Add Database button in catalog */
+.live-demo-shell.theme-dark .border.border-slate-200.hover\:bg-slate-100.text-slate-700 {
+  background-color: var(--demo-surface-muted) !important;
+  border-color: var(--demo-border) !important;
+  color: #cbd5e1 !important;
+}
+.live-demo-shell.theme-dark .border.border-slate-200.hover\:bg-slate-100.text-slate-700:hover {
+  background-color: #2a303b !important;
+}
+
+/* Close button in catalog modal */
+.live-demo-shell.theme-dark .p-2.rounded-xl.text-slate-400.hover\:text-slate-700 {
+  color: #94a3b8 !important;
+}
+.live-demo-shell.theme-dark .p-2.rounded-xl.text-slate-400.hover\:text-slate-700:hover {
+  color: #f8fafc !important;
+  background-color: #2a303b !important;
+}
+
+/* Catalog table detail area */
+.live-demo-shell.theme-dark .border-b.border-slate-100.pb-3 {
+  border-color: var(--demo-border) !important;
+}
+
+/* Column type color in catalog */
+.live-demo-shell.theme-dark .text-indigo-600 {
+  color: #818cf8 !important;
+}
+
+/* Nullable / not-null text */
+.live-demo-shell.theme-dark .text-slate-400 {
+  color: #64748b !important;
+}
+.live-demo-shell.theme-dark .text-slate-600 {
+  color: #94a3b8 !important;
+}
+
+/* ── SlayQLTraceTimeline ─────────────────────────────────── */
+
+/* Collapsible trace header button */
+.live-demo-shell.theme-dark .bg-white.hover\:bg-slate-50.text-slate-600.border.border-slate-200\/80 {
+  background-color: var(--demo-surface) !important;
+  border-color: var(--demo-border) !important;
+  color: #94a3b8 !important;
+}
+.live-demo-shell.theme-dark .bg-white.hover\:bg-slate-50.text-slate-600.border.border-slate-200\/80:hover {
+  background-color: #2a303b !important;
+  color: #f8fafc !important;
+}
+
+/* Expanded trace detail panel */
+.live-demo-shell.theme-dark .rounded-2xl.bg-white.border.border-slate-200\/80 {
+  background-color: var(--demo-surface) !important;
+  border-color: var(--demo-border) !important;
+}
+
+/* Progress bar track */
+.live-demo-shell.theme-dark .h-1.rounded-full.bg-slate-100 {
+  background-color: #2a303b !important;
+}
+
+/* Stage item text for pending stages */
+.live-demo-shell.theme-dark .text-slate-400 {
+  color: #475569 !important;
+}
+
+/* Passed stage text */
+.live-demo-shell.theme-dark .text-slate-800 {
+  color: #e2e8f0 !important;
+}
+
+/* Evidence text */
+.live-demo-shell.theme-dark .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+/* Token usage section */
+.live-demo-shell.theme-dark .pt-2.border-t.border-slate-100 {
+  border-color: var(--demo-border) !important;
+}
+
+/* ── VisualizationStudio ─────────────────────────────────── */
+
+/* Chart card container */
+.live-demo-shell.theme-dark .bg-white.rounded-2xl.border.border-slate-200\/90 {
+  background-color: var(--demo-surface) !important;
+  border-color: var(--demo-border) !important;
+}
+
+/* Studio header separator */
+.live-demo-shell.theme-dark .border-b.border-slate-100.pb-4 {
+  border-color: var(--demo-border) !important;
+}
+
+/* "AI Recommended" badge in chart view */
+.live-demo-shell.theme-dark .bg-indigo-50.text-indigo-700.border-indigo-200\/60 {
+  background-color: #24273e !important;
+  color: #a5b4fc !important;
+  border-color: #3730a3 !important;
+}
+
+/* "Custom view" badge */
+.live-demo-shell.theme-dark .bg-slate-50.text-slate-500.border-slate-200 {
+  background-color: #1b1f27 !important;
+  color: #94a3b8 !important;
+  border-color: var(--demo-border) !important;
+}
+
+/* Chart type selector (select dropdown) */
+.live-demo-shell.theme-dark select.bg-slate-50.border-slate-200 {
+  background-color: var(--demo-surface-muted) !important;
+  border-color: var(--demo-border) !important;
+  color: #f8fafc !important;
+}
+.live-demo-shell.theme-dark select.bg-slate-50.border-slate-200:focus {
+  border-color: #6366f1 !important;
+  background-color: var(--demo-surface) !important;
+}
+.live-demo-shell.theme-dark select option {
+  background-color: var(--demo-surface) !important;
+  color: var(--demo-text) !important;
+}
+
+/* "No data" empty state in chart */
+.live-demo-shell.theme-dark .py-16.text-center.text-slate-400.bg-white {
+  background-color: var(--demo-surface) !important;
+  border-color: var(--demo-border) !important;
+}
+
+/* ── Shared scrollbar override for dark mode ─────────────── */
+.live-demo-shell.theme-dark ::-webkit-scrollbar-track {
+  background: var(--demo-sidebar) !important;
+}
+.live-demo-shell.theme-dark ::-webkit-scrollbar-thumb {
+  background: #3c4453 !important;
+}
+.live-demo-shell.theme-dark ::-webkit-scrollbar-thumb:hover {
+  background: #556070 !important;
+}
+
+/* ── Main chat thread canvas and results card ────────────── */
+
+/* The main <main> element uses bg-[#f7f9fc] */
+.live-demo-shell.theme-dark main {
+  background-color: var(--demo-canvas) !important;
+}
+
+/* Results Studio card — the outer wrapper uses bg-white directly */
+.live-demo-shell.theme-dark .rounded-2xl.border.bg-white {
+  background-color: var(--demo-surface) !important;
+  border-color: var(--demo-border) !important;
+}
+
+/* The main logo icon background */
+.live-demo-shell.theme-dark .bg-indigo-50.border.border-indigo-100 {
+  background-color: #1e213e !important;
+  border-color: #2f3266 !important;
+}
+
+/* "Working through your request" status text */
+.live-demo-shell.theme-dark .text-slate-800 {
+  color: #e2e8f0 !important;
+}
+
+/* ── ER Diagram — React Flow controls dark mode ───────────── */
+
+/* Controls panel buttons */
+.live-demo-shell.theme-dark .react-flow__controls-button {
+  background-color: #20242d !important;
+  border-color: #323844 !important;
+  fill: #94a3b8 !important;
+  color: #94a3b8 !important;
+}
+.live-demo-shell.theme-dark .react-flow__controls-button:hover {
+  background-color: #2a303b !important;
+  fill: #f8fafc !important;
+}
+
+/* MiniMap dark overlay */
+.live-demo-shell.theme-dark .react-flow__minimap {
+  background-color: #12151b !important;
+}
+
+/* React Flow panel (attribution etc) */
+.live-demo-shell.theme-dark .react-flow__panel {
+  color: #475569 !important;
 }

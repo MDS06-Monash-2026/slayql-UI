@@ -28,10 +28,10 @@ function highlightSQL(sql) {
   while ((match = tokenRe.exec(sql)) !== null) {
     if (match.index > lastIndex) parts.push(sql.slice(lastIndex, match.index));
     const [, comment, str, kw, num] = match;
-    if (comment) parts.push(<span key={parts.length} className="text-slate-400 italic">{comment}</span>);
-    else if (str) parts.push(<span key={parts.length} className="text-emerald-700 font-mono font-medium">{str}</span>);
-    else if (kw) parts.push(<span key={parts.length} className="text-indigo-600 font-bold font-mono">{kw}</span>);
-    else if (num) parts.push(<span key={parts.length} className="text-amber-700 font-mono font-semibold">{num}</span>);
+    if (comment) parts.push(<span key={parts.length} className="sql-comment text-slate-400 italic">{comment}</span>);
+    else if (str) parts.push(<span key={parts.length} className="sql-str text-emerald-700 font-mono font-medium">{str}</span>);
+    else if (kw) parts.push(<span key={parts.length} className="sql-kw text-indigo-600 font-bold font-mono">{kw}</span>);
+    else if (num) parts.push(<span key={parts.length} className="sql-num text-amber-700 font-mono font-semibold">{num}</span>);
     lastIndex = tokenRe.lastIndex;
   }
   if (lastIndex < sql.length) parts.push(sql.slice(lastIndex));

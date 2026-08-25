@@ -20,10 +20,14 @@ import {
   Coins,
   UserRound,
   LogOut,
+  Loader2,
+  Flag,
+  Check,
 } from 'lucide-react';
 
 import ModelSelector from '../components/demo/ModelSelector';
 import SlayQLTraceTimeline from '../components/demo/SlayQLTraceTimeline';
+import AgentStreamPanel, { normalizeStreamEvent } from '../components/demo/AgentStreamPanel';
 import SqlEditorPanel from '../components/demo/SqlEditorPanel';
 import VisualizationStudio from '../components/demo/VisualizationStudio';
 import DataTablePanel from '../components/demo/DataTablePanel';
@@ -37,30 +41,119 @@ import {
   fetchModels,
   fetchConnections,
   fetchCatalog,
+  fetchExploreSuggestions,
   createAgentRun,
   cancelAgentRun,
   executeCustomSql,
   fetchSavedQueries,
   saveQuery,
-  fetchHistory,
-  deleteHistory,
+  fetchConversations,
+  fetchConversation,
+  deleteConversation,
+  reportChatMessage,
 } from '../services/api';
 import { connectRunEventStream } from '../services/sse';
 
-const SUGGESTIONS = [
-  { label: 'Top Customers by Spending', prompt: 'Show top 5 customers by total spending' },
-  { label: 'Category Profit Margins', prompt: 'Which product categories have the highest profit margins?' },
-  { label: 'Support Resolution Times', prompt: 'Show support case volume and average resolution hours by priority' },
-  { label: 'Payment Gateway Breakdown', prompt: 'Total payments processed grouped by payment provider' },
-];
+function ConversationAssistantMessage({ message, isDark = false }) {
+  const payload = message.payload || {};
+  const rows = Array.isArray(payload.rows) ? payload.rows : [];
+  const columns = Array.isArray(payload.columns) ? payload.columns : [];
+  const [reportState, setReportState] = useState('idle');
+
+  const handleReport = async () => {
+    if (!message.id || reportState === 'sending' || reportState === 'reported') return;
+    setReportState('sending');
+    try {
+      await reportChatMessage(message.id);
+      setReportState('reported');
+    } catch (error) {
+      setReportState('error');
+    }
+  };
+
+  return (
+    <div className="flex items-start gap-3 py-3">
+      <div className="w-9 h-9 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0">
+        <img src="/SlayQLlogo.png" alt="SlayQL" className="w-full h-full object-contain" />
+      </div>
+      <div className="min-w-0 flex-1 space-y-3">
+        <p className="text-xs font-semibold text-slate-800">SlayQL</p>
+        <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-wrap">{message.content}</p>
+        {payload.reasoning && (
+          <details className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+            <summary className="cursor-pointer font-semibold text-slate-600">Reasoning output</summary>
+            <p className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap leading-relaxed text-slate-500">{payload.reasoning}</p>
+          </details>
+        )}
+        <AgentStreamPanel events={payload.stream_events || []} />
+        {message.sql && (
+          <pre className="max-h-64 overflow-auto rounded-lg bg-slate-950 p-3 text-xs leading-relaxed text-slate-100 font-mono whitespace-pre-wrap">
+            <code>{message.sql}</code>
+          </pre>
+        )}
+        {payload.chart && rows.length > 0 && (
+          <VisualizationStudio
+            rows={rows}
+            columns={columns}
+            columnTypes={Array.isArray(payload.column_types) ? payload.column_types : []}
+            chartRecommendation={payload.chart}
+            recommendation={payload.chart}
+            isLoading={false}
+            isDark={isDark}
+          />
+        )}
+        {columns.length > 0 && (
+          <div className="overflow-auto rounded-lg border border-slate-200 bg-white">
+            <table className="min-w-full text-xs">
+              <thead className="bg-slate-50 text-slate-500">
+                <tr>{columns.map((column) => <th key={column} className="px-3 py-2 text-left font-semibold whitespace-nowrap">{column}</th>)}</tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-slate-700">
+                {rows.slice(0, 8).map((row, rowIndex) => (
+                  <tr key={rowIndex}>{columns.map((column, columnIndex) => <td key={`${column}-${columnIndex}`} className="px-3 py-2 whitespace-nowrap">{String(row[columnIndex] ?? '')}</td>)}</tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="border-t border-slate-100 px-3 py-1.5 text-[10px] text-slate-400">
+              {payload.row_count ?? rows.length} rows{payload.is_truncated ? ' (limited)' : ''}
+            </div>
+          </div>
+        )}
+        {payload.reportable !== false && (
+          <div className="flex items-center gap-2 pt-1">
+            <button
+              type="button"
+              onClick={handleReport}
+              disabled={reportState === 'sending' || reportState === 'reported'}
+              title="Report this response"
+              className={`inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-[11px] font-medium transition-colors disabled:cursor-default ${
+                reportState === 'reported'
+                  ? 'bg-emerald-50 text-emerald-700'
+                  : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+              }`}
+            >
+              {reportState === 'reported' ? <Check className="h-3.5 w-3.5" /> : <Flag className="h-3.5 w-3.5" />}
+              {reportState === 'sending' ? 'Reporting...' : reportState === 'reported' ? 'Reported' : 'Report'}
+            </button>
+            {reportState === 'error' && (
+              <span className="text-[11px] text-red-600">Could not send report. Try again.</span>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function LiveDemoView({ setView, session, onLogout, onSessionUpdate }) {
   // --- Infrastructure & Metadata State ---
   const [models, setModels] = useState([]);
-  const [selectedModelId, setSelectedModelId] = useState('anthropic/claude-sonnet-4.5');
+  const [selectedModelId, setSelectedModelId] = useState('deepseek/deepseek-v4-flash');
   const [connections, setConnections] = useState([]);
-  const [selectedConnectionId, setSelectedConnectionId] = useState('sqlite_demo');
+  const [selectedConnectionId, setSelectedConnectionId] = useState(null);
   const [catalog, setCatalog] = useState(null);
+  const [exploreSuggestions, setExploreSuggestions] = useState([]);
+  const [exploreLoading, setExploreLoading] = useState(false);
   const [savedQueries, setSavedQueries] = useState([]);
   const [historyList, setHistoryList] = useState([]);
   const [deletingHistoryId, setDeletingHistoryId] = useState(null);
@@ -90,6 +183,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
 
   // --- Conversational Turns State ---
   const [messages, setMessages] = useState([]);
+  const [conversationId, setConversationId] = useState(null);
   const [inputPrompt, setInputPrompt] = useState('');
   const [isRunning, setIsRunning] = useState(false);
   const [currentRunId, setCurrentRunId] = useState(null);
@@ -107,12 +201,22 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
   const [activeExecutionTimeMs, setActiveExecutionTimeMs] = useState(0);
   const [activeChartRecommendation, setActiveChartRecommendation] = useState(null);
   const [activeTokenUsage, setActiveTokenUsage] = useState(null);
+  const [activeReasoning, setActiveReasoning] = useState('');
+  const [activeAnswer, setActiveAnswer] = useState('');
+  const [activeStreamEvents, setActiveStreamEvents] = useState([]);
   const [activeResultTab, setActiveResultTab] = useState('chart'); // 'chart' | 'table'
   const [composerFocused, setComposerFocused] = useState(false);
 
   const activeStreamRef = useRef(null);
   const chatBottomRef = useRef(null);
   const composerRef = useRef(null);
+  const exploreRequestRef = useRef(0);
+  const catalogRequestRef = useRef(0);
+  const selectedConnectionRef = useRef(selectedConnectionId);
+
+  useEffect(() => {
+    selectedConnectionRef.current = selectedConnectionId;
+  }, [selectedConnectionId]);
 
   useEffect(() => {
     try {
@@ -124,18 +228,52 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
 
   // --- Data Fetching ---
   const loadCatalog = useCallback(async (connId) => {
+    const requestId = ++catalogRequestRef.current;
+    setCatalog(null);
+    if (!connId) {
+      return;
+    }
     try {
-      const cat = await fetchCatalog(connId || selectedConnectionId);
-      setCatalog(cat);
+      const cat = await fetchCatalog(connId);
+      if (catalogRequestRef.current === requestId) setCatalog(cat);
     } catch (err) {
       console.warn('Catalog load error:', err);
     }
-  }, [selectedConnectionId]);
+  }, []);
+
+  const loadExploreSuggestions = useCallback(async (connId) => {
+    const requestId = ++exploreRequestRef.current;
+    setExploreSuggestions([]);
+    if (!connId) {
+      setExploreLoading(false);
+      return;
+    }
+    setExploreLoading(true);
+    try {
+      const data = await fetchExploreSuggestions(connId);
+      if (exploreRequestRef.current === requestId) {
+        setExploreSuggestions(Array.isArray(data.suggestions) ? data.suggestions : []);
+      }
+    } catch (err) {
+      if (exploreRequestRef.current === requestId) {
+        setExploreSuggestions([]);
+      }
+      console.warn('Explore suggestions load error:', err);
+    } finally {
+      if (exploreRequestRef.current === requestId) {
+        setExploreLoading(false);
+      }
+    }
+  }, []);
 
   const loadConnections = useCallback(async () => {
     try {
       const conns = await fetchConnections();
       setConnections(conns);
+      setSelectedConnectionId((current) => {
+        if (conns.some((connection) => connection.id === current)) return current;
+        return (conns.find((connection) => connection.is_default) || conns[0])?.id || null;
+      });
     } catch (err) {
       console.warn('Connections load error:', err);
     }
@@ -143,7 +281,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
 
   const loadHistory = useCallback(async () => {
     try {
-      const hist = await fetchHistory();
+      const hist = await fetchConversations();
       setHistoryList(hist);
     } catch (err) {
       console.warn('History load error:', err);
@@ -164,25 +302,34 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
         if (modelsData.length > 0 && !selectedModelId) {
           setSelectedModelId(modelsData[0].id);
         }
-        await loadCatalog(selectedConnectionId);
+        const defaultConnection = connsData.find((connection) => connection.is_default) || connsData[0];
+        if (defaultConnection) {
+          setSelectedConnectionId(defaultConnection.id);
+          await Promise.all([
+            loadCatalog(defaultConnection.id),
+            loadExploreSuggestions(defaultConnection.id),
+          ]);
+        } else {
+          await Promise.all([loadCatalog(null), loadExploreSuggestions(null)]);
+        }
         await loadHistory();
       } catch (err) {
         console.warn('Init error:', err);
       }
     }
     init();
-  }, [selectedConnectionId, loadCatalog, loadHistory]);
+  }, [loadCatalog, loadExploreSuggestions, loadHistory]);
 
   const activeConnection = connections.find((c) => c.id === selectedConnectionId) || {
-    id: 'sqlite_demo',
-    name: 'SlayQL Demo Database',
-    engine: 'sqlite',
-    table_count: catalog ? Object.keys(catalog.tables || {}).length : 7,
+    id: null,
+    name: 'No data source',
+    engine: null,
+    table_count: 0,
   };
 
   const selectedModel = models.find((m) => m.id === selectedModelId) || {
-    name: 'Claude Sonnet 4.5',
-    provider: 'Anthropic',
+    name: 'DeepSeek V4 Flash',
+    provider: 'DeepSeek',
   };
 
   useEffect(() => {
@@ -204,10 +351,22 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
   const handleNewThread = () => {
     if (activeStreamRef.current) activeStreamRef.current.close();
     setMessages([]);
+    setConversationId(null);
     setInputPrompt('');
     setIsRunning(false);
     setCurrentRunId(null);
     setErrorMessage(null);
+    setActiveStages({});
+    setActiveStageKey(null);
+    setActiveSql('');
+    setActiveChecks([]);
+    setActiveColumns([]);
+    setActiveColumnTypes([]);
+    setActiveRows([]);
+    setActiveChartRecommendation(null);
+    setActiveReasoning('');
+    setActiveAnswer('');
+    setActiveStreamEvents([]);
     if (composerRef.current) composerRef.current.style.height = '';
   };
 
@@ -220,8 +379,9 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
   const handleDeleteHistory = async (historyItem) => {
     setDeletingHistoryId(historyItem.id);
     try {
-      await deleteHistory(historyItem.id);
+      await deleteConversation(historyItem.id);
       setHistoryList((current) => current.filter((item) => item.id !== historyItem.id));
+      if (historyItem.id === conversationId) handleNewThread();
       setHistoryDeleteTarget(null);
     } catch (err) {
       setErrorMessage(err.message || 'Failed to delete chat history.');
@@ -230,10 +390,48 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
     }
   };
 
+  const loadConversationThread = useCallback(async (id) => {
+    if (!id) return;
+    setErrorMessage(null);
+    try {
+      const thread = await fetchConversation(id);
+      if (activeStreamRef.current) activeStreamRef.current.close();
+      setConversationId(thread.id);
+      setMessages((thread.messages || []).map((message) => ({
+        ...message,
+        sender: message.role,
+        createdAt: new Date(message.created_at),
+      })));
+      if (thread.selected_model_id) setSelectedModelId(thread.selected_model_id);
+      if (thread.connection_id && thread.connection_id !== selectedConnectionRef.current) {
+        setSelectedConnectionId(thread.connection_id);
+        await Promise.all([loadCatalog(thread.connection_id), loadExploreSuggestions(thread.connection_id)]);
+      }
+      setCurrentRunId(null);
+      setActiveStages({});
+      setActiveStageKey(null);
+      setActiveSql('');
+      setActiveChecks([]);
+      setActiveColumns([]);
+      setActiveColumnTypes([]);
+      setActiveRows([]);
+      setActiveChartRecommendation(null);
+      setActiveReasoning('');
+      setActiveAnswer('');
+      setActiveStreamEvents([]);
+    } catch (err) {
+      setErrorMessage(err.message || 'Failed to load conversation.');
+    }
+  }, [loadCatalog, loadExploreSuggestions]);
+
   // --- Send Query ---
   const handleSendQuery = useCallback(async (promptToRun) => {
     const queryText = (promptToRun || inputPrompt).trim();
     if (!queryText || isRunning) return;
+    if (!selectedConnectionId) {
+      setErrorMessage('Add and select a data source before running SQL generation.');
+      return;
+    }
 
     const userMsg = { id: `user_${Date.now()}`, sender: 'user', content: queryText, createdAt: new Date() };
     setMessages((prev) => [...prev, userMsg]);
@@ -252,6 +450,9 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
     setActiveRows([]);
     setActiveChartRecommendation(null);
     setActiveTokenUsage(null);
+    setActiveReasoning('');
+    setActiveAnswer('');
+    setActiveStreamEvents([]);
     setActiveResultTab('chart');
 
     try {
@@ -259,24 +460,27 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
         question: queryText,
         modelId: selectedModelId,
         connectionId: selectedConnectionId,
+        conversationId,
       });
 
       const runId = runData.run_id;
       setCurrentRunId(runId);
+      setConversationId(runData.conversation_id);
       if (typeof runData.credits_remaining === 'number') {
         setCreditBalance(runData.credits_remaining);
         onSessionUpdate?.({ ...session, user: { ...session.user, credits: runData.credits_remaining } });
       }
       setHistoryList((current) => [
         {
-          id: runId,
-          conversation_id: runData.conversation_id,
+          id: runData.conversation_id,
           prompt: queryText,
+          selected_model_id: selectedModelId,
           model_id: selectedModelId,
           connection_id: selectedConnectionId,
           created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         },
-        ...current.filter((item) => item.id !== runId),
+        ...current.filter((item) => item.id !== runData.conversation_id),
       ]);
 
       if (activeStreamRef.current) activeStreamRef.current.close();
@@ -293,6 +497,10 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
           const stage = evt.stage;
           const type = evt.type || eventType || (typeof event === 'string' ? event : '');
           const payload = evt.payload || {};
+          setActiveStreamEvents((current) => [
+            ...current,
+            normalizeStreamEvent(evt, type),
+          ].slice(-240));
 
           if (stage) {
             setActiveStageKey(stage);
@@ -301,10 +509,21 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
               [stage]: {
                 stage,
                 status:
-                  type === 'stage.completed' ||
+                  type === 'stage.started' ||
+                  type === 'provider.request_started' ||
+                  type === 'agent.repair_started' ||
+                  type === 'intent.validator_started' ||
+                  type === 'sql.semantic_validation_started' ||
+                  type === 'visualization.agent_started' ||
+                  type === 'execution.started'
+                    ? 'in_progress'
+                    : type === 'stage.completed' ||
                   type === 'sql.validation_completed' ||
                   type === 'execution.completed' ||
                   type === 'provider.completed' ||
+                  type === 'intent.validator_completed' ||
+                  type === 'sql.semantic_validation_completed' ||
+                  type === 'visualization.agent_completed' ||
                   type === 'visualization.recommended' ||
                   type === 'visualization.not_recommended' ||
                   type === 'run.completed'
@@ -316,15 +535,21 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
                     : 'in_progress',
                 duration_ms: payload?.duration_ms ?? payload?.latency_ms ?? prev[stage]?.duration_ms,
                 evidence: payload?.summary
-                  ? [...(prev[stage]?.evidence || []), payload.summary]
+                  ? [...(prev[stage]?.evidence || []), { ...payload, summary: payload.summary }]
                   : payload?.evidence || prev[stage]?.evidence || [],
                 title: payload?.title || payload?.label || prev[stage]?.title,
               },
             }));
           }
 
-          if (type === 'provider.completed' && payload?.token_usage) {
+          if (type === 'provider.usage_finalized' && payload?.usage) {
+            setActiveTokenUsage(payload.usage);
+          } else if (type === 'provider.completed' && payload?.token_usage) {
             setActiveTokenUsage(payload.token_usage);
+          } else if (type === 'provider.reasoning_delta' || type === 'provider.reasoning_detail') {
+            setActiveReasoning((current) => `${current}${payload.delta || ''}`.slice(-12000));
+          } else if (type === 'assistant.delta') {
+            setActiveAnswer((current) => `${current}${payload.delta || ''}`);
           } else if (type === 'sql.candidate_ready' || type === 'sql.ready') {
             if (payload.sql) setActiveSql(payload.sql);
           } else if (type === 'sql.validation_check') {
@@ -350,15 +575,28 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
           } else if (type === 'visualization.not_recommended') {
             setActiveChartRecommendation(null);
             setActiveResultTab('table');
+          } else if (type === 'run.completed') {
+            setActiveAnswer(payload.answer || '');
+            setActiveSql(payload.sql || '');
+            setActiveColumns(payload.columns || []);
+            setActiveColumnTypes(payload.column_types || []);
+            setActiveRows(payload.rows || []);
+            setActiveIsTruncated(Boolean(payload.is_truncated));
+            setActiveChartRecommendation(payload.chart || null);
           } else if (type === 'run.failed') {
             setErrorMessage(payload.error || 'Execution failed');
             setIsRunning(false);
           }
         },
-        onComplete: () => {
+        onComplete: async (_type, event) => {
           setIsRunning(false);
           setActiveStageKey(null);
-          loadHistory();
+          await loadHistory();
+          const completedConversationId = event?.conversation_id || runData.conversation_id;
+          await loadConversationThread(completedConversationId);
+          if (selectedConnectionRef.current === selectedConnectionId) {
+            loadExploreSuggestions(selectedConnectionId);
+          }
         },
         onError: (err) => {
           console.warn('Stream error:', err);
@@ -369,7 +607,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
       setErrorMessage(err.message || 'Failed to initialize agent run.');
       setIsRunning(false);
     }
-  }, [inputPrompt, isRunning, selectedModelId, selectedConnectionId, loadHistory, onSessionUpdate, session]);
+  }, [inputPrompt, isRunning, selectedModelId, selectedConnectionId, conversationId, loadConversationThread, loadExploreSuggestions, loadHistory, onSessionUpdate, session]);
 
   const handleCancelRun = async () => {
     if (currentRunId) {
@@ -483,7 +721,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
                 <Layers className="w-3.5 h-3.5 text-slate-500" />
                 <span className="flex-1 text-left">Schema Catalog</span>
                 <span className="text-[10px] text-slate-400 font-mono">
-                  {catalog ? Object.keys(catalog.tables || {}).length : 7}
+                  {catalog ? Object.keys(catalog.tables || {}).length : 0}
                 </span>
               </button>
 
@@ -507,9 +745,15 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
 
             <div className="space-y-0.5 pt-3">
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider px-2 pb-1">Explore</p>
-              {SUGGESTIONS.slice(0, 3).map((item) => (
+              {selectedConnectionId && exploreLoading && (
+                <div className="h-8 px-2.5 flex items-center gap-2 text-[10px] text-slate-400">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <span>Planning next questions</span>
+                </div>
+              )}
+              {selectedConnectionId && !exploreLoading && exploreSuggestions.map((item) => (
                 <button
-                  key={item.label}
+                  key={`${item.label}-${item.prompt}`}
                   onClick={() => handleSendQuery(item.prompt)}
                   className="w-full text-left px-2.5 py-1.5 rounded-lg text-[11px] text-slate-600 hover:text-indigo-700 hover:bg-indigo-50/70 transition-all flex items-center gap-2 truncate"
                 >
@@ -532,17 +776,15 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
                   <div key={hist.id} className="group relative rounded-lg hover:bg-slate-200/60 focus-within:bg-slate-200/60 transition-colors">
                     <button
                       type="button"
-                      onClick={() => {
-                        setInputPrompt(hist.prompt);
-                        handleSendQuery(hist.prompt);
-                      }}
+                      onClick={() => loadConversationThread(hist.id)}
+                      disabled={isRunning}
                       className="w-full text-left pl-2.5 pr-8 py-2 rounded-lg text-xs text-slate-600 hover:text-slate-900 transition-all flex items-start gap-2"
                     >
                     <MessageSquare className="w-3 h-3 text-slate-400 flex-shrink-0 mt-0.5" />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate">{hist.prompt}</span>
                       <span className="flex items-center gap-1.5 mt-0.5 text-[10px] text-slate-400">
-                        <span>{formatHistoryDate(hist.created_at)}</span>
+                        <span>{formatHistoryDate(hist.updated_at || hist.created_at)}</span>
                         {hist.model_id && <><span>·</span><span className="truncate">{hist.model_id.split('/').pop()}</span></>}
                       </span>
                     </span>
@@ -636,11 +878,12 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
             <div className="relative">
               <button
                 onClick={() => setDbDropdownOpen(!dbDropdownOpen)}
+                disabled={isRunning}
                 className="h-11 inline-flex items-center gap-2.5 px-2.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200/90 text-xs font-medium text-slate-700 transition-all shadow-sm"
               >
-                <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0"><Database className="w-3.5 h-3.5" /></span>
+                <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${selectedConnectionId ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}><Database className="w-3.5 h-3.5" /></span>
                 <span className="text-left leading-tight">
-                  <span className="block text-[9px] font-semibold text-emerald-600">Connected · {activeConnection.engine}</span>
+                  <span className={`block text-[9px] font-semibold ${selectedConnectionId ? 'text-emerald-600' : 'text-slate-400'}`}>{selectedConnectionId ? `Connected / ${activeConnection.engine}` : 'Not connected'}</span>
                   <span className="block truncate max-w-[82px] sm:max-w-[155px] text-slate-900 font-bold">{activeConnection.name}</span>
                 </span>
                 <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${dbDropdownOpen ? 'rotate-180' : ''}`} />
@@ -649,12 +892,15 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
               {dbDropdownOpen && (
                 <div className="absolute left-0 mt-1.5 w-64 rounded-xl bg-white border border-slate-200 shadow-xl z-50 p-1.5 slide-in-up">
                   <div className="space-y-0.5">
+                    {connections.length === 0 && <p className="px-2.5 py-2 text-xs text-slate-500">No data sources added</p>}
                     {connections.map((c) => (
                       <button
                         key={c.id}
                         onClick={() => {
+                          if (c.id !== selectedConnectionId) handleNewThread();
                           setSelectedConnectionId(c.id);
                           loadCatalog(c.id);
+                          loadExploreSuggestions(c.id);
                           setDbDropdownOpen(false);
                         }}
                         className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between transition-all ${
@@ -671,16 +917,18 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
 
                   <div className="mt-1 pt-1 border-t border-slate-100 flex flex-col gap-0.5">
                     <button onClick={() => { setDbDropdownOpen(false); setView('databases'); }} className="w-full inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 rounded-lg transition-all"><Layers className="w-3 h-3 text-slate-500" /><span>Manage data sources</span></button>
-                    <button
-                      onClick={() => {
-                        setDbDropdownOpen(false);
-                        setAddTableOpen(true);
-                      }}
-                      className="w-full inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
-                    >
-                      <Plus className="w-3 h-3" />
-                      <span>Create New Table</span>
-                    </button>
+                    {selectedConnectionId && (
+                      <button
+                        onClick={() => {
+                          setDbDropdownOpen(false);
+                          setAddTableOpen(true);
+                        }}
+                        className="w-full inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>Create New Table</span>
+                      </button>
+                    )}
                     <button
                       onClick={() => {
                         setDbDropdownOpen(false);
@@ -745,7 +993,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
                 <div className="flex items-start gap-3 justify-end py-2">
                   <div className="max-w-xl space-y-1 text-right">
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">You</p>
-                    <div className="inline-block text-left bg-slate-100 text-slate-900 px-4 py-3 rounded-2xl rounded-tr-md text-sm leading-relaxed shadow-xs">
+                    <div className="user-chat-bubble inline-block text-left bg-slate-100 text-slate-900 px-4 py-3 rounded-2xl rounded-tr-md text-sm leading-relaxed shadow-xs">
                       {msg.content}
                     </div>
                   </div>
@@ -753,7 +1001,9 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
                     {avatarInitials}
                   </div>
                 </div>
-              ) : null}
+              ) : (
+                <ConversationAssistantMessage message={msg} isDark={theme === 'dark'} />
+              )}
             </div>
           ))}
 
@@ -787,7 +1037,14 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
                     activeStageKey={activeStageKey}
                     isRunning={isRunning}
                     tokenUsage={activeTokenUsage}
+                    reasoning={activeReasoning}
                   />
+
+                  <AgentStreamPanel events={activeStreamEvents} isRunning={isRunning} />
+
+                  {activeAnswer && (
+                    <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-wrap">{activeAnswer}</p>
+                  )}
 
                   {/* Generated SQL Code Block */}
                   {activeSql && (
@@ -850,6 +1107,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
                           chartRecommendation={activeChartRecommendation}
                           recommendation={activeChartRecommendation}
                           isLoading={isRunning}
+                          isDark={theme === 'dark'}
                         />
                       ) : (
                         <DataTablePanel
@@ -859,6 +1117,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
                           isTruncated={activeIsTruncated}
                           executionTimeMs={activeExecutionTimeMs}
                           isLoading={isRunning}
+                          isDark={theme === 'dark'}
                         />
                       )}
                     </div>
@@ -882,7 +1141,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
         </main>
 
         {/* ─── Floating Minimalist Prompt Composer (Claude Desktop / AI Studio Style) ─── */}
-        <footer className="px-4 pb-4 pt-2 sm:px-8 lg:px-12 sm:pb-6 bg-gradient-to-t from-[#f7f9fc] via-[#f7f9fc]/95 to-transparent z-20">
+        <footer className="live-demo-composer-footer px-4 pb-4 pt-2 sm:px-8 lg:px-12 sm:pb-6 z-20">
           <div className="w-full mx-auto">
             <div className="flex items-center justify-between px-1 mb-2">
               <span className="text-[10px] text-slate-400">Natural language to safe, executable SQL</span>
@@ -893,7 +1152,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
                 e.preventDefault();
                 handleSendQuery();
               }}
-              className={`relative bg-white border rounded-2xl p-2.5 transition-all shadow-sm ${composerFocused ? 'border-indigo-300 ring-4 ring-indigo-50/80 shadow-md' : 'border-slate-200 hover:border-slate-300'}`}
+              className={`composer-card relative bg-white border rounded-2xl p-2.5 transition-all shadow-sm ${composerFocused ? 'composer-focused border-indigo-300 ring-4 ring-indigo-50/80 shadow-md' : 'border-slate-200 hover:border-slate-300'}`}
             >
               <textarea
                 ref={composerRef}
@@ -909,7 +1168,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
                   }
                 }}
                 placeholder="Ask anything about your connected data..."
-                className="w-full max-h-[180px] min-h-[52px] px-2 py-1 bg-transparent text-sm text-slate-900 placeholder-slate-400 outline-none resize-none leading-relaxed"
+                className="w-full max-h-[180px] min-h-[52px] px-2 py-1 bg-transparent text-sm text-slate-900 placeholder-slate-400 outline-none resize-none leading-relaxed font-sans"
               />
 
               <div className="flex items-center justify-between pt-1.5 px-1 border-t border-slate-200/50">
@@ -951,8 +1210,8 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
                   ) : (
                     <button
                       type="submit"
-                      disabled={!inputPrompt.trim()}
-                      className="w-7 h-7 rounded-lg bg-slate-900 hover:bg-slate-800 disabled:opacity-20 text-white flex items-center justify-center transition-all"
+                      disabled={!inputPrompt.trim() || !selectedConnectionId}
+                      className="w-7 h-7 rounded-lg bg-slate-900 hover:bg-slate-800 disabled:opacity-20 text-white flex items-center justify-center transition-all shadow-xs"
                     >
                       <ArrowUp className="w-3.5 h-3.5" />
                     </button>
@@ -992,9 +1251,13 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
         isOpen={addConnectionOpen}
         onClose={() => setAddConnectionOpen(false)}
         onConnectionAdded={async (newConn) => {
+          handleNewThread();
           await loadConnections();
           setSelectedConnectionId(newConn.id);
-          await loadCatalog(newConn.id);
+          await Promise.all([
+            loadCatalog(newConn.id),
+            loadExploreSuggestions(newConn.id),
+          ]);
         }}
       />
 

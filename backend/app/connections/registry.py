@@ -5,6 +5,9 @@ from typing import Any, Dict, Optional
 from backend.app.config import settings
 from backend.app.connections.store import connection_store
 
+def default_connection_id() -> Optional[str]:
+    return "sqlite_demo" if settings.demo_connections_enabled else None
+
 
 def get_connection(connection_id: str) -> Optional[Dict[str, Any]]:
     if connection_id == "sqlite_demo":

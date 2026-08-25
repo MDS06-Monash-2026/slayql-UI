@@ -24,9 +24,11 @@ class Settings(BaseSettings):
     ]
     
     # AI Providers & OpenRouter
+    OPENROUTER_KEY: Optional[str] = None
+    # Legacy migration alias. New deployments should set OPENROUTER_KEY.
     OPENROUTER_API_KEY: Optional[str] = None
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
-    DEFAULT_MODEL: str = "anthropic/claude-sonnet-4.5"
+    DEFAULT_MODEL: str = "deepseek/deepseek-v4-flash"
     
     # Direct Provider Keys (fallback or direct use)
     OPENAI_API_KEY: Optional[str] = None
@@ -40,6 +42,10 @@ class Settings(BaseSettings):
     CONTROL_DB_PATH: str = str(DATA_DIR / "slayql_control.sqlite3")
     CONNECTION_DATA_DIR: str = str(DATA_DIR / "connections")
     FIELD_ENCRYPTION_KEY: Optional[str] = None
+    # Backend-only persistence. This URL is never registered as a query source.
+    DATABASE_URL: Optional[str] = None
+    BACKEND_DATABASE_SCHEMA: str = "slayql"
+    # Optional legacy query demo. User-added sources are stored separately.
     DEMO_POSTGRES_URL: Optional[str] = None
     
     # Execution & Safety Limits
@@ -58,6 +64,18 @@ class Settings(BaseSettings):
             if normalized in {"development", "dev", "debug"}:
                 return True
         return value
+
+    @field_validator("DATABASE_URL", "DEMO_POSTGRES_URL", mode="before")
+    @classmethod
+    def normalize_optional_database_url(cls, value):
+        if isinstance(value, str):
+            normalized = value.strip()
+            return normalized or None
+        return value
+
+    @property
+    def demo_connections_enabled(self) -> bool:
+        return not bool(self.DATABASE_URL)
     
     class Config:
         env_file = ".env"

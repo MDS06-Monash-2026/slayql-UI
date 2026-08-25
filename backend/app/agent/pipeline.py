@@ -1,20 +1,35 @@
+from __future__ import annotations
+
+import asyncio
+import hashlib
+import json
 import time
 import uuid
-import json
-import asyncio
-import random
 from datetime import datetime, timezone
-from typing import Dict, List, Any, AsyncGenerator, Optional
-from pydantic import BaseModel
+from typing import Any, AsyncGenerator, Dict, List, Optional
 
-from backend.app.config import settings
-from backend.app.catalog.discovery import CatalogService, CatalogSchema
+from pydantic import BaseModel, Field
+
 from backend.app.agent.rbp import RBPGraphEngine
-from backend.app.providers.openrouter_client import openrouter_client, ProviderCompletionResponse
-from backend.app.queries.validator import SqlValidator, ValidationResult
-from backend.app.queries.executor import QueryExecutor, ExecutionResult
+from backend.app.catalog.discovery import CatalogService
+from backend.app.config import settings
 from backend.app.connections.registry import get_connection, get_credentials, get_sqlite_path
 from backend.app.connections.runtime import get_external_catalog
+from backend.app.history.conversation_store import conversation_store
+from backend.app.providers.openrouter_client import (
+    TEST_EXECUTION_MODEL,
+    ProviderError,
+    openrouter_client,
+)
+from backend.app.queries.executor import QueryExecutor
+from backend.app.queries.validator import SqlValidator
+from backend.app.workbench.gemini_agent import (
+    GEMINI_WORKBENCH_MODEL,
+    gemini_workbench_agent,
+    materialize_chart_recommendation,
+    summarize_result,
+)
+
 
 class SSEEventEnvelope(BaseModel):
     schema_version: int = 1
@@ -25,457 +40,1228 @@ class SSEEventEnvelope(BaseModel):
     occurred_at: str
     stage: str
     type: str
-    payload: Dict[str, Any] = {}
+    payload: Dict[str, Any] = Field(default_factory=dict)
 
     def to_sse_format(self) -> str:
-        data_json = json.dumps(self.model_dump())
-        return f"id: {self.event_id}\nevent: {self.type}\ndata: {data_json}\n\n"
+        return (
+            f"id: {self.event_id}\n"
+            f"event: {self.type}\n"
+            f"data: {json.dumps(self.model_dump(), ensure_ascii=True, default=str)}\n\n"
+        )
 
-# In-memory storage for active run events
+
 RUN_EVENTS_STORE: Dict[str, List[SSEEventEnvelope]] = {}
 RUN_CANCEL_FLAGS: Dict[str, bool] = {}
 RUN_METADATA_STORE: Dict[str, Dict[str, Any]] = {}
+RUN_TASKS: Dict[str, asyncio.Task] = {}
+RUN_NOTIFIERS: Dict[str, asyncio.Event] = {}
+TERMINAL_STATUSES = {"completed", "failed", "cancelled"}
+
 
 class SlayQLPipeline:
-    @staticmethod
-    async def _demo_stage_pause() -> None:
-        """Give each demo stage a human-paced 2-4 second streamed beat."""
-        await asyncio.sleep(random.uniform(2.0, 4.0))
+    MAX_REPAIR_ATTEMPTS = 3
 
     @staticmethod
     def create_run(
         question: str,
-        model_id: str = "anthropic/claude-sonnet-4.5",
-        connection_id: str = "sqlite_demo",
-        conversation_id: Optional[str] = None
+        model_id: str = TEST_EXECUTION_MODEL,
+        connection_id: str = "",
+        conversation_id: Optional[str] = None,
+        owner_id: str = "anonymous_demo",
+        conversation_messages: Optional[List[Dict[str, str]]] = None,
     ) -> Dict[str, Any]:
         run_id = f"run_{uuid.uuid4().hex[:12]}"
-        conv_id = conversation_id or f"conv_{uuid.uuid4().hex[:8]}"
-        
+        conv_id = conversation_id or f"conv_{uuid.uuid4().hex[:12]}"
         RUN_EVENTS_STORE[run_id] = []
         RUN_CANCEL_FLAGS[run_id] = False
+        RUN_NOTIFIERS[run_id] = asyncio.Event()
         RUN_METADATA_STORE[run_id] = {
             "run_id": run_id,
             "conversation_id": conv_id,
             "question": question,
-            "model_id": model_id,
+            "requested_model_id": model_id,
+            "execution_model_id": TEST_EXECUTION_MODEL,
             "connection_id": connection_id,
+            "owner_id": owner_id,
+            "conversation_messages": conversation_messages or [],
             "status": "pending",
-            "created_at": datetime.now(timezone.utc).isoformat()
+            "created_at": datetime.now(timezone.utc).isoformat(),
         }
         return {
             "run_id": run_id,
             "conversation_id": conv_id,
             "events_url": f"/api/v1/agent-runs/{run_id}/events",
-            "initial_state": "creating_run"
+            "initial_state": "creating_run",
+            "requested_model_id": model_id,
+            "execution_model_id": TEST_EXECUTION_MODEL,
         }
 
     @staticmethod
-    def cancel_run(run_id: str) -> bool:
-        if run_id in RUN_CANCEL_FLAGS:
-            RUN_CANCEL_FLAGS[run_id] = True
-            return True
-        return False
+    def owns_run(run_id: str, owner_id: str) -> bool:
+        metadata = RUN_METADATA_STORE.get(run_id)
+        return bool(metadata and metadata.get("owner_id") == owner_id)
+
+    @staticmethod
+    def cancel_run(run_id: str, owner_id: Optional[str] = None) -> bool:
+        if run_id not in RUN_CANCEL_FLAGS:
+            return False
+        if owner_id is not None and not SlayQLPipeline.owns_run(run_id, owner_id):
+            return False
+        RUN_CANCEL_FLAGS[run_id] = True
+        task = RUN_TASKS.get(run_id)
+        if task and not task.done():
+            task.cancel()
+        notifier = RUN_NOTIFIERS.get(run_id)
+        if notifier:
+            notifier.set()
+        return True
 
     @staticmethod
     async def stream_run_events(run_id: str) -> AsyncGenerator[str, None]:
         if run_id not in RUN_METADATA_STORE:
-            yield f"event: error\ndata: {json.dumps({'error': 'Run not found'})}\n\n"
+            yield "event: error\ndata: {\"error\":\"Run not found\"}\n\n"
             return
+        task = RUN_TASKS.get(run_id)
+        if task is None or task.done() and RUN_METADATA_STORE[run_id]["status"] not in TERMINAL_STATUSES:
+            RUN_TASKS[run_id] = asyncio.create_task(SlayQLPipeline._execute_run(run_id))
 
-        meta = RUN_METADATA_STORE[run_id]
-        question = meta["question"]
-        model_id = meta["model_id"]
-        connection_id = meta["connection_id"]
-        conv_id = meta["conversation_id"]
+        cursor = 0
+        notifier = RUN_NOTIFIERS[run_id]
+        while True:
+            events = RUN_EVENTS_STORE[run_id]
+            while cursor < len(events):
+                yield events[cursor].to_sse_format()
+                cursor += 1
+            if RUN_METADATA_STORE[run_id]["status"] in TERMINAL_STATUSES:
+                break
+            try:
+                await asyncio.wait_for(notifier.wait(), timeout=15.0)
+                notifier.clear()
+            except asyncio.TimeoutError:
+                yield ": keep-alive\n\n"
 
-        sequence = 1
-        run_started_at = time.perf_counter()
+    @staticmethod
+    def _emit(run_id: str, stage: str, event_type: str, payload: Dict[str, Any]) -> None:
+        metadata = RUN_METADATA_STORE[run_id]
+        sequence = len(RUN_EVENTS_STORE[run_id]) + 1
+        event = SSEEventEnvelope(
+            event_id=f"{run_id}:{sequence}",
+            sequence=sequence,
+            run_id=run_id,
+            conversation_id=metadata["conversation_id"],
+            occurred_at=datetime.now(timezone.utc).isoformat(),
+            stage=stage,
+            type=event_type,
+            payload=payload,
+        )
+        RUN_EVENTS_STORE[run_id].append(event)
+        RUN_NOTIFIERS[run_id].set()
 
-        def make_event(stage: str, event_type: str, payload: Dict[str, Any]) -> SSEEventEnvelope:
-            nonlocal sequence
-            now_str = datetime.now(timezone.utc).isoformat()
-            evt = SSEEventEnvelope(
-                event_id=f"{run_id}:{sequence}",
-                sequence=sequence,
-                run_id=run_id,
-                conversation_id=conv_id,
-                occurred_at=now_str,
-                stage=stage,
-                type=event_type,
-                payload=payload
+    @staticmethod
+    def _event_trace(run_id: str, limit: int = 240) -> List[Dict[str, Any]]:
+        events = RUN_EVENTS_STORE.get(run_id, [])
+        if len(events) > limit:
+            events = events[: limit // 2] + events[-(limit // 2):]
+        trace = []
+        safe_keys = {
+            "attempt", "phase", "kind", "is_repair", "label", "status", "summary", "error", "delta",
+            "finish_reason", "requested_model_id", "execution_model_id",
+            "resolved_model_id", "resolved_provider", "provider", "response_id",
+            "duration_ms", "latency_ms", "row_count", "batch_index", "offset",
+            "is_final", "is_valid", "name", "message", "model", "mode", "idiom",
+            "reason", "token_usage", "usage",
+            "intent", "requires_sql", "confidence", "is_follow_up", "resolved_question",
+            "reportable", "resolution_code",
+            "is_semantically_valid", "missing_requirements",
+        }
+        for event in events:
+            payload = {
+                key: value
+                for key, value in event.payload.items()
+                if key in safe_keys
+            }
+            if isinstance(payload.get("delta"), str):
+                payload["delta"] = payload["delta"][:800]
+            if isinstance(event.payload.get("detail"), dict):
+                payload["detail"] = {
+                    key: value
+                    for key, value in event.payload["detail"].items()
+                    if key in {"type", "text", "summary", "format", "index", "id"}
+                }
+            chart = event.payload.get("chart")
+            if isinstance(chart, dict):
+                payload["chart"] = {
+                    key: chart.get(key)
+                    for key in ("type", "idiom", "title", "recommendation_reason", "model", "mode")
+                    if chart.get(key) is not None
+                }
+            trace.append({
+                "event_id": event.event_id,
+                "sequence": event.sequence,
+                "occurred_at": event.occurred_at,
+                "stage": event.stage,
+                "type": event.type,
+                "payload": payload,
+            })
+        return trace
+
+    @staticmethod
+    def _cancelled(run_id: str) -> bool:
+        if not RUN_CANCEL_FLAGS.get(run_id):
+            return False
+        metadata = RUN_METADATA_STORE[run_id]
+        metadata["status"] = "cancelled"
+        SlayQLPipeline._emit(run_id, "cancelled", "run.cancelled", {"reason": "User cancelled"})
+        SlayQLPipeline._persist_assistant(
+            run_id,
+            "This run was cancelled before it completed.",
+            {"status": "cancelled", "stream_events": SlayQLPipeline._event_trace(run_id)},
+        )
+        return True
+
+    @staticmethod
+    def _fail(run_id: str, stage: str, message: str) -> None:
+        metadata = RUN_METADATA_STORE[run_id]
+        metadata["status"] = "failed"
+        SlayQLPipeline._emit(run_id, stage, "run.failed", {"error": message})
+        SlayQLPipeline._persist_assistant(
+            run_id,
+            message,
+            {
+                "status": "failed",
+                "error": message,
+                "reportable": True,
+                "stream_events": SlayQLPipeline._event_trace(run_id),
+            },
+        )
+
+    @staticmethod
+    def _persist_assistant(run_id: str, content: str, payload: Dict[str, Any], sql: Optional[str] = None) -> None:
+        metadata = RUN_METADATA_STORE[run_id]
+        conversation_store.add_message(
+            conversation_id=metadata["conversation_id"],
+            owner_id=metadata["owner_id"],
+            role="assistant",
+            content=content,
+            sql=sql,
+            payload=payload,
+            message_id=f"msg_{run_id}",
+            created_at=datetime.now(timezone.utc).isoformat(),
+        )
+
+    @staticmethod
+    def _dialect(engine: str) -> str:
+        if engine in {"postgresql", "supabase"}:
+            return "postgres"
+        return engine or "sqlite"
+
+    @staticmethod
+    def _intent_catalog_summary(catalog: Any) -> Dict[str, Any]:
+        return {
+            "database_name": catalog.database_name,
+            "engine": catalog.engine,
+            "table_count": len(catalog.tables),
+            "tables": [
+                {
+                    "name": table.name,
+                    "columns": [column.name for column in table.columns[:80]],
+                    "relationship_count": len(table.foreign_keys),
+                }
+                for table in list(catalog.tables.values())[:100]
+            ],
+        }
+
+    @staticmethod
+    def _schema_overview(catalog: Any) -> Dict[str, Any]:
+        tables = sorted(catalog.tables.values(), key=lambda table: table.name.casefold())
+        visible_tables = tables[:settings.MAX_RESULT_ROWS]
+        include_row_counts = catalog.engine == "sqlite"
+        columns = ["table_name", "column_count", "columns", "relationship_count"]
+        column_types = ["string", "number", "string", "number"]
+        rows = [
+            [
+                table.name,
+                len(table.columns),
+                ", ".join(column.name for column in table.columns),
+                len(table.foreign_keys),
+            ]
+            for table in visible_tables
+        ]
+        if include_row_counts:
+            columns.append("row_count")
+            column_types.append("number")
+            for row, table in zip(rows, visible_tables):
+                row.append(table.row_count_estimate)
+
+        names = [table.name for table in tables]
+        preview = ", ".join(names[:20])
+        if len(names) > 20:
+            preview += f", and {len(names) - 20} more"
+        if names:
+            answer = (
+                f"The selected database contains {len(names)} table{'s' if len(names) != 1 else ''}: "
+                f"{preview}. I listed the catalog details below."
             )
-            sequence += 1
-            RUN_EVENTS_STORE[run_id].append(evt)
-            return evt
+        else:
+            answer = "The selected database does not currently expose any user tables."
+        return {
+            "answer": answer,
+            "columns": columns,
+            "column_types": column_types,
+            "rows": rows,
+            "is_truncated": len(tables) > len(visible_tables),
+        }
 
-        # 1. Run accepted
-        yield make_event(
-            stage="preparation",
-            event_type="run.accepted",
-            payload={"question": question, "model_id": model_id, "connection_id": connection_id}
-        ).to_sse_format()
+    @staticmethod
+    def _row_count_sql(catalog: Any, dialect: str) -> str:
+        table_names = sorted(catalog.tables)[:max(1, settings.MAX_RESULT_ROWS - 1)]
+        if not table_names:
+            return ""
 
-        yield make_event(
-            stage="preparation",
-            event_type="stream.ready",
-            payload={"buffer_ms": 20}
-        ).to_sse_format()
+        def identifier(name: str) -> str:
+            if dialect == "mysql":
+                return f"`{name.replace('`', '``')}`"
+            return f'"{name.replace(chr(34), chr(34) * 2)}"'
 
-        # Check cancellation
-        if RUN_CANCEL_FLAGS.get(run_id):
-            yield make_event("cancelled", "run.cancelled", {"reason": "User cancelled"}).to_sse_format()
-            return
+        def literal(value: str) -> str:
+            return "'" + value.replace("'", "''") + "'"
 
-        # 2. Stage: Schema candidate retrieval
-        schema_started_at = time.perf_counter()
-        yield make_event(
-            stage="schema_discovery",
-            event_type="stage.started",
-            payload={"label": "Schema Candidates Retrieval", "status": "active"}
-        ).to_sse_format()
-        
-        # Keep the demo stream paced like a real catalog/index lookup so the
-        # trace has time to communicate what the agent is doing.
-        await SlayQLPipeline._demo_stage_pause()
-        connection = get_connection(connection_id)
-        if not connection:
-            yield make_event("schema_discovery", "run.failed", {"error": "Selected data source was not found."}).to_sse_format()
-            return
-        try:
-            if connection.get("engine") == "sqlite":
-                catalog = CatalogService.get_sqlite_catalog(get_sqlite_path(connection_id) or settings.SQLITE_DEMO_PATH)
-            else:
-                catalog = get_external_catalog(connection["engine"], get_credentials(connection_id))
-        except Exception as exc:
-            yield make_event("schema_discovery", "run.failed", {"error": f"Could not inspect the selected data source: {exc}"}).to_sse_format()
-            return
-        rbp = RBPGraphEngine(catalog)
-        entity_matches = rbp.match_schema_entities(question)
-
-        yield make_event(
-            stage="schema_discovery",
-            event_type="stage.evidence",
-            payload={
-                "summary": f"Discovered {len(catalog.tables)} tables in catalog; matched {len(entity_matches['matched_tables'])} tables from question intent.",
-                "matched_tables": entity_matches["matched_tables"],
-                "total_catalog_tables": len(catalog.tables)
-            }
-        ).to_sse_format()
-
-        yield make_event(
-            stage="schema_discovery",
-            event_type="stage.completed",
-            payload={
-                "label": "Schema Candidates Retrieval",
-                "status": "passed",
-                "duration_ms": int((time.perf_counter() - schema_started_at) * 1000)
-            }
-        ).to_sse_format()
-
-        if RUN_CANCEL_FLAGS.get(run_id):
-            yield make_event("cancelled", "run.cancelled", {"reason": "User cancelled"}).to_sse_format()
-            return
-
-        # 3. Stage: FK Graph Expansion (RBP)
-        graph_started_at = time.perf_counter()
-        yield make_event(
-            stage="graph_expansion",
-            event_type="stage.started",
-            payload={"label": "Relational Belief Propagation (RBP) Traversal", "status": "active"}
-        ).to_sse_format()
-        
-        await SlayQLPipeline._demo_stage_pause()
-        expanded_chain = entity_matches["expanded_chain"]
-
-        yield make_event(
-            stage="graph_expansion",
-            event_type="stage.evidence",
-            payload={
-                "summary": f"Expanded multi-hop relationship path across {len(expanded_chain)} tables: {' → '.join(expanded_chain)}.",
-                "join_path": expanded_chain,
-                "traversal_type": "shortest_foreign_key_walk"
-            }
-        ).to_sse_format()
-
-        yield make_event(
-            stage="graph_expansion",
-            event_type="stage.completed",
-            payload={
-                "label": "Relational Belief Propagation (RBP) Traversal",
-                "status": "passed",
-                "duration_ms": int((time.perf_counter() - graph_started_at) * 1000)
-            }
-        ).to_sse_format()
-
-        # 4. Stage: Value Grounding
-        grounding_started_at = time.perf_counter()
-        yield make_event(
-            stage="value_grounding",
-            event_type="stage.started",
-            payload={"label": "Value Grounding & Column Index Matching", "status": "active"}
-        ).to_sse_format()
-        
-        await SlayQLPipeline._demo_stage_pause()
-        grounded_vals = entity_matches["grounded_values"]
-        matched_cols = entity_matches["matched_columns"]
-
-        grounding_summary = "Grounding hints assembled for schema filters and aggregations."
-        if grounded_vals:
-            grounding_summary = f"Grounded literal '{grounded_vals[0]['value']}' to column {grounded_vals[0]['column']} in {grounded_vals[0]['table']}."
-
-        yield make_event(
-            stage="value_grounding",
-            event_type="stage.evidence",
-            payload={
-                "summary": grounding_summary,
-                "grounded_values": grounded_vals,
-                "matched_columns": matched_cols
-            }
-        ).to_sse_format()
-
-        yield make_event(
-            stage="value_grounding",
-            event_type="stage.completed",
-            payload={
-                "label": "Value Grounding & Column Index Matching",
-                "status": "passed",
-                "duration_ms": int((time.perf_counter() - grounding_started_at) * 1000)
-            }
-        ).to_sse_format()
-
-        if RUN_CANCEL_FLAGS.get(run_id):
-            yield make_event("cancelled", "run.cancelled", {"reason": "User cancelled"}).to_sse_format()
-            return
-
-        # 5. Stage: Provider Generation
-        generation_started_at = time.perf_counter()
-        yield make_event(
-            stage="model_generation",
-            event_type="provider.request_started",
-            payload={"model_id": model_id, "provider": "OpenRouter Gateway"}
-        ).to_sse_format()
-
-        yield make_event(
-            stage="model_generation",
-            event_type="provider.connected",
-            payload={"status": "connected", "endpoint": settings.OPENROUTER_BASE_URL}
-        ).to_sse_format()
-
-        # Build schema summary string
-        schema_lines = []
-        for tbl in expanded_chain:
-            if tbl in catalog.tables:
-                t_info = catalog.tables[tbl]
-                cols_str = ", ".join([f"{c.name} ({c.type})" for c in t_info.columns])
-                schema_lines.append(f"Table '{tbl}': {cols_str}")
-        schema_ctx = "\n".join(schema_lines)
-
-        grounding_str = json.dumps(grounded_vals)
-
-        # Call OpenRouter / model gateway
-        await SlayQLPipeline._demo_stage_pause()
-        completion: ProviderCompletionResponse = await openrouter_client.generate_sql(
-            model_id=model_id,
-            question=question,
-            dialect="sqlite",
-            schema_context=schema_ctx,
-            grounding_hints=grounding_str
+        total_expression = " + ".join(
+            f"(SELECT COUNT(*) FROM {identifier(table_name)})"
+            for table_name in table_names
+        )
+        branches = [
+            f"SELECT 'All tables' AS table_name, {total_expression} AS row_count, 0 AS sort_order"
+        ]
+        branches.extend(
+            f"SELECT {literal(table_name)} AS table_name, COUNT(*) AS row_count, 1 AS sort_order "
+            f"FROM {identifier(table_name)}"
+            for table_name in table_names
+        )
+        return (
+            "SELECT table_name, row_count FROM (\n  "
+            + "\n  UNION ALL\n  ".join(branches)
+            + "\n) AS row_counts\nORDER BY sort_order, table_name"
         )
 
-        candidate_sql = completion.extracted_sql.strip()
+    @staticmethod
+    def _no_query_answer(run_id: str, question: str) -> str:
+        responses = [
+            "Sorry, I could not map that request to a reliable question about the selected database. Try naming what you want to count, compare, list, or summarize.",
+            "I could not identify a safe database query for that request. Please rephrase it with the data, metric, or time range you want to inspect.",
+            "That request does not provide enough database intent for a reliable answer. Add the table, business entity, or result you are looking for.",
+            "I am not confident this request should become SQL, so I stopped before querying your data. Please add a little more detail about the result you need.",
+        ]
+        digest = hashlib.sha256(f"{run_id}:{question}".encode("utf-8")).digest()
+        return responses[digest[0] % len(responses)]
 
-        yield make_event(
-            stage="model_generation",
-            event_type="provider.completed",
-            payload={
-                "model_id": model_id,
-                "latency_ms": completion.latency_ms,
-                "duration_ms": int((time.perf_counter() - generation_started_at) * 1000),
-                "summary": "Model returned a SQL candidate grounded in the selected schema path.",
-                "token_usage": {
-                    "input_tokens": completion.input_tokens,
-                    "output_tokens": completion.output_tokens,
-                    "total_tokens": completion.input_tokens + completion.output_tokens,
-                    "estimated_cost_usd": completion.estimated_cost_usd
-                },
-                "finish_reason": "stop"
-            }
-        ).to_sse_format()
+    @staticmethod
+    def _complete_without_generated_sql(
+        run_id: str,
+        *,
+        answer: str,
+        started: float,
+        intent_decision: Dict[str, Any],
+        status: str,
+        resolution_code: str,
+        columns: Optional[List[str]] = None,
+        column_types: Optional[List[str]] = None,
+        rows: Optional[List[List[Any]]] = None,
+        is_truncated: bool = False,
+    ) -> None:
+        metadata = RUN_METADATA_STORE[run_id]
+        result_rows = rows or []
+        result_payload = {
+            "status": status,
+            "answer": answer,
+            "sql": "",
+            "columns": columns or [],
+            "column_types": column_types or [],
+            "rows": result_rows,
+            "row_count": len(result_rows),
+            "is_truncated": is_truncated,
+            "chart": None,
+            "checks": [],
+            "requested_model_id": metadata["requested_model_id"],
+            "execution_model_id": TEST_EXECUTION_MODEL,
+            "attempt_count": 0,
+            "token_usage": {},
+            "reasoning": "",
+            "intent_validation": intent_decision,
+            "resolution_code": resolution_code,
+            "reportable": True,
+            "total_duration_ms": int((time.perf_counter() - started) * 1000),
+        }
+        result_payload["stream_events"] = SlayQLPipeline._event_trace(run_id) + [{
+            "event_id": f"{run_id}:terminal",
+            "sequence": len(RUN_EVENTS_STORE.get(run_id, [])) + 1,
+            "occurred_at": datetime.now(timezone.utc).isoformat(),
+            "stage": "completion",
+            "type": "run.completed",
+            "payload": {"status": status, "resolution_code": resolution_code},
+        }]
+        result_payload["stream_events_truncated"] = len(RUN_EVENTS_STORE.get(run_id, [])) > 240
+        SlayQLPipeline._persist_assistant(run_id, answer, result_payload)
+        metadata["status"] = "completed"
+        metadata["result"] = result_payload
+        SlayQLPipeline._emit(run_id, "completion", "run.completed", result_payload)
 
-        # 6. Stage: SQL Validation
-        validation_started_at = time.perf_counter()
-        yield make_event(
-            stage="sql_validation",
-            event_type="sql.candidate_ready",
-            payload={
-                "candidate_id": f"cand_{uuid.uuid4().hex[:8]}",
-                "revision": 1,
-                "sql": candidate_sql,
-                "dialect": "sqlite",
-                "generation_source": "openrouter"
-            }
-        ).to_sse_format()
+    @staticmethod
+    def _schema_context(catalog: Any, table_names: List[str]) -> str:
+        lines: List[str] = []
+        for table_name in table_names[:12]:
+            table = catalog.tables.get(table_name)
+            if not table:
+                continue
+            columns = ", ".join(
+                f"{column.name} {column.type}{' PRIMARY KEY' if column.primary_key else ''}"
+                for column in table.columns
+            )
+            lines.append(f"TABLE {table_name} ({columns})")
+            for foreign_key in table.foreign_keys:
+                lines.append(
+                    f"FOREIGN KEY {table_name}.{foreign_key.from_column} -> "
+                    f"{foreign_key.to_table}.{foreign_key.to_column}"
+                )
+        return "\n".join(lines)
 
-        yield make_event(
-            stage="sql_validation",
-            event_type="sql.validation_started",
-            payload={"dialect": "sqlite"}
-        ).to_sse_format()
-
-        await SlayQLPipeline._demo_stage_pause()
-
-        validation: ValidationResult = SqlValidator.validate_and_sanitize(
-            sql=candidate_sql,
-            dialect="sqlite",
-            catalog=catalog,
-            max_rows=settings.MAX_RESULT_ROWS
+    @staticmethod
+    def _retrieval_context(entity_matches: Dict[str, Any]) -> str:
+        ranked = ", ".join(
+            f"{item['table']} (BM25={item['score']})"
+            for item in entity_matches["ranked_tables"]
         )
+        relationships = "; ".join(
+            f"{item['from_table']}.{item['from_column']} -> {item['to_table']}.{item['to_column']}"
+            for item in entity_matches["join_relationships"]
+        )
+        return f"Ranked tables: {ranked or 'none'}\nVerified join paths: {relationships or 'none'}"
 
-        for check in validation.checks:
-            yield make_event(
-                stage="sql_validation",
-                event_type="sql.validation_check",
-                payload=check.model_dump()
-            ).to_sse_format()
-
-        yield make_event(
-            stage="sql_validation",
-            event_type="sql.validation_completed",
-            payload={
-                "is_valid": validation.is_valid,
-                "sanitized_sql": validation.sanitized_sql,
-                "referenced_tables": validation.referenced_tables,
-                "referenced_columns": validation.referenced_columns,
-                "duration_ms": int((time.perf_counter() - validation_started_at) * 1000),
-                "summary": f"Passed {len(validation.checks)} read-only and dialect safety checks."
-            }
-        ).to_sse_format()
-
-        if not validation.is_valid:
-            yield make_event(
-                stage="sql_validation",
-                event_type="run.failed",
-                payload={"error": validation.error_message or "SQL Validation failed"}
-            ).to_sse_format()
-            return
-
-        yield make_event(
-            stage="sql_validation",
-            event_type="sql.ready",
-            payload={"sql": validation.sanitized_sql}
-        ).to_sse_format()
-
-        if RUN_CANCEL_FLAGS.get(run_id):
-            yield make_event("cancelled", "run.cancelled", {"reason": "User cancelled"}).to_sse_format()
-            return
-
-        # 7. Stage: Execution
-        yield make_event(
-            stage="execution",
-            event_type="execution.started",
-            payload={"database": connection.get("name", connection_id), "timeout_seconds": settings.QUERY_TIMEOUT_SECONDS}
-        ).to_sse_format()
-
-        await SlayQLPipeline._demo_stage_pause()
+    @staticmethod
+    async def _execute_query(connection: Dict[str, Any], connection_id: str, sql: str):
         if connection.get("engine") == "sqlite":
-            exec_res = await QueryExecutor.execute_sqlite(
+            return await QueryExecutor.execute_sqlite(
                 db_path=get_sqlite_path(connection_id) or settings.SQLITE_DEMO_PATH,
-                sql=validation.sanitized_sql,
+                sql=sql,
                 timeout_seconds=settings.QUERY_TIMEOUT_SECONDS,
-                max_rows=settings.MAX_RESULT_ROWS
+                max_rows=settings.MAX_RESULT_ROWS,
             )
-        else:
-            exec_res = await QueryExecutor.execute_external(
-                provider=connection["engine"],
-                credentials=get_credentials(connection_id),
-                sql=validation.sanitized_sql,
-                timeout_seconds=settings.QUERY_TIMEOUT_SECONDS,
-                max_rows=settings.MAX_RESULT_ROWS
+        return await QueryExecutor.execute_external(
+            provider=connection["engine"],
+            credentials=get_credentials(connection_id),
+            sql=sql,
+            timeout_seconds=settings.QUERY_TIMEOUT_SECONDS,
+            max_rows=settings.MAX_RESULT_ROWS,
+        )
+
+    @staticmethod
+    async def _execute_run(run_id: str) -> None:
+        metadata = RUN_METADATA_STORE[run_id]
+        metadata["status"] = "running"
+        question = metadata["question"]
+        requested_model_id = metadata["requested_model_id"]
+        connection_id = metadata["connection_id"]
+        conversation_id = metadata["conversation_id"]
+        started = time.perf_counter()
+
+        try:
+            SlayQLPipeline._emit(
+                run_id,
+                "preparation",
+                "run.accepted",
+                {
+                    "question": question,
+                    "requested_model_id": requested_model_id,
+                    "execution_model_id": TEST_EXECUTION_MODEL,
+                    "connection_id": connection_id,
+                },
+            )
+            SlayQLPipeline._emit(run_id, "preparation", "stream.ready", {"replayable": True})
+            if SlayQLPipeline._cancelled(run_id):
+                return
+
+            stage_started = time.perf_counter()
+            SlayQLPipeline._emit(
+                run_id,
+                "schema_discovery",
+                "stage.started",
+                {"label": "BM25 schema indexing", "status": "active"},
+            )
+            connection = get_connection(connection_id)
+            if not connection:
+                SlayQLPipeline._fail(run_id, "schema_discovery", "Selected data source was not found.")
+                return
+            try:
+                if connection.get("engine") == "sqlite":
+                    catalog = CatalogService.get_sqlite_catalog(
+                        get_sqlite_path(connection_id) or settings.SQLITE_DEMO_PATH
+                    )
+                else:
+                    catalog = get_external_catalog(connection["engine"], get_credentials(connection_id))
+            except Exception:
+                SlayQLPipeline._fail(run_id, "schema_discovery", "Could not inspect the selected data source.")
+                return
+
+            intent_started = time.perf_counter()
+            SlayQLPipeline._emit(
+                run_id,
+                "intent_validation",
+                "intent.validator_started",
+                {
+                    "model": GEMINI_WORKBENCH_MODEL,
+                    "summary": "Checking whether this turn requires SQL or database metadata.",
+                },
+            )
+            intent_decision = await gemini_workbench_agent.classify_chat_intent(
+                question,
+                SlayQLPipeline._intent_catalog_summary(catalog),
+                metadata["conversation_messages"],
+            )
+            SlayQLPipeline._emit(
+                run_id,
+                "intent_validation",
+                "intent.validator_completed",
+                {
+                    "model": intent_decision.get("model", GEMINI_WORKBENCH_MODEL),
+                    "mode": intent_decision.get("mode", "gemini"),
+                    "intent": intent_decision["intent"],
+                    "requires_sql": intent_decision["requires_sql"],
+                    "is_follow_up": intent_decision["is_follow_up"],
+                    "confidence": intent_decision["confidence"],
+                    "resolved_question": intent_decision["resolved_question"],
+                    "reason": intent_decision["reason"],
+                    "duration_ms": int((time.perf_counter() - intent_started) * 1000),
+                    "summary": f"Classified this turn as {intent_decision['intent'].replace('_', ' ')}.",
+                },
             )
 
-        if exec_res.error:
-            yield make_event(
-                stage="execution",
-                event_type="execution.failed",
-                payload={"error": exec_res.error}
-            ).to_sse_format()
-            yield make_event(
-                stage="execution",
-                event_type="run.failed",
-                payload={"error": exec_res.error}
-            ).to_sse_format()
-            return
+            if intent_decision["intent"] in {"schema_overview", "clarification", "unsupported"}:
+                SlayQLPipeline._emit(
+                    run_id,
+                    "schema_discovery",
+                    "stage.evidence",
+                    {
+                        "summary": f"Inspected {len(catalog.tables)} catalog tables for request routing.",
+                        "total_catalog_tables": len(catalog.tables),
+                    },
+                )
+                SlayQLPipeline._emit(
+                    run_id,
+                    "schema_discovery",
+                    "stage.completed",
+                    {
+                        "label": "BM25 schema indexing",
+                        "status": "passed",
+                        "duration_ms": int((time.perf_counter() - stage_started) * 1000),
+                    },
+                )
+                if intent_decision["intent"] == "schema_overview":
+                    overview = SlayQLPipeline._schema_overview(catalog)
+                    SlayQLPipeline._complete_without_generated_sql(
+                        run_id,
+                        answer=overview["answer"],
+                        started=started,
+                        intent_decision=intent_decision,
+                        status="success",
+                        resolution_code="schema_overview",
+                        columns=overview["columns"],
+                        column_types=overview["column_types"],
+                        rows=overview["rows"],
+                        is_truncated=overview["is_truncated"],
+                    )
+                else:
+                    SlayQLPipeline._complete_without_generated_sql(
+                        run_id,
+                        answer=SlayQLPipeline._no_query_answer(run_id, question),
+                        started=started,
+                        intent_decision=intent_decision,
+                        status="no_query",
+                        resolution_code=intent_decision["intent"],
+                    )
+                return
 
-        yield make_event(
-            stage="execution",
-            event_type="execution.columns",
-            payload={"columns": exec_res.columns, "column_types": exec_res.column_types}
-        ).to_sse_format()
+            effective_question = (
+                intent_decision["resolved_question"]
+                if intent_decision["is_follow_up"]
+                else question
+            )
+            entity_matches = RBPGraphEngine(catalog).match_schema_entities(effective_question)
+            SlayQLPipeline._emit(
+                run_id,
+                "schema_discovery",
+                "stage.evidence",
+                {
+                    "summary": (
+                        f"Indexed {entity_matches['index_document_count']} schema/value documents and "
+                        f"ranked {len(entity_matches['ranked_tables'])} candidate tables."
+                    ),
+                    "ranked_tables": entity_matches["ranked_tables"],
+                    "retrieval_evidence": entity_matches["retrieval_evidence"],
+                    "total_catalog_tables": len(catalog.tables),
+                },
+            )
+            SlayQLPipeline._emit(
+                run_id,
+                "schema_discovery",
+                "stage.completed",
+                {
+                    "label": "BM25 schema indexing",
+                    "status": "passed",
+                    "duration_ms": int((time.perf_counter() - stage_started) * 1000),
+                },
+            )
+            if SlayQLPipeline._cancelled(run_id):
+                return
 
-        # Stream row batches fast
-        batch_size = 50
-        for i in range(0, len(exec_res.rows), batch_size):
-            batch = exec_res.rows[i : i + batch_size]
-            is_final = (i + batch_size) >= len(exec_res.rows)
-            yield make_event(
-                stage="execution",
-                event_type="execution.rows",
-                payload={
-                    "batch_index": i // batch_size,
-                    "offset": i,
-                    "rows": batch,
-                    "is_final": is_final
-                }
-            ).to_sse_format()
+            graph_started = time.perf_counter()
+            chain = entity_matches["expanded_chain"]
+            SlayQLPipeline._emit(
+                run_id,
+                "graph_expansion",
+                "stage.started",
+                {"label": "Foreign-key graph expansion", "status": "active"},
+            )
+            SlayQLPipeline._emit(
+                run_id,
+                "graph_expansion",
+                "stage.evidence",
+                {
+                    "summary": f"Expanded a verified relationship context across {len(chain)} tables.",
+                    "join_path": chain,
+                    "relationships": entity_matches["join_relationships"],
+                },
+            )
+            SlayQLPipeline._emit(
+                run_id,
+                "graph_expansion",
+                "stage.completed",
+                {
+                    "label": "Foreign-key graph expansion",
+                    "status": "passed",
+                    "duration_ms": int((time.perf_counter() - graph_started) * 1000),
+                },
+            )
 
-        yield make_event(
-            stage="execution",
-            event_type="execution.completed",
-            payload={
-                "row_count": len(exec_res.rows),
-                "is_truncated": exec_res.is_truncated,
-                "execution_time_ms": exec_res.execution_time_ms,
-                "summary": f"Returned {len(exec_res.rows)} rows from the read-only execution."
-            }
-        ).to_sse_format()
+            grounded_values = entity_matches["grounded_values"]
+            SlayQLPipeline._emit(
+                run_id,
+                "value_grounding",
+                "stage.started",
+                {"label": "Value and column grounding", "status": "active"},
+            )
+            SlayQLPipeline._emit(
+                run_id,
+                "value_grounding",
+                "stage.evidence",
+                {
+                    "summary": f"Grounded {len(grounded_values)} values and {len(entity_matches['matched_columns'])} columns.",
+                    "grounded_values": grounded_values,
+                    "matched_columns": entity_matches["matched_columns"],
+                },
+            )
+            SlayQLPipeline._emit(
+                run_id,
+                "value_grounding",
+                "stage.completed",
+                {"label": "Value and column grounding", "status": "passed", "duration_ms": 0},
+            )
 
-        # 8. Stage: Visualization recommendation
-        visualization_started_at = time.perf_counter()
-        yield make_event(
-            stage="visualization",
-            event_type="visualization.started",
-            payload={"columns_count": len(exec_res.columns), "rows_count": len(exec_res.rows)}
-        ).to_sse_format()
+            dialect = SlayQLPipeline._dialect(connection.get("engine", "sqlite"))
+            schema_context = SlayQLPipeline._schema_context(catalog, chain)
+            retrieval_context = SlayQLPipeline._retrieval_context(entity_matches)
+            grounding_context = json.dumps(grounded_values, ensure_ascii=True, default=str)
+            fallback_table = chain[0] if chain else next(iter(catalog.tables), "")
+            fallback_sql = f'SELECT * FROM "{fallback_table}" LIMIT {min(100, settings.MAX_RESULT_ROWS)}'
+            deterministic_sql = (
+                SlayQLPipeline._row_count_sql(catalog, dialect)
+                if intent_decision["intent"] == "row_count_overview"
+                else ""
+            )
+            if intent_decision["intent"] == "row_count_overview" and not deterministic_sql:
+                SlayQLPipeline._complete_without_generated_sql(
+                    run_id,
+                    answer="The selected database does not currently expose any user tables to count.",
+                    started=started,
+                    intent_decision=intent_decision,
+                    status="success",
+                    resolution_code="row_count_overview_empty",
+                )
+                return
+            repair_feedback = ""
+            final_sql = ""
+            final_validation = None
+            semantic_validation: Dict[str, Any] = {}
+            execution_result = None
+            sql_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "cost": 0.0}
+            reasoning_parts: List[str] = []
+            attempt_count = 0
 
-        if exec_res.chart_recommendation:
-            await SlayQLPipeline._demo_stage_pause()
-            yield make_event(
-                stage="visualization",
-                event_type="visualization.recommended",
-                payload={
-                    "chart": exec_res.chart_recommendation,
-                    "duration_ms": int((time.perf_counter() - visualization_started_at) * 1000)
-                }
-            ).to_sse_format()
-        else:
-            yield make_event(
-                stage="visualization",
-                event_type="visualization.not_recommended",
-                payload={
-                    "reason": "Single row or non-relational metric shape; defaulting to table.",
-                    "duration_ms": int((time.perf_counter() - visualization_started_at) * 1000)
-                }
-            ).to_sse_format()
+            for attempt in range(1, SlayQLPipeline.MAX_REPAIR_ATTEMPTS + 1):
+                attempt_count = attempt
+                if SlayQLPipeline._cancelled(run_id):
+                    return
+                generation_started = time.perf_counter()
+                SlayQLPipeline._emit(
+                    run_id,
+                    "model_generation",
+                    "provider.request_started",
+                    {
+                        "attempt": attempt,
+                        "requested_model_id": requested_model_id,
+                        "execution_model_id": TEST_EXECUTION_MODEL,
+                        "provider": "SlayQL metadata planner" if deterministic_sql else "OpenRouter",
+                        "is_repair": attempt > 1,
+                    },
+                )
+                if attempt > 1:
+                    SlayQLPipeline._emit(
+                        run_id,
+                        "model_generation",
+                        "agent.repair_started",
+                        {"attempt": attempt, "feedback": repair_feedback},
+                    )
+                completion: Dict[str, Any] = {}
+                first_provider_delta = False
+                if deterministic_sql:
+                    async def deterministic_stream() -> AsyncGenerator[Dict[str, Any], None]:
+                        yield {
+                            "type": "completed",
+                            "content": deterministic_sql,
+                            "extracted_sql": deterministic_sql,
+                            "reasoning": "",
+                            "reasoning_details": [],
+                            "usage": {},
+                            "finish_reason": "deterministic_metadata",
+                            "latency_ms": 0,
+                            "requested_model_id": requested_model_id,
+                            "model_id": "slayql/metadata-planner",
+                            "resolved_model_id": "slayql/metadata-planner",
+                            "resolved_provider": "SlayQL",
+                            "response_id": None,
+                        }
+                    provider_stream = deterministic_stream()
+                else:
+                    provider_stream = openrouter_client.stream_sql(
+                        requested_model_id=requested_model_id,
+                        question=effective_question,
+                        dialect=dialect,
+                        schema_context=schema_context,
+                        grounding_hints=grounding_context,
+                        retrieval_context=retrieval_context,
+                        conversation_messages=metadata["conversation_messages"],
+                        repair_feedback=repair_feedback,
+                        session_id=conversation_id,
+                        fallback_sql=fallback_sql,
+                    )
+                async for provider_event in provider_stream:
+                    event_type = provider_event["type"]
+                    if event_type in {"reasoning_delta", "reasoning_detail", "content_delta"} and not first_provider_delta:
+                        first_provider_delta = True
+                        SlayQLPipeline._emit(
+                            run_id,
+                            "model_generation",
+                            "provider.first_delta",
+                            {"attempt": attempt, "kind": event_type},
+                        )
+                    if event_type == "reasoning_delta":
+                        delta = provider_event.get("delta", "")
+                        reasoning_parts.append(delta)
+                        SlayQLPipeline._emit(
+                            run_id,
+                            "model_generation",
+                            "provider.reasoning_delta",
+                            {"attempt": attempt, "delta": delta},
+                        )
+                    elif event_type == "reasoning_detail":
+                        delta = provider_event.get("delta", "")
+                        if delta:
+                            reasoning_parts.append(delta)
+                        SlayQLPipeline._emit(
+                            run_id,
+                            "model_generation",
+                            "provider.reasoning_detail",
+                            {
+                                "attempt": attempt,
+                                "delta": delta,
+                                "detail": provider_event.get("detail") or {},
+                            },
+                        )
+                    elif event_type == "content_delta":
+                        SlayQLPipeline._emit(
+                            run_id,
+                            "model_generation",
+                            "provider.content_delta",
+                            {"attempt": attempt, "delta": provider_event.get("delta", "")},
+                        )
+                    elif event_type == "usage":
+                        SlayQLPipeline._emit(
+                            run_id,
+                            "model_generation",
+                            "provider.usage_finalized",
+                            {"attempt": attempt, "usage": provider_event.get("usage") or {}},
+                        )
+                    elif event_type == "completed":
+                        completion = provider_event
 
-        # 9. Run Completed
-        yield make_event(
-            stage="completion",
-            event_type="run.completed",
-            payload={
+                candidate_sql = (completion.get("extracted_sql") or "").strip()
+                usage = completion.get("usage") or {}
+                for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
+                    sql_usage[key] += int(usage.get(key) or 0)
+                sql_usage["cost"] += float(usage.get("cost") or 0)
+                SlayQLPipeline._emit(
+                    run_id,
+                    "model_generation",
+                    "provider.completed",
+                    {
+                        "attempt": attempt,
+                        "requested_model_id": requested_model_id,
+                        "execution_model_id": TEST_EXECUTION_MODEL,
+                        "latency_ms": completion.get("latency_ms", 0),
+                        "duration_ms": int((time.perf_counter() - generation_started) * 1000),
+                        "token_usage": usage,
+                        "finish_reason": completion.get("finish_reason", "stop"),
+                        "resolved_model_id": completion.get("resolved_model_id", TEST_EXECUTION_MODEL),
+                        "resolved_provider": completion.get("resolved_provider"),
+                        "response_id": completion.get("response_id"),
+                        "summary": (
+                            "Prepared validator-bound row-count SQL from the inspected catalog."
+                            if deterministic_sql
+                            else "Received a schema-grounded SQL candidate."
+                        ),
+                    },
+                )
+
+                validation_started = time.perf_counter()
+                SlayQLPipeline._emit(
+                    run_id,
+                    "sql_validation",
+                    "sql.candidate_ready",
+                    {
+                        "candidate_id": f"cand_{uuid.uuid4().hex[:8]}",
+                        "revision": attempt,
+                        "sql": candidate_sql,
+                        "dialect": dialect,
+                        "generation_source": "openrouter",
+                    },
+                )
+                validation = SqlValidator.validate_and_sanitize(
+                    sql=candidate_sql,
+                    dialect=dialect,
+                    catalog=catalog,
+                    max_rows=settings.MAX_RESULT_ROWS,
+                )
+                for check in validation.checks:
+                    SlayQLPipeline._emit(
+                        run_id,
+                        "sql_validation",
+                        "sql.validation_check",
+                        {**check.model_dump(), "attempt": attempt},
+                    )
+                SlayQLPipeline._emit(
+                    run_id,
+                    "sql_validation",
+                    "sql.validation_completed",
+                    {
+                        "attempt": attempt,
+                        "is_valid": validation.is_valid,
+                        "sanitized_sql": validation.sanitized_sql,
+                        "referenced_tables": validation.referenced_tables,
+                        "referenced_columns": validation.referenced_columns,
+                        "duration_ms": int((time.perf_counter() - validation_started) * 1000),
+                        "summary": "Completed read-only, schema, and dialect validation.",
+                    },
+                )
+                if not validation.is_valid:
+                    repair_feedback = (
+                        "The previous SQL failed static validation. Correct it using only the verified schema. "
+                        f"Validator feedback: {validation.error_message or 'invalid SQL'}"
+                    )
+                    if not deterministic_sql and attempt < SlayQLPipeline.MAX_REPAIR_ATTEMPTS:
+                        continue
+                    SlayQLPipeline._complete_without_generated_sql(
+                        run_id,
+                        answer=SlayQLPipeline._no_query_answer(run_id, question),
+                        started=started,
+                        intent_decision={
+                            **intent_decision,
+                            "reason": validation.error_message or "No valid SQL was produced.",
+                        },
+                        status="no_query",
+                        resolution_code="sql_validation_failed",
+                    )
+                    return
+
+                semantic_started = time.perf_counter()
+                SlayQLPipeline._emit(
+                    run_id,
+                    "semantic_validation",
+                    "sql.semantic_validation_started",
+                    {
+                        "attempt": attempt,
+                        "model": GEMINI_WORKBENCH_MODEL,
+                        "summary": "Checking whether the safe SQL answers the user's request.",
+                    },
+                )
+                semantic_validation = await gemini_workbench_agent.validate_sql_semantics(
+                    question=effective_question,
+                    sql=validation.sanitized_sql,
+                    dialect=dialect,
+                    catalog_summary=SlayQLPipeline._intent_catalog_summary(catalog),
+                    recent_messages=metadata["conversation_messages"],
+                )
+                SlayQLPipeline._emit(
+                    run_id,
+                    "semantic_validation",
+                    "sql.semantic_validation_completed",
+                    {
+                        "attempt": attempt,
+                        "model": semantic_validation.get("model", GEMINI_WORKBENCH_MODEL),
+                        "mode": semantic_validation.get("mode", "gemini"),
+                        "is_semantically_valid": semantic_validation["is_semantically_valid"],
+                        "missing_requirements": semantic_validation["missing_requirements"],
+                        "reason": semantic_validation["reason"],
+                        "duration_ms": int((time.perf_counter() - semantic_started) * 1000),
+                        "summary": (
+                            "The SQL answers the requested analytical operation."
+                            if semantic_validation["is_semantically_valid"]
+                            else "The SQL is safe but does not yet answer the request."
+                        ),
+                    },
+                )
+                if not semantic_validation["is_semantically_valid"]:
+                    missing_requirements = "; ".join(semantic_validation["missing_requirements"])
+                    repair_feedback = (
+                        "The previous SQL was syntactically safe but semantically incorrect for the user's request. "
+                        f"Semantic feedback: {semantic_validation['reason']} "
+                        f"Missing requirements: {missing_requirements or 'match the requested result exactly.'}"
+                    )
+                    if not deterministic_sql and attempt < SlayQLPipeline.MAX_REPAIR_ATTEMPTS:
+                        continue
+                    SlayQLPipeline._complete_without_generated_sql(
+                        run_id,
+                        answer=SlayQLPipeline._no_query_answer(run_id, question),
+                        started=started,
+                        intent_decision={
+                            **intent_decision,
+                            "reason": semantic_validation["reason"],
+                        },
+                        status="no_query",
+                        resolution_code="semantic_validation_failed",
+                    )
+                    return
+
+                SlayQLPipeline._emit(
+                    run_id,
+                    "execution",
+                    "execution.started",
+                    {
+                        "attempt": attempt,
+                        "database": connection.get("name", connection_id),
+                        "timeout_seconds": settings.QUERY_TIMEOUT_SECONDS,
+                    },
+                )
+                result = await SlayQLPipeline._execute_query(
+                    connection,
+                    connection_id,
+                    validation.sanitized_sql,
+                )
+                if result.error:
+                    SlayQLPipeline._emit(
+                        run_id,
+                        "execution",
+                        "execution.failed",
+                        {"attempt": attempt, "error": result.error},
+                    )
+                    repair_feedback = (
+                        "The previous SQL passed static validation but failed when executed. "
+                        f"Database feedback: {result.error}"
+                    )
+                    if not deterministic_sql and attempt < SlayQLPipeline.MAX_REPAIR_ATTEMPTS:
+                        continue
+                    SlayQLPipeline._complete_without_generated_sql(
+                        run_id,
+                        answer=SlayQLPipeline._no_query_answer(run_id, question),
+                        started=started,
+                        intent_decision={
+                            **intent_decision,
+                            "reason": "The validated query could not be executed safely.",
+                        },
+                        status="no_query",
+                        resolution_code="sql_execution_failed",
+                    )
+                    return
+
+                final_sql = validation.sanitized_sql
+                final_validation = validation
+                execution_result = result
+                break
+
+            if execution_result is None or final_validation is None:
+                SlayQLPipeline._complete_without_generated_sql(
+                    run_id,
+                    answer=SlayQLPipeline._no_query_answer(run_id, question),
+                    started=started,
+                    intent_decision={
+                        **intent_decision,
+                        "reason": "No executable SQL result was produced.",
+                    },
+                    status="no_query",
+                    resolution_code="no_executable_sql",
+                )
+                return
+
+            SlayQLPipeline._emit(
+                run_id,
+                "sql_validation",
+                "sql.ready",
+                {"sql": final_sql, "attempt": attempt_count},
+            )
+            SlayQLPipeline._emit(
+                run_id,
+                "execution",
+                "execution.columns",
+                {"columns": execution_result.columns, "column_types": execution_result.column_types},
+            )
+            for offset in range(0, len(execution_result.rows), 50):
+                rows = execution_result.rows[offset:offset + 50]
+                SlayQLPipeline._emit(
+                    run_id,
+                    "execution",
+                    "execution.rows",
+                    {
+                        "batch_index": offset // 50,
+                        "offset": offset,
+                        "rows": rows,
+                        "is_final": offset + 50 >= len(execution_result.rows),
+                    },
+                )
+            SlayQLPipeline._emit(
+                run_id,
+                "execution",
+                "execution.completed",
+                {
+                    "row_count": len(execution_result.rows),
+                    "is_truncated": execution_result.is_truncated,
+                    "execution_time_ms": execution_result.execution_time_ms,
+                    "summary": f"Returned {len(execution_result.rows)} rows from read-only execution.",
+                },
+            )
+
+            visualization_started = time.perf_counter()
+            SlayQLPipeline._emit(
+                run_id,
+                "visualization",
+                "visualization.agent_started",
+                {
+                    "model": GEMINI_WORKBENCH_MODEL,
+                    "summary": "Gemini is selecting a chart from the bounded result profile.",
+                },
+            )
+            chart = None
+            try:
+                result_profile = summarize_result(
+                    execution_result.columns,
+                    execution_result.column_types,
+                    execution_result.rows,
+                )
+                chart_plan = await gemini_workbench_agent.recommend_chart(question, result_profile)
+                chart = materialize_chart_recommendation(
+                    chart_plan,
+                    execution_result.columns,
+                    execution_result.column_types,
+                    execution_result.rows,
+                )
+                SlayQLPipeline._emit(
+                    run_id,
+                    "visualization",
+                    "visualization.agent_completed",
+                    {
+                        "model": chart_plan.get("model", GEMINI_WORKBENCH_MODEL),
+                        "mode": chart_plan.get("mode", "gemini"),
+                        "idiom": chart_plan.get("idiom"),
+                        "reason": chart_plan.get("reason"),
+                        "duration_ms": int((time.perf_counter() - visualization_started) * 1000),
+                        "summary": "Gemini completed the visualization plan.",
+                    },
+                )
+            except Exception:
+                fallback_chart = execution_result.chart_recommendation
+                if fallback_chart:
+                    fallback_chart = {
+                        **fallback_chart,
+                        "model": GEMINI_WORKBENCH_MODEL,
+                        "mode": "local_fallback",
+                    }
+                chart = fallback_chart
+                SlayQLPipeline._emit(
+                    run_id,
+                    "visualization",
+                    "visualization.agent_completed",
+                    {
+                        "model": GEMINI_WORKBENCH_MODEL,
+                        "mode": "local_fallback",
+                        "duration_ms": int((time.perf_counter() - visualization_started) * 1000),
+                        "summary": "Gemini was unavailable; the bounded local chart fallback was used.",
+                    },
+                )
+            SlayQLPipeline._emit(
+                run_id,
+                "visualization",
+                "visualization.recommended" if chart else "visualization.not_recommended",
+                {"chart": chart, "summary": "Visualization is ready."}
+                if chart
+                else {"reason": "The result shape is best shown as a table."},
+            )
+
+            answer_parts: List[str] = []
+            answer_usage: Dict[str, Any] = {}
+            answer_completion: Dict[str, Any] = {}
+            answer_generation_started = time.perf_counter()
+            SlayQLPipeline._emit(
+                run_id,
+                "answer_generation",
+                "stage.started",
+                {"label": "Answer synthesis", "status": "active"},
+            )
+            try:
+                first_answer_delta = False
+                async for answer_event in openrouter_client.stream_answer(
+                    requested_model_id=requested_model_id,
+                    question=question,
+                    sql=final_sql,
+                    columns=execution_result.columns,
+                    rows=execution_result.rows,
+                    session_id=conversation_id,
+                ):
+                    answer_event_type = answer_event["type"]
+                    if answer_event_type in {"reasoning_delta", "reasoning_detail", "content_delta"} and not first_answer_delta:
+                        first_answer_delta = True
+                        SlayQLPipeline._emit(
+                            run_id,
+                            "answer_generation",
+                            "provider.first_delta",
+                            {"phase": "answer", "kind": answer_event_type},
+                        )
+                    if answer_event_type == "reasoning_delta":
+                        delta = answer_event.get("delta", "")
+                        reasoning_parts.append(delta)
+                        SlayQLPipeline._emit(
+                            run_id,
+                            "answer_generation",
+                            "provider.reasoning_delta",
+                            {"phase": "answer", "delta": delta},
+                        )
+                    elif answer_event_type == "reasoning_detail":
+                        delta = answer_event.get("delta", "")
+                        if delta:
+                            reasoning_parts.append(delta)
+                        SlayQLPipeline._emit(
+                            run_id,
+                            "answer_generation",
+                            "provider.reasoning_detail",
+                            {
+                                "phase": "answer",
+                                "delta": delta,
+                                "detail": answer_event.get("detail") or {},
+                            },
+                        )
+                    elif answer_event_type == "content_delta":
+                        delta = answer_event.get("delta", "")
+                        answer_parts.append(delta)
+                        SlayQLPipeline._emit(
+                            run_id,
+                            "answer_generation",
+                            "assistant.delta",
+                            {"delta": delta},
+                        )
+                    elif answer_event_type == "usage":
+                        SlayQLPipeline._emit(
+                            run_id,
+                            "answer_generation",
+                            "provider.usage_finalized",
+                            {"phase": "answer", "usage": answer_event.get("usage") or {}},
+                        )
+                    elif answer_event_type == "completed":
+                        answer_completion = answer_event
+                        answer_usage = answer_event.get("usage") or {}
+                SlayQLPipeline._emit(
+                    run_id,
+                    "answer_generation",
+                    "provider.completed",
+                    {
+                        "phase": "answer",
+                        "requested_model_id": requested_model_id,
+                        "execution_model_id": TEST_EXECUTION_MODEL,
+                        "latency_ms": answer_completion.get("latency_ms", 0),
+                        "duration_ms": int((time.perf_counter() - answer_generation_started) * 1000),
+                        "token_usage": answer_usage,
+                        "finish_reason": answer_completion.get("finish_reason", "stop"),
+                        "resolved_model_id": answer_completion.get("resolved_model_id", TEST_EXECUTION_MODEL),
+                        "resolved_provider": answer_completion.get("resolved_provider"),
+                        "response_id": answer_completion.get("response_id"),
+                        "summary": "Answer synthesis stream completed.",
+                    },
+                )
+            except ProviderError:
+                answer_parts = [f"The validated query returned {len(execution_result.rows)} rows."]
+
+            answer = "".join(answer_parts).strip() or f"The validated query returned {len(execution_result.rows)} rows."
+            SlayQLPipeline._emit(
+                run_id,
+                "answer_generation",
+                "stage.completed",
+                {"label": "Answer synthesis", "status": "passed", "summary": answer},
+            )
+            result_payload = {
                 "status": "success",
-                "total_duration_ms": int((time.perf_counter() - run_started_at) * 1000),
-                "sql": validation.sanitized_sql,
-                "rows_count": len(exec_res.rows)
+                "answer": answer,
+                "sql": final_sql,
+                "columns": execution_result.columns,
+                "column_types": execution_result.column_types,
+                "rows": execution_result.rows,
+                "row_count": len(execution_result.rows),
+                "is_truncated": execution_result.is_truncated,
+                "chart": chart,
+                "checks": [check.model_dump() for check in final_validation.checks],
+                "requested_model_id": requested_model_id,
+                "execution_model_id": TEST_EXECUTION_MODEL,
+                "attempt_count": attempt_count,
+                "token_usage": {"sql": sql_usage, "answer": answer_usage},
+                "reasoning": "".join(reasoning_parts)[-8000:],
+                "intent_validation": intent_decision,
+                "semantic_validation": semantic_validation,
+                "resolution_code": "sql_executed",
+                "reportable": True,
+                "total_duration_ms": int((time.perf_counter() - started) * 1000),
             }
-        ).to_sse_format()
+            result_payload["stream_events"] = SlayQLPipeline._event_trace(run_id) + [{
+                "event_id": f"{run_id}:terminal",
+                "sequence": len(RUN_EVENTS_STORE.get(run_id, [])) + 1,
+                "occurred_at": datetime.now(timezone.utc).isoformat(),
+                "stage": "completion",
+                "type": "run.completed",
+                "payload": {"status": "success"},
+            }]
+            result_payload["stream_events_truncated"] = len(RUN_EVENTS_STORE.get(run_id, [])) > 240
+            SlayQLPipeline._persist_assistant(run_id, answer, result_payload, sql=final_sql)
+            metadata["status"] = "completed"
+            metadata["result"] = result_payload
+            SlayQLPipeline._emit(run_id, "completion", "run.completed", result_payload)
+        except ProviderError as exc:
+            SlayQLPipeline._fail(run_id, "model_generation", str(exc))
+        except asyncio.CancelledError:
+            if metadata["status"] not in TERMINAL_STATUSES:
+                metadata["status"] = "cancelled"
+                SlayQLPipeline._emit(
+                    run_id,
+                    "cancelled",
+                    "run.cancelled",
+                    {"reason": "User cancelled"},
+                )
+                SlayQLPipeline._persist_assistant(
+                    run_id,
+                    "This run was cancelled before it completed.",
+                    {"status": "cancelled", "stream_events": SlayQLPipeline._event_trace(run_id)},
+                )
+        except Exception:
+            SlayQLPipeline._fail(run_id, "completion", "The agent run failed unexpectedly.")

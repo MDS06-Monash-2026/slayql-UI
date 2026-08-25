@@ -1,6 +1,6 @@
 import pytest
 import httpx
-from backend.app.main import app
+from backend.app.main import ACTIVE_SESSIONS, app
 
 @pytest.mark.asyncio
 async def test_api_health():
@@ -32,12 +32,19 @@ async def test_api_auth_and_session():
         assert sess_resp.status_code == 200
         sess_data = sess_resp.json()
         assert sess_data["user"]["name"] == session["user"]["name"]
+
+        ACTIVE_SESSIONS.pop(token)
+        persisted_resp = await client.get("/api/v1/session", headers={"Authorization": f"Bearer {token}"})
+        assert persisted_resp.json()["user"]["email"] == "alex.chen@stripe.com"
         
         # 3. 1-Click Reviewer demo login
         rev_resp = await client.post("/api/v1/auth/login", json={"is_reviewer": True})
         assert rev_resp.status_code == 200
         rev_data = rev_resp.json()
         assert rev_data["user"]["name"] == "Enterprise Reviewer"
+
+        assert (await client.post("/api/v1/auth/logout", headers={"Authorization": f"Bearer {token}"})).status_code == 200
+        assert (await client.post("/api/v1/auth/logout", headers={"Authorization": f"Bearer {rev_data['token']}"})).status_code == 200
 
 @pytest.mark.asyncio
 async def test_api_models():
@@ -46,7 +53,7 @@ async def test_api_models():
         assert resp.status_code == 200
         models = resp.json()
         assert len(models) >= 5
-        assert any(m["id"] == "anthropic/claude-3.5-sonnet" for m in models)
+        assert any(m["id"] == "deepseek/deepseek-v4-flash" for m in models)
 
 @pytest.mark.asyncio
 async def test_api_connections_and_catalog():
@@ -74,6 +81,13 @@ async def test_workbench_query_chart_catalog_and_local_health_agent(monkeypatch)
         idioms = idiom_resp.json()
         assert idioms["count"] >= 50
         assert any(item["id"] == "bump" for item in idioms["idioms"])
+
+        suggestions_resp = await client.get("/api/v1/connections/sqlite_demo/explore-suggestions")
+        assert suggestions_resp.status_code == 200
+        suggestions = suggestions_resp.json()
+        assert suggestions["mode"] == "local_fallback"
+        assert 3 <= len(suggestions["suggestions"]) <= 4
+        assert all(item["label"] and item["prompt"] for item in suggestions["suggestions"])
 
         query_resp = await client.post("/api/v1/connections/sqlite_demo/workbench/query", json={
             "sql": "SELECT c.segment, COUNT(o.id) AS order_count FROM customers c JOIN orders o ON o.customer_id = c.id GROUP BY c.segment"
@@ -128,6 +142,9 @@ async def test_api_create_and_test_database_connection():
         assert test_resp.status_code == 200
         test_data = test_resp.json()
         assert test_data["status"] == "healthy"
+
+        delete_resp = await client.delete(f"/api/v1/connections/{conn_id}")
+        assert delete_resp.status_code == 200
 
 @pytest.mark.asyncio
 async def test_api_create_and_drop_custom_table():
@@ -187,6 +204,126 @@ async def test_api_create_agent_run_and_execute():
         exec_data = exec_resp.json()
         assert exec_data["validation"]["is_valid"] is True
         assert len(exec_data["result"]["rows"]) == 5
+
+
+@pytest.mark.asyncio
+async def test_agent_stream_is_replayable_and_persists_assistant_thread():
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        create_resp = await client.post("/api/v1/agent-runs", json={
+            "question": "List customers for review",
+            "model_id": "openai/gpt-5.6-solar",
+            "connection_id": "sqlite_demo",
+        })
+        assert create_resp.status_code == 200
+        run = create_resp.json()
+        assert run["execution_model_id"] == "deepseek/deepseek-v4-flash"
+
+        stream_resp = await client.get(run["events_url"])
+        assert stream_resp.status_code == 200
+        assert "BM25 schema indexing" in stream_resp.text
+        assert '"execution_model_id": "deepseek/deepseek-v4-flash"' in stream_resp.text
+        assert "event: visualization.agent_started" in stream_resp.text
+        assert "event: sql.semantic_validation_completed" in stream_resp.text
+        assert "gemini-3.5-flash-lite" in stream_resp.text
+        assert stream_resp.text.count("event: provider.completed") >= 2
+        assert '"phase": "answer"' in stream_resp.text
+        assert stream_resp.text.count("event: run.completed") == 1
+
+        replay_resp = await client.get(run["events_url"])
+        assert replay_resp.status_code == 200
+        assert replay_resp.text.count("event: run.completed") == 1
+
+        thread_resp = await client.get(f"/api/v1/conversations/{run['conversation_id']}")
+        assert thread_resp.status_code == 200
+        thread = thread_resp.json()
+        assert [message["role"] for message in thread["messages"]] == ["user", "assistant"]
+        assert thread["messages"][-1]["payload"]["status"] == "success"
+        assert thread["messages"][-1]["payload"]["execution_model_id"] == "deepseek/deepseek-v4-flash"
+        assert thread["messages"][-1]["payload"]["stream_events"]
+        assert thread["messages"][-1]["payload"]["semantic_validation"]["is_semantically_valid"] is True
+        assert thread["messages"][-1]["payload"]["chart"]["model"] == "gemini-3.5-flash-lite"
+
+        continuation_resp = await client.post("/api/v1/agent-runs", json={
+            "question": "Now keep only the first ten",
+            "model_id": "anthropic/claude-opus-5",
+            "connection_id": "sqlite_demo",
+            "conversation_id": run["conversation_id"],
+        })
+        assert continuation_resp.status_code == 200
+        continuation = continuation_resp.json()
+        assert continuation["conversation_id"] == run["conversation_id"]
+        assert (await client.get(continuation["events_url"])).status_code == 200
+        updated_thread = (await client.get(f"/api/v1/conversations/{run['conversation_id']}")).json()
+        assert [message["role"] for message in updated_thread["messages"]] == [
+            "user", "assistant", "user", "assistant"
+        ]
+        assert updated_thread["messages"][-1]["payload"]["intent_validation"]["is_follow_up"] is True
+
+
+@pytest.mark.asyncio
+async def test_chat_intent_routes_metadata_no_query_and_reports():
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        schema_run = (await client.post("/api/v1/agent-runs", json={
+            "question": "What tables are in the database?",
+            "connection_id": "sqlite_demo",
+        })).json()
+        schema_stream = await client.get(schema_run["events_url"])
+        assert "event: intent.validator_completed" in schema_stream.text
+        assert '"intent": "schema_overview"' in schema_stream.text
+        schema_thread = (await client.get(f"/api/v1/conversations/{schema_run['conversation_id']}")).json()
+        schema_message = schema_thread["messages"][-1]
+        assert schema_message["payload"]["resolution_code"] == "schema_overview"
+        assert "customers" in [row[0] for row in schema_message["payload"]["rows"]]
+        assert schema_message["sql"] is None
+
+        count_run = (await client.post("/api/v1/agent-runs", json={
+            "question": "How many total rows are in the database?",
+            "connection_id": "sqlite_demo",
+            "conversation_id": schema_run["conversation_id"],
+        })).json()
+        count_stream = await client.get(count_run["events_url"])
+        assert "slayql/metadata-planner" in count_stream.text
+        count_thread = (await client.get(f"/api/v1/conversations/{schema_run['conversation_id']}")).json()
+        count_message = count_thread["messages"][-1]
+        assert count_message["payload"]["intent_validation"]["intent"] == "row_count_overview"
+        assert count_message["payload"]["rows"][0][0] == "All tables"
+        assert count_message["sql"]
+
+        no_query_run = (await client.post("/api/v1/agent-runs", json={
+            "question": "Hello",
+            "connection_id": "sqlite_demo",
+        })).json()
+        await client.get(no_query_run["events_url"])
+        no_query_thread = (await client.get(f"/api/v1/conversations/{no_query_run['conversation_id']}")).json()
+        no_query_message = no_query_thread["messages"][-1]
+        assert no_query_message["payload"]["status"] == "no_query"
+        assert no_query_message["payload"]["reportable"] is True
+
+        report_resp = await client.post("/api/v1/chat-reports", json={
+            "message_id": no_query_message["id"],
+            "category": "incorrect_or_unhelpful",
+        })
+        assert report_resp.status_code == 200
+        report = report_resp.json()
+        assert report["status"] == "new"
+        assert report["context"]["resolution_code"] == "unsupported"
+        duplicate = (await client.post("/api/v1/chat-reports", json={
+            "message_id": no_query_message["id"],
+        })).json()
+        assert duplicate["id"] == report["id"]
+
+        admin_session = (await client.post("/api/v1/auth/login", json={"is_reviewer": True})).json()
+        admin_headers = {"Authorization": f"Bearer {admin_session['token']}"}
+        reports = (await client.get("/api/v1/admin/chat-reports?status=new", headers=admin_headers)).json()
+        assert any(item["id"] == report["id"] for item in reports)
+        updated = (await client.patch(
+            f"/api/v1/admin/chat-reports/{report['id']}",
+            headers=admin_headers,
+            json={"status": "resolved", "resolution_note": "Reviewed in test."},
+        )).json()
+        assert updated["status"] == "resolved"
+        assert updated["resolved_at"]
+        assert (await client.post("/api/v1/auth/logout", headers=admin_headers)).status_code == 200
 
 
 @pytest.mark.asyncio
@@ -268,3 +405,8 @@ async def test_profiles_credits_and_connection_ownership():
         )
         assert run_resp.status_code == 200
         assert run_resp.json()["credits_remaining"] == credits_added["balance"] - 1
+
+        cleanup_resp = await client.delete(f"/api/v1/connections/{connection_id}", headers=first_headers)
+        assert cleanup_resp.status_code == 200
+        assert (await client.post("/api/v1/auth/logout", headers=first_headers)).status_code == 200
+        assert (await client.post("/api/v1/auth/logout", headers=second_headers)).status_code == 200

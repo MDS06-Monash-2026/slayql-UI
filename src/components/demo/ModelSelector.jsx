@@ -8,10 +8,10 @@ export default function ModelSelector({ models, selectedModelId, onSelectModel, 
   const searchRef = useRef(null);
 
   const activeModel = models.find((m) => m.id === selectedModelId) || models[0] || {
-    id: 'anthropic/claude-sonnet-4.5',
-    name: 'Claude Sonnet 4.5',
-    provider: 'Anthropic',
-    description: 'High accuracy SQL compiler with schema reasoning',
+    id: 'deepseek/deepseek-v4-flash',
+    name: 'DeepSeek V4 Flash',
+    provider: 'DeepSeek',
+    description: 'Server execution model for the current test deployment.',
   };
 
   useEffect(() => {
@@ -28,17 +28,7 @@ export default function ModelSelector({ models, selectedModelId, onSelectModel, 
     if (isOpen) searchRef.current?.focus();
   }, [isOpen]);
 
-  const legacyModelIds = new Set([
-    'anthropic/claude-3.5-sonnet',
-    'openai/gpt-4o',
-    'google/gemini-2.0-flash-001',
-    'deepseek/deepseek-chat',
-    'deepseek/deepseek-r1',
-    'meta-llama/llama-3.3-70b-instruct',
-    'openai/gpt-4o-mini',
-  ]);
-  const visibleModels = models.filter((model) => !legacyModelIds.has(model.id) || model.id === selectedModelId);
-  const filteredModels = visibleModels.filter((model) => {
+  const filteredModels = models.filter((model) => {
     const needle = searchQuery.trim().toLowerCase();
     if (!needle) return true;
     return [model.name, model.id, model.provider, model.description]
@@ -60,6 +50,8 @@ export default function ModelSelector({ models, selectedModelId, onSelectModel, 
         return 'bg-purple-50 text-purple-700 border-purple-200';
       case 'google':
         return 'bg-rose-50 text-rose-700 border-rose-200';
+      case 'xai':
+        return 'bg-slate-100 text-slate-800 border-slate-300';
       default:
         return 'bg-slate-50 text-slate-700 border-slate-200';
     }
@@ -91,10 +83,10 @@ export default function ModelSelector({ models, selectedModelId, onSelectModel, 
           <div className="px-4 py-3 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between gap-3">
             <div>
               <p className="text-xs font-bold text-slate-900">Choose a model</p>
-              <p className="text-[10px] text-slate-500">Live OpenRouter catalog</p>
+              <p className="text-[10px] text-slate-500">Test model profiles</p>
             </div>
             <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
-              <Zap className="w-3 h-3" /> Live
+              <Zap className="w-3 h-3" /> Test
             </span>
           </div>
 

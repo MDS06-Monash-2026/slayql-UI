@@ -9,9 +9,35 @@ SlayQL is an advanced, agentic Text-to-SQL framework designed for graph-based sc
 
 > **Note**: Product-tour screens remain mock-driven, while the Live Demo can use the FastAPI pipeline for real catalog, connection, and query operations.
 
+## Backend database setup
+
+Set the backend persistence database in the repository root `.env` file:
+
+```env
+DATABASE_URL=postgresql://postgres.project-ref:password@pooler-host:5432/postgres?sslmode=require
+BACKEND_DATABASE_SCHEMA=slayql
+```
+
+Use the PostgreSQL URI shown by Supabase **Connect**, not the project REST URL or an anon/publishable API key. `DATABASE_URL` stays on the API server and is never sent to the browser or included in an AI prompt.
+
+Supabase is backend infrastructure only. SlayQL creates a private `slayql` schema for profiles, credits, persistent sessions, query history, and encrypted connection metadata. It is never registered as a connected data source and cannot be selected by the SQL agent. With `DATABASE_URL` configured, each account starts with an empty source list and adds its own query databases through the UI.
+
+When `DATABASE_URL` is absent, backend persistence falls back to `CONTROL_DB_PATH` and the packaged SQLite query demo is available for local development. Future agent/BM25 index artifacts can remain on the persistent API volume independently of Supabase.
+
+## OpenRouter agent setup
+
+Keep the OpenRouter credential on the API server:
+
+```env
+OPENROUTER_KEY=your_key_here
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+```
+
+The Live Demo builds a BM25 index over selected schema metadata and bounded sample values, expands foreign-key paths, streams provider reasoning and answer events over authenticated SSE, validates read-only SQL, and retries failed validation or execution up to three times. For the current test deployment, every model profile is routed server-side to `deepseek/deepseek-v4-flash`; the selected profile is retained in conversation metadata for later routing changes. The OpenRouter credential is never returned to the frontend or stored in an SSE event.
+
 ## Data source setup
 
-SlayQL supports two connection modes:
+SlayQL supports two account-owned connection modes:
 
 * **Managed upload**: upload a `.db`, `.sqlite`, or `.sqlite3` file. The API validates it and stores a private copy under `CONNECTION_DATA_DIR`.
 * **Direct connection**: enter read-only credentials for PostgreSQL, Supabase, MySQL, or Snowflake. The API performs a `SELECT 1` check and discovers the catalog through SQLAlchemy.
@@ -22,9 +48,9 @@ Generate a persistent encryption key before running a production API:
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
-Set it as `FIELD_ENCRYPTION_KEY`. Credentials are encrypted in the control SQLite database (`CONTROL_DB_PATH`) and never returned by connection list/create responses. Keep the key in a secret manager and make `CONNECTION_DATA_DIR` a persistent, access-controlled volume.
+Set it as `FIELD_ENCRYPTION_KEY`. Credentials are encrypted before being stored in the backend database and are never returned by connection list/create responses. Keep the key in a secret manager and make `CONNECTION_DATA_DIR` a persistent, access-controlled volume for managed uploads.
 
-For Supabase, use the direct Postgres host, database, username, password, and TLS mode from the project connection settings. Anon/publishable API keys are not SQL credentials. Snowflake accepts account, user, warehouse, role, and either a password or PEM private key; provider auth JSON is normalized server-side and encrypted as one payload.
+For an additional Supabase source, use the Postgres host, database, username, password, and TLS mode from the project connection settings. Snowflake accepts account, user, warehouse, role, and either a password or PEM private key; provider auth JSON is normalized server-side and encrypted as one payload.
 
 ## Gemini database workbench
 

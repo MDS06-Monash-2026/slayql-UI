@@ -1,242 +1,359 @@
+"""OpenRouter streaming client used by the SQL agent.
+
+The model picker is intentionally a product-persona surface during testing. Every
+request is executed by the server-controlled model below, regardless of the
+selected persona.
+"""
+
+from __future__ import annotations
+
+import json
 import re
 import time
+from typing import Any, AsyncGenerator, Dict, List, Optional
+
 import httpx
-from typing import Dict, List, Any, Optional, AsyncGenerator
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
 from backend.app.config import settings
+
+
+TEST_EXECUTION_MODEL = "deepseek/deepseek-v4-flash"
+
+
+class ProviderError(RuntimeError):
+    """A public-safe provider failure with no credential or upstream body."""
+
 
 class ModelInfo(BaseModel):
     id: str
     name: str
     provider: str
     description: str
-    context_length: int
-    input_price: float # USD per 1M tokens
-    output_price: float # USD per 1M tokens
+    context_length: int = 0
+    input_price: float = 0.0
+    output_price: float = 0.0
     is_available: bool = True
-    tags: List[str] = []
+    tags: List[str] = Field(default_factory=list)
+
 
 CURATED_MODELS: List[ModelInfo] = [
-    ModelInfo(
-        id="anthropic/claude-sonnet-4.5",
-        name="Claude Sonnet 4.5",
-        provider="Anthropic",
-        description="Advanced reasoning and reliable tool use for complex analytical work.",
-        context_length=200000,
-        input_price=3.0,
-        output_price=15.0,
-        tags=["recommended", "reasoning", "latest"]
-    ),
-    ModelInfo(
-        id="openai/gpt-5",
-        name="GPT-5",
-        provider="OpenAI",
-        description="Frontier reasoning model for high-accuracy analysis and structured generation.",
-        context_length=400000,
-        input_price=1.25,
-        output_price=10.0,
-        tags=["frontier", "reasoning", "latest"]
-    ),
-    ModelInfo(
-        id="google/gemini-2.5-pro",
-        name="Gemini 2.5 Pro",
-        provider="Google",
-        description="Long-context reasoning for large schemas, documents, and multi-step analysis.",
-        context_length=1000000,
-        input_price=1.25,
-        output_price=10.0,
-        tags=["large-context", "reasoning", "latest"]
-    ),
-    ModelInfo(
-        id="anthropic/claude-3.5-sonnet",
-        name="Claude 3.5 Sonnet",
-        provider="Anthropic",
-        description="State-of-the-art reasoning and SQL synthesis across complex schemas.",
-        context_length=200000,
-        input_price=3.0,
-        output_price=15.0,
-        tags=["recommended", "highest-accuracy"]
-    ),
-    ModelInfo(
-        id="openai/gpt-4o",
-        name="GPT-4o",
-        provider="OpenAI",
-        description="High-speed flagship multimodal model with strong SQL compilation.",
-        context_length=128000,
-        input_price=2.5,
-        output_price=10.0,
-        tags=["flagship", "balanced"]
-    ),
-    ModelInfo(
-        id="deepseek/deepseek-chat",
-        name="DeepSeek V3",
-        provider="DeepSeek",
-        description="Exceptional price-performance ratio for structured data queries.",
-        context_length=64000,
-        input_price=0.27,
-        output_price=1.10,
-        tags=["cost-effective", "fast"]
-    ),
-    ModelInfo(
-        id="deepseek/deepseek-r1",
-        name="DeepSeek R1",
-        provider="DeepSeek",
-        description="Deep reasoning model with self-reflection capabilities.",
-        context_length=64000,
-        input_price=0.55,
-        output_price=2.19,
-        tags=["reasoning", "complex-joins"]
-    ),
-    ModelInfo(
-        id="meta-llama/llama-3.3-70b-instruct",
-        name="Llama 3.3 70B",
-        provider="Meta",
-        description="Open-weights flagship model optimized for tool use and structured queries.",
-        context_length=128000,
-        input_price=0.40,
-        output_price=0.40,
-        tags=["open-weights", "fast"]
-    ),
-    ModelInfo(
-        id="google/gemini-2.0-flash-001",
-        name="Gemini 2.0 Flash",
-        provider="Google",
-        description="Next-generation sub-second latency with massive 1M context window.",
-        context_length=1000000,
-        input_price=0.10,
-        output_price=0.40,
-        tags=["ultra-fast", "large-context"]
-    ),
-    ModelInfo(
-        id="openai/gpt-4o-mini",
-        name="GPT-4o Mini",
-        provider="OpenAI",
-        description="Lightweight and economical for standard aggregation queries.",
-        context_length=128000,
-        input_price=0.15,
-        output_price=0.60,
-        tags=["economical", "fast"]
-    )
+    ModelInfo(id="google/gemini-3.7-flash", name="Gemini 3.7 Flash", provider="Google", description="Fast Google persona for schema exploration.", tags=["fast", "test-persona"]),
+    ModelInfo(id="anthropic/claude-sonnet-5", name="Claude Sonnet 5", provider="Anthropic", description="Balanced Anthropic persona for analytical SQL.", tags=["balanced", "test-persona"]),
+    ModelInfo(id="anthropic/claude-fable-5", name="Claude Fable 5", provider="Anthropic", description="Concise Anthropic persona for conversational analysis.", tags=["concise", "test-persona"]),
+    ModelInfo(id="anthropic/claude-opus-5", name="Claude Opus 5", provider="Anthropic", description="Deep Anthropic persona for complex relational questions.", tags=["deep", "test-persona"]),
+    ModelInfo(id=TEST_EXECUTION_MODEL, name="DeepSeek V4 Flash", provider="DeepSeek", description="Server execution model for the current test deployment.", tags=["execution", "fast"]),
+    ModelInfo(id="deepseek/deepseek-v4-pro", name="DeepSeek V4 Pro", provider="DeepSeek", description="DeepSeek pro persona for complex SQL plans.", tags=["deep", "test-persona"]),
+    ModelInfo(id="x-ai/grok-4.6", name="Grok 4.6", provider="xAI", description="xAI persona for exploratory data questions.", tags=["explore", "test-persona"]),
+    ModelInfo(id="openai/gpt-5.6-terra", name="GPT 5.6 Terra", provider="OpenAI", description="GPT 5.6 Terra analytical persona.", tags=["analytical", "test-persona"]),
+    ModelInfo(id="openai/gpt-5.6-luna", name="GPT 5.6 Luna", provider="OpenAI", description="GPT 5.6 Luna conversational persona.", tags=["conversational", "test-persona"]),
+    ModelInfo(id="openai/gpt-5.6-solar", name="GPT 5.6 Solar", provider="OpenAI", description="GPT 5.6 Solar deep-reasoning persona.", tags=["deep", "test-persona"]),
 ]
+
 
 class ProviderCompletionResponse(BaseModel):
     raw_text: str
-    extracted_sql: str
-    input_tokens: int
-    output_tokens: int
-    latency_ms: int
-    estimated_cost_usd: float
-    model_id: str
-    provider_name: str
+    extracted_sql: str = ""
+    reasoning_text: str = ""
+    reasoning_details: List[Dict[str, Any]] = Field(default_factory=list)
+    input_tokens: int = 0
+    output_tokens: int = 0
+    latency_ms: int = 0
+    estimated_cost_usd: float = 0.0
+    model_id: str = TEST_EXECUTION_MODEL
+    requested_model_id: str = TEST_EXECUTION_MODEL
+    provider_name: str = "OpenRouter"
+    finish_reason: Optional[str] = None
+
 
 class OpenRouterClient:
-    def __init__(self):
-        self.api_key = settings.OPENROUTER_API_KEY or settings.OPENAI_API_KEY or settings.DEEPSEEK_API_KEY
-        self.base_url = settings.OPENROUTER_BASE_URL
-        self._model_cache: List[ModelInfo] = []
-        self._model_cache_at = 0.0
+    def __init__(self) -> None:
+        # OPENROUTER_KEY is the production name. The older name remains only
+        # as a migration fallback and is never returned by an API response.
+        self.api_key = settings.OPENROUTER_KEY or settings.OPENROUTER_API_KEY
+        self.base_url = settings.OPENROUTER_BASE_URL.rstrip("/")
 
     async def list_models(self, query: Optional[str] = None) -> List[ModelInfo]:
-        """Return the live OpenRouter text-model catalog with a safe fallback."""
-        normalized_query = (query or "").strip().lower()
-        models = await self._fetch_live_models()
-        if not models:
-            models = CURATED_MODELS
-        if normalized_query:
-            models = [
-                model for model in models
-                if normalized_query in model.id.lower()
-                or normalized_query in model.name.lower()
-                or normalized_query in model.provider.lower()
-                or normalized_query in model.description.lower()
-            ]
-        return models
+        normalized = (query or "").strip().lower()
+        if not normalized:
+            return CURATED_MODELS
+        return [
+            model
+            for model in CURATED_MODELS
+            if normalized in model.id.lower()
+            or normalized in model.name.lower()
+            or normalized in model.provider.lower()
+            or normalized in model.description.lower()
+        ]
 
-    async def _fetch_live_models(self) -> List[ModelInfo]:
-        cache_age = time.time() - self._model_cache_at
-        if self._model_cache and cache_age < 300:
-            return self._model_cache
-        if not self.api_key or self.api_key.startswith("mock_"):
-            return []
+    @staticmethod
+    def build_system_prompt(
+        dialect: str,
+        schema_context: str,
+        grounding_hints: str,
+        retrieval_context: str = "",
+        repair_feedback: str = "",
+    ) -> str:
+        repair_section = (
+            f"\n### PREVIOUS ATTEMPT FEEDBACK\n{repair_feedback}\n"
+            if repair_feedback
+            else ""
+        )
+        return f"""You are SlayQL's SQL planning agent. Generate one accurate, read-only {dialect.upper()} query for the user's latest question.
+
+### BM25 RETRIEVAL EVIDENCE
+{retrieval_context or "No additional retrieval evidence."}
+
+### VERIFIED DATABASE SCHEMA
+{schema_context}
+
+### GROUNDED VALUES
+{grounding_hints or "No literal values were grounded."}
+{repair_section}
+### RULES
+- Use only tables and columns present in the verified schema.
+- Prefer the supplied foreign-key relationships for joins.
+- Respect prior conversation only when it clarifies the latest question.
+- Return a single read-only SELECT statement or CTE ending in SELECT.
+- Keep the result to at most 200 rows when a full scan is not required.
+- Output only one fenced SQL code block, with no explanation outside it.
+"""
+
+    async def stream_sql(
+        self,
+        *,
+        requested_model_id: str,
+        question: str,
+        dialect: str,
+        schema_context: str,
+        grounding_hints: str,
+        retrieval_context: str,
+        conversation_messages: Optional[List[Dict[str, str]]] = None,
+        repair_feedback: str = "",
+        session_id: Optional[str] = None,
+        fallback_sql: str = "SELECT 1 AS result",
+    ) -> AsyncGenerator[Dict[str, Any], None]:
+        system_prompt = self.build_system_prompt(
+            dialect,
+            schema_context,
+            grounding_hints,
+            retrieval_context,
+            repair_feedback,
+        )
+        messages: List[Dict[str, str]] = [{"role": "system", "content": system_prompt}]
+        for item in (conversation_messages or [])[-8:]:
+            role = item.get("role")
+            content = (item.get("content") or "").strip()
+            if role in {"user", "assistant"} and content:
+                messages.append({"role": role, "content": content[:4000]})
+        messages.append({"role": "user", "content": question})
+
+        async for event in self._stream_completion(
+            requested_model_id=requested_model_id,
+            messages=messages,
+            session_id=session_id,
+            max_tokens=1800,
+            fallback_text=f"```sql\n{fallback_sql}\n```",
+        ):
+            if event["type"] == "completed":
+                event["extracted_sql"] = self._extract_sql(event.get("content", ""))
+            yield event
+
+    async def stream_answer(
+        self,
+        *,
+        requested_model_id: str,
+        question: str,
+        sql: str,
+        columns: List[str],
+        rows: List[List[Any]],
+        session_id: Optional[str],
+    ) -> AsyncGenerator[Dict[str, Any], None]:
+        bounded_result = json.dumps(
+            {"columns": columns, "rows": rows[:25]},
+            ensure_ascii=True,
+            default=str,
+        )
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "You are a data analyst. Answer the user's question from the query result. "
+                    "Be concise, state material caveats such as an empty or truncated result, and do not invent values. "
+                    "Do not include chain-of-thought or repeat the SQL."
+                ),
+            },
+            {
+                "role": "user",
+                "content": f"Question: {question}\nSQL: {sql}\nBounded result: {bounded_result}",
+            },
+        ]
+        fallback = f"The validated query returned {len(rows)} row{'s' if len(rows) != 1 else ''}."
+        async for event in self._stream_completion(
+            requested_model_id=requested_model_id,
+            messages=messages,
+            session_id=session_id,
+            max_tokens=500,
+            fallback_text=fallback,
+        ):
+            yield event
+
+    async def _stream_completion(
+        self,
+        *,
+        requested_model_id: str,
+        messages: List[Dict[str, str]],
+        session_id: Optional[str],
+        max_tokens: int,
+        fallback_text: str,
+    ) -> AsyncGenerator[Dict[str, Any], None]:
+        started = time.perf_counter()
+        if not self.api_key:
+            raise ProviderError("The AI provider is not configured.")
+        if self.api_key.startswith("mock_"):
+            yield {"type": "content_delta", "delta": fallback_text}
+            yield {
+                "type": "completed",
+                "content": fallback_text,
+                "reasoning": "",
+                "reasoning_details": [],
+                "usage": {},
+                "finish_reason": "local_fallback",
+                "latency_ms": int((time.perf_counter() - started) * 1000),
+                "requested_model_id": requested_model_id,
+                "model_id": TEST_EXECUTION_MODEL,
+                "resolved_model_id": TEST_EXECUTION_MODEL,
+                "resolved_provider": "local",
+                "response_id": None,
+            }
+            return
 
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "HTTP-Referer": "https://slayql.ai",
-            "X-Title": "SlayQL Enterprise Demo",
+            "X-Title": "SlayQL",
+            "Content-Type": "application/json",
         }
+        payload: Dict[str, Any] = {
+            "model": TEST_EXECUTION_MODEL,
+            "messages": messages,
+            "temperature": 0,
+            "max_tokens": max_tokens,
+            "stream": True,
+            "reasoning": {"effort": "high", "exclude": False},
+        }
+        if session_id:
+            payload["session_id"] = session_id
+
+        content_parts: List[str] = []
+        reasoning_parts: List[str] = []
+        reasoning_details: List[Dict[str, Any]] = []
+        usage: Dict[str, Any] = {}
+        finish_reason: Optional[str] = None
+        response_id: Optional[str] = None
+        resolved_model_id: Optional[str] = None
+        resolved_provider: Optional[str] = None
+        last_usage_signature = ""
+
+        timeout = httpx.Timeout(connect=10.0, read=120.0, write=20.0, pool=10.0)
         try:
-            async with httpx.AsyncClient(timeout=12.0) as client:
-                response = await client.get(
-                    f"{self.base_url}/models",
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                async with client.stream(
+                    "POST",
+                    f"{self.base_url}/chat/completions",
                     headers=headers,
-                    params={"output_modalities": "text"},
-                )
-                response.raise_for_status()
-                payload = response.json()
-            models = [self._normalize_model(item) for item in payload.get("data", [])]
-            models = [model for model in models if model is not None]
-            models.sort(key=lambda model: ("free" not in model.tags, model.name.lower()))
-            self._model_cache = models
-            self._model_cache_at = time.time()
-            return models
-        except Exception as exc:
-            print(f"[OpenRouterClient] Model catalog unavailable ({exc}); using curated catalog.")
-            return []
+                    json=payload,
+                ) as response:
+                    response.raise_for_status()
+                    async for line in response.aiter_lines():
+                        if not line.startswith("data:"):
+                            continue
+                        raw = line[5:].strip()
+                        if not raw or raw == "[DONE]":
+                            continue
+                        try:
+                            chunk = json.loads(raw)
+                        except json.JSONDecodeError:
+                            continue
+                        if chunk.get("error"):
+                            raise ProviderError("The AI provider rejected the request.")
+                        response_id = chunk.get("id") or response_id
+                        resolved_model_id = chunk.get("model") or resolved_model_id
+                        resolved_provider = chunk.get("provider") or resolved_provider
+                        if isinstance(chunk.get("usage"), dict):
+                            usage = chunk["usage"]
+                            usage_signature = json.dumps(usage, sort_keys=True, default=str)
+                            if usage and usage_signature != last_usage_signature:
+                                last_usage_signature = usage_signature
+                                yield {"type": "usage", "usage": usage}
+                        choices = chunk.get("choices") or []
+                        if not choices:
+                            continue
+                        choice = choices[0]
+                        finish_reason = choice.get("finish_reason") or finish_reason
+                        delta = choice.get("delta") or {}
+                        content = delta.get("content")
+                        if content:
+                            content_parts.append(content)
+                            yield {"type": "content_delta", "delta": content}
+
+                        delta_reasoning_details = delta.get("reasoning_details") or []
+                        direct_reasoning = delta.get("reasoning")
+                        if direct_reasoning and not delta_reasoning_details:
+                            reasoning_parts.append(direct_reasoning)
+                            yield {"type": "reasoning_delta", "delta": direct_reasoning}
+
+                        for detail in delta_reasoning_details:
+                            if not isinstance(detail, dict):
+                                continue
+                            detail_type = detail.get("type")
+                            # Encrypted reasoning is retained by the provider for
+                            # continuity and must not be exposed to the browser.
+                            if detail_type == "reasoning.encrypted":
+                                continue
+                            safe_detail = {
+                                key: value
+                                for key, value in detail.items()
+                                if key in {"type", "text", "summary", "format", "index", "id"}
+                            }
+                            if safe_detail:
+                                reasoning_details.append(safe_detail)
+                            detail_text = detail.get("text") or detail.get("summary")
+                            if detail_text:
+                                reasoning_parts.append(str(detail_text))
+                            yield {
+                                "type": "reasoning_detail",
+                                "detail": safe_detail,
+                                "delta": str(detail_text or ""),
+                            }
+        except ProviderError:
+            raise
+        except (httpx.HTTPError, OSError, ValueError) as exc:
+            raise ProviderError("The AI provider request failed.") from exc
+
+        yield {
+            "type": "completed",
+            "content": "".join(content_parts).strip(),
+            "reasoning": "".join(reasoning_parts).strip(),
+            "reasoning_details": reasoning_details,
+            "usage": usage,
+            "finish_reason": finish_reason or "stop",
+            "latency_ms": int((time.perf_counter() - started) * 1000),
+            "requested_model_id": requested_model_id,
+            "model_id": TEST_EXECUTION_MODEL,
+            "resolved_model_id": resolved_model_id or TEST_EXECUTION_MODEL,
+            "resolved_provider": resolved_provider,
+            "response_id": response_id,
+        }
 
     @staticmethod
-    def _normalize_model(item: Dict[str, Any]) -> Optional[ModelInfo]:
-        model_id = item.get("id")
-        if not model_id:
-            return None
-        pricing = item.get("pricing") or {}
-        try:
-            input_price = float(pricing.get("prompt", 0) or 0) * 1_000_000
-            output_price = float(pricing.get("completion", 0) or 0) * 1_000_000
-        except (TypeError, ValueError):
-            input_price = output_price = 0.0
-
-        provider_slug = model_id.split("/", 1)[0]
-        provider = {
-            "openai": "OpenAI",
-            "meta-llama": "Meta",
-            "google": "Google",
-            "anthropic": "Anthropic",
-            "deepseek": "DeepSeek",
-        }.get(provider_slug, provider_slug.replace("-", " ").title())
-        architecture = item.get("architecture") or {}
-        tags = []
-        if input_price == 0 and output_price == 0:
-            tags.append("free")
-        if architecture.get("reasoning") or "reasoning" in (item.get("description") or "").lower():
-            tags.append("reasoning")
-        return ModelInfo(
-            id=model_id,
-            name=item.get("name") or model_id,
-            provider=provider,
-            description=item.get("description") or "OpenRouter text model",
-            context_length=int(item.get("context_length") or 0),
-            input_price=round(input_price, 4),
-            output_price=round(output_price, 4),
-            tags=tags,
-        )
-
-    def build_system_prompt(self, dialect: str, schema_context: str, grounding_hints: str) -> str:
-        return f"""You are SlayQL, an expert enterprise SQL generation engine.
-Your task is to generate a single, syntactically correct, read-only {dialect.upper()} SQL query that directly and accurately answers the user's question.
-
-### DATABASE SCHEMA CONTEXT:
-{schema_context}
-
-### ENTITY & VALUE GROUNDING:
-{grounding_hints}
-
-### STRICT OUTPUT RULES (QOC - Question-to-Output Contract):
-1. Respond ONLY with a single fenced SQL code block (e.g. ```sql\\nSELECT ...\\n```).
-2. Absolutely DO NOT include conversational text, preamble, chain of thought, apologies, or markdown outside the single SQL block.
-3. The query MUST be strictly read-only (SELECT statements or CTEs ending in SELECT).
-4. Use standard table aliases and join on verified foreign keys.
-5. Limit the output if appropriate (max 200 rows).
-"""
+    def _extract_sql(text: str) -> str:
+        match = re.search(r"```(?:sql)?\s*([\s\S]*?)\s*```", text, re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
+        clean = text.strip()
+        select_match = re.search(r"\b(?:WITH|SELECT)\b[\s\S]*", clean, re.IGNORECASE)
+        return select_match.group(0).strip() if select_match else clean
 
     async def generate_sql(
         self,
@@ -244,178 +361,34 @@ Your task is to generate a single, syntactically correct, read-only {dialect.upp
         question: str,
         dialect: str,
         schema_context: str,
-        grounding_hints: str
+        grounding_hints: str,
     ) -> ProviderCompletionResponse:
-        start_time = time.time()
-        system_prompt = self.build_system_prompt(dialect, schema_context, grounding_hints)
-
-        # Check if we have an active API key
-        if self.api_key and not self.api_key.startswith("mock_"):
-            try:
-                headers = {
-                    "Authorization": f"Bearer {self.api_key}",
-                    "HTTP-Referer": "https://slayql.ai",
-                    "X-Title": "SlayQL Enterprise Demo",
-                    "Content-Type": "application/json"
-                }
-                payload = {
-                    "model": model_id,
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": question}
-                    ],
-                    "temperature": 0.0,
-                    "max_tokens": 1000
-                }
-                async with httpx.AsyncClient(timeout=30.0) as client:
-                    resp = await client.post(
-                        f"{self.base_url}/chat/completions",
-                        headers=headers,
-                        json=payload
-                    )
-                    resp.raise_for_status()
-                    data = resp.json()
-                    raw_text = data["choices"][0]["message"]["content"]
-                    usage = data.get("usage", {})
-                    in_tokens = usage.get("prompt_tokens", 450)
-                    out_tokens = usage.get("completion_tokens", 85)
-                    
-                    latency_ms = int((time.time() - start_time) * 1000)
-                    extracted_sql = self._extract_sql(raw_text)
-                    
-                    # Calc cost
-                    model_meta = next((m for m in CURATED_MODELS if m.id == model_id), CURATED_MODELS[0])
-                    cost = (in_tokens * model_meta.input_price + out_tokens * model_meta.output_price) / 1_000_000
-
-                    return ProviderCompletionResponse(
-                        raw_text=raw_text,
-                        extracted_sql=extracted_sql,
-                        input_tokens=in_tokens,
-                        output_tokens=out_tokens,
-                        latency_ms=latency_ms,
-                        estimated_cost_usd=round(cost, 6),
-                        model_id=model_id,
-                        provider_name=model_meta.provider
-                    )
-            except Exception as e:
-                # If API call fails or key is invalid, fall back smoothly to deterministic cognitive synthesis
-                print(f"[OpenRouterClient] Live API error ({e}), falling back to deterministic synthesis.")
-
-        # Deterministic cognitive synthesizer (Fallback / Offline mode)
-        return self._synthesize_local_sql(model_id, question, dialect, start_time)
-
-    def _extract_sql(self, text: str) -> str:
-        # Look for ```sql ... ```
-        match = re.search(r"```(?:sql)?\s*([\s\S]*?)\s*```", text, re.IGNORECASE)
-        if match:
-            return match.group(1).strip()
-        # Fallback if raw SQL without backticks
-        clean = text.strip()
-        if clean.upper().startswith("SELECT") or clean.upper().startswith("WITH"):
-            return clean
-        return text.strip()
-
-    def _synthesize_local_sql(self, model_id: str, question: str, dialect: str, start_time: float) -> ProviderCompletionResponse:
-        """
-        High-fidelity semantic fallback for common analytical queries on the demo schema.
-        """
-        lower = question.lower()
-        model_meta = next((m for m in CURATED_MODELS if m.id == model_id), CURATED_MODELS[0])
-        
-        sql = ""
-        if "top" in lower and ("customer" in lower or "spending" in lower or "spend" in lower or "revenue" in lower):
-            sql = """SELECT 
-    c.id AS customer_id,
-    c.full_name,
-    c.segment,
-    c.city,
-    COUNT(o.id) AS total_orders,
-    ROUND(SUM(o.total_amount), 2) AS total_revenue
-FROM customers c
-JOIN orders o ON c.id = o.customer_id
-WHERE o.status IN ('completed', 'shipped')
-GROUP BY c.id, c.full_name, c.segment, c.city
-ORDER BY total_revenue DESC
-LIMIT 10;"""
-        elif "margin" in lower or "profit" in lower or ("category" in lower and "product" in lower):
-            sql = """SELECT 
-    cat.name AS category_name,
-    cat.department,
-    COUNT(DISTINCT p.id) AS total_products,
-    ROUND(AVG(p.unit_price - p.cost_price), 2) AS avg_unit_margin,
-    ROUND(AVG((p.unit_price - p.cost_price) / p.unit_price * 100), 2) AS avg_margin_percentage
-FROM categories cat
-JOIN products p ON cat.id = p.category_id
-WHERE p.status = 'active'
-GROUP BY cat.name, cat.department
-ORDER BY avg_margin_percentage DESC;"""
-        elif "support" in lower or "case" in lower or "ticket" in lower or "resolution" in lower:
-            sql = """SELECT 
-    priority,
-    status,
-    COUNT(*) AS case_count,
-    ROUND(AVG(resolution_time_hours), 2) AS avg_resolution_hours
-FROM support_cases
-GROUP BY priority, status
-ORDER BY case_count DESC;"""
-        elif "payment" in lower or "method" in lower or "provider" in lower or "stripe" in lower:
-            sql = """SELECT 
-    payment_provider,
-    status,
-    COUNT(*) AS transaction_count,
-    ROUND(SUM(amount), 2) AS total_processed_amount
-FROM payments
-GROUP BY payment_provider, status
-ORDER BY total_processed_amount DESC;"""
-        elif "month" in lower or "trend" in lower or "time" in lower or "date" in lower or "daily" in lower:
-            sql = """SELECT 
-    SUBSTR(order_date, 1, 7) AS order_month,
-    COUNT(id) AS total_orders,
-    ROUND(SUM(total_amount), 2) AS monthly_revenue
-FROM orders
-WHERE status != 'cancelled'
-GROUP BY SUBSTR(order_date, 1, 7)
-ORDER BY order_month ASC;"""
-        elif "inventory" in lower or "stock" in lower:
-            sql = """SELECT 
-    p.name AS product_name,
-    p.sku,
-    c.name AS category_name,
-    p.inventory_count,
-    p.unit_price,
-    ROUND(p.inventory_count * p.unit_price, 2) AS total_inventory_value
-FROM products p
-JOIN categories c ON p.category_id = c.id
-WHERE p.status = 'active'
-ORDER BY total_inventory_value DESC
-LIMIT 15;"""
-        else:
-            # General relational query across customers and orders
-            sql = """SELECT 
-    c.segment,
-    COUNT(DISTINCT c.id) AS active_customers,
-    COUNT(o.id) AS total_orders,
-    ROUND(SUM(o.total_amount), 2) AS total_spent,
-    ROUND(AVG(o.total_amount), 2) AS avg_order_value
-FROM customers c
-LEFT JOIN orders o ON c.id = o.customer_id
-GROUP BY c.segment
-ORDER BY total_spent DESC;"""
-
-        latency_ms = int((time.time() - start_time) * 1000) + 280
-        in_tokens = 380 + len(question.split()) * 4
-        out_tokens = len(sql.split()) * 2
-        cost = (in_tokens * model_meta.input_price + out_tokens * model_meta.output_price) / 1_000_000
-
+        """Compatibility collector for callers that do not consume the stream."""
+        final: Dict[str, Any] = {}
+        async for event in self.stream_sql(
+            requested_model_id=model_id,
+            question=question,
+            dialect=dialect,
+            schema_context=schema_context,
+            grounding_hints=grounding_hints,
+            retrieval_context="",
+        ):
+            if event["type"] == "completed":
+                final = event
+        usage = final.get("usage") or {}
         return ProviderCompletionResponse(
-            raw_text=f"```sql\n{sql}\n```",
-            extracted_sql=sql,
-            input_tokens=in_tokens,
-            output_tokens=out_tokens,
-            latency_ms=latency_ms,
-            estimated_cost_usd=round(cost, 6),
-            model_id=model_id,
-            provider_name=model_meta.provider
+            raw_text=final.get("content", ""),
+            extracted_sql=final.get("extracted_sql", ""),
+            reasoning_text=final.get("reasoning", ""),
+            reasoning_details=final.get("reasoning_details", []),
+            input_tokens=int(usage.get("prompt_tokens") or 0),
+            output_tokens=int(usage.get("completion_tokens") or 0),
+            latency_ms=int(final.get("latency_ms") or 0),
+            estimated_cost_usd=float(usage.get("cost") or 0),
+            model_id=TEST_EXECUTION_MODEL,
+            requested_model_id=model_id,
+            finish_reason=final.get("finish_reason"),
         )
+
 
 openrouter_client = OpenRouterClient()

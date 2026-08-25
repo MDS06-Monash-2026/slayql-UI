@@ -3,11 +3,21 @@ from backend.app.config import settings
 from backend.app.db.seed_demo import seed_sqlite_demo
 from backend.app.catalog.discovery import CatalogService
 from backend.app.agent.rbp import RBPGraphEngine
+from backend.app.agent.pipeline import SlayQLPipeline
 from backend.app.queries.validator import SqlValidator
 from backend.app.queries.executor import QueryExecutor
-from backend.app.providers.openrouter_client import openrouter_client
-from backend.app.workbench.gemini_agent import GEMINI_WORKBENCH_MODEL, chart_idiom_payload
+from backend.app.providers.openrouter_client import ProviderError, openrouter_client
+from backend.app.workbench.gemini_agent import (
+    GEMINI_WORKBENCH_MODEL,
+    _fallback_chat_intent,
+    _fallback_sql_semantic_validation,
+    chart_idiom_payload,
+    gemini_workbench_agent,
+    materialize_chart_recommendation,
+)
 from backend.app.workbench.health import inspect_sqlite_health
+from backend.app.connections.runtime import connection_url
+from backend.app.connections.registry import default_connection_id, get_connection, get_credentials
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_db():
@@ -26,6 +36,20 @@ def test_catalog_discovery():
     customers_tbl = catalog.tables["customers"]
     assert len(customers_tbl.columns) > 0
     assert customers_tbl.row_count_estimate == 60
+
+
+def test_supabase_url_uses_installed_psycopg_driver():
+    raw_url = "postgresql://reader:secret@db.example.supabase.co:5432/postgres?sslmode=require"
+    normalized = connection_url("supabase", {"connection_string": raw_url})
+    assert normalized == raw_url.replace("postgresql://", "postgresql+psycopg://", 1)
+
+
+def test_database_url_is_backend_only(monkeypatch):
+    raw_url = "postgresql://reader:secret@db.example.supabase.co:5432/postgres"
+    monkeypatch.setattr(settings, "DATABASE_URL", raw_url)
+    assert default_connection_id() is None
+    assert get_connection("supabase_default") is None
+    assert get_credentials("supabase_default") == {}
 
 
 def test_demo_catalog_has_complex_company_scale_schema():
@@ -47,6 +71,123 @@ def test_workbench_visualization_registry_and_health_diagnostics():
     assert health["integrity"] == "ok"
     assert health["table_count"] >= 10
     assert health["total_rows"] >= 1000
+
+
+def test_gemini_chart_plan_is_materialized_for_the_renderer():
+    chart = materialize_chart_recommendation(
+        {
+            "idiom": "multi_line",
+            "title": "Monthly revenue",
+            "reason": "The result is a time series.",
+            "x_field": "month",
+            "y_fields": ["revenue"],
+            "model": GEMINI_WORKBENCH_MODEL,
+            "mode": "gemini",
+        },
+        ["month", "revenue"],
+        ["date", "number"],
+        [["2026-01", 10], ["2026-02", 14]],
+    )
+    assert chart is not None
+    assert chart["type"] == "line"
+    assert chart["idiom"] == "multi_line"
+    assert chart["metric_keys"] == ["revenue"]
+    assert chart["model"] == GEMINI_WORKBENCH_MODEL
+
+
+def test_chat_intent_fallback_handles_metadata_and_follow_ups():
+    schema_intent = _fallback_chat_intent("What tables are in the database?", [])
+    assert schema_intent["intent"] == "schema_overview"
+    assert schema_intent["requires_sql"] is False
+
+    count_intent = _fallback_chat_intent("How many total rows are in the database?", [])
+    assert count_intent["intent"] == "row_count_overview"
+    assert count_intent["requires_sql"] is True
+
+    specific_count = _fallback_chat_intent("How many rows are in customers?", [])
+    assert specific_count["intent"] == "data_query"
+
+    follow_up = _fallback_chat_intent(
+        "Now keep only active ones",
+        [{"role": "user", "content": "List customers"}],
+    )
+    assert follow_up["intent"] == "data_query"
+    assert follow_up["is_follow_up"] is True
+
+
+@pytest.mark.asyncio
+async def test_row_count_metadata_sql_is_validated_and_executable():
+    catalog = CatalogService.get_sqlite_catalog(settings.SQLITE_DEMO_PATH)
+    sql = SlayQLPipeline._row_count_sql(catalog, "sqlite")
+    validation = SqlValidator.validate_and_sanitize(sql, "sqlite", catalog)
+    assert validation.is_valid is True
+    result = await QueryExecutor.execute_sqlite(settings.SQLITE_DEMO_PATH, validation.sanitized_sql)
+    assert result.error is None
+    assert result.rows[0][0] == "All tables"
+    assert result.rows[0][1] == sum(table.row_count_estimate for table in catalog.tables.values())
+
+
+@pytest.mark.asyncio
+async def test_explicit_row_count_language_overrides_broad_model_classification(monkeypatch):
+    async def broad_schema_classification(**_kwargs):
+        return {
+            "intent": "schema_overview",
+            "requires_sql": False,
+            "is_follow_up": False,
+            "resolved_question": "List the schema",
+            "confidence": 0.9,
+            "reason": "This looks like schema discovery.",
+            "model": GEMINI_WORKBENCH_MODEL,
+            "mode": "gemini",
+        }
+
+    monkeypatch.setattr(gemini_workbench_agent, "_generate_json", broad_schema_classification)
+    decision = await gemini_workbench_agent.classify_chat_intent(
+        "What tables are here and how many total rows are in the database?",
+        {"table_count": 2, "tables": [{"name": "customers"}, {"name": "orders"}]},
+        [],
+    )
+    assert decision["intent"] == "row_count_overview"
+    assert decision["requires_sql"] is True
+
+
+def test_semantic_validator_rejects_safe_but_wrong_fallback_sql():
+    inventory = _fallback_sql_semantic_validation(
+        "Show the total quantity on hand for each product across all warehouses.",
+        'SELECT * FROM "inventory" LIMIT 100',
+    )
+    assert inventory["is_semantically_valid"] is False
+    assert any("aggregate" in item for item in inventory["missing_requirements"])
+    assert any("GROUP BY" in item for item in inventory["missing_requirements"])
+
+    ranked = _fallback_sql_semantic_validation(
+        "Show the top 10 customers with the highest total invoice amounts.",
+        'SELECT * FROM "invoice_items" LIMIT 100',
+    )
+    assert ranked["is_semantically_valid"] is False
+    assert any("ORDER BY" in item for item in ranked["missing_requirements"])
+    assert any("LIMIT 10" in item for item in ranked["missing_requirements"])
+
+    valid = _fallback_sql_semantic_validation(
+        "Show the total quantity on hand for each product across all warehouses.",
+        "SELECT product_id, SUM(quantity_on_hand) AS total_quantity FROM inventory GROUP BY product_id",
+    )
+    assert valid["is_semantically_valid"] is True
+
+
+@pytest.mark.asyncio
+async def test_missing_openrouter_key_never_returns_silent_sql_fallback(monkeypatch):
+    monkeypatch.setattr(openrouter_client, "api_key", None)
+    with pytest.raises(ProviderError, match="not configured"):
+        async for _event in openrouter_client.stream_sql(
+            requested_model_id="deepseek/deepseek-v4-flash",
+            question="List customers",
+            dialect="sqlite",
+            schema_context="TABLE customers (id INTEGER)",
+            grounding_hints="",
+            retrieval_context="",
+        ):
+            pass
 
 def test_rbp_graph_traversal():
     catalog = CatalogService.get_sqlite_catalog(settings.SQLITE_DEMO_PATH)
@@ -94,6 +235,6 @@ async def test_openrouter_model_list():
     models = await openrouter_client.list_models()
     assert len(models) >= 5
     model_ids = [m.id for m in models]
-    assert "anthropic/claude-3.5-sonnet" in model_ids
-    assert "openai/gpt-4o" in model_ids
-    assert "deepseek/deepseek-chat" in model_ids
+    assert "anthropic/claude-sonnet-5" in model_ids
+    assert "openai/gpt-5.6-terra" in model_ids
+    assert "deepseek/deepseek-v4-flash" in model_ids

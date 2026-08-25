@@ -22,6 +22,23 @@ const PROVIDERS = [
   { id: 'snowflake', label: 'Snowflake', hint: 'Warehouse account and role' },
 ];
 
+const SAMPLE_DATABASES = [
+  {
+    id: 'adventureworks',
+    name: 'AdventureWorks',
+    filename: 'AdventureWorks-sqlite.db',
+    path: '/AdventureWorks-sqlite.db',
+    detail: '12 tables / sales, customers, products, and orders',
+  },
+  {
+    id: 'enterprise',
+    name: 'Enterprise Sample',
+    filename: 'enterprise.db',
+    path: '/enterprise.db',
+    detail: '44 tables / finance, HR, CRM, support, and operations',
+  },
+];
+
 const initialCredentials = { host: '', port: '', database: '', username: '', password: '', sslmode: 'require', account: '', warehouse: '', schema: '', role: '', private_key: '', auth_json: '' };
 
 export default function AddConnectionModal({ isOpen, onClose, onConnectionAdded }) {
@@ -30,6 +47,7 @@ export default function AddConnectionModal({ isOpen, onClose, onConnectionAdded 
   const [provider, setProvider] = useState('postgresql');
   const [credentials, setCredentials] = useState(initialCredentials);
   const [file, setFile] = useState(null);
+  const [selectedSample, setSelectedSample] = useState(null);
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [testResult, setTestResult] = useState(null);
@@ -42,6 +60,7 @@ export default function AddConnectionModal({ isOpen, onClose, onConnectionAdded 
       setProvider('postgresql');
       setCredentials(initialCredentials);
       setFile(null);
+      setSelectedSample(null);
       setDescription('');
       setTestResult(null);
       setError(null);
@@ -58,6 +77,7 @@ export default function AddConnectionModal({ isOpen, onClose, onConnectionAdded 
     setTestResult(null);
     if (!name.trim()) return setError('Give this data source a name.');
     if (mode === 'upload' && !file) return setError('Choose a SQLite database file to upload.');
+    if (mode === 'sample' && !selectedSample) return setError('Choose a sample database.');
     if (mode === 'direct' && provider !== 'snowflake' && (!credentials.host || !credentials.database || !credentials.username || !credentials.password)) {
       return setError('Host, database, username, and password are required.');
     }
@@ -67,15 +87,28 @@ export default function AddConnectionModal({ isOpen, onClose, onConnectionAdded 
 
     setIsSubmitting(true);
     try {
-      const created = mode === 'upload'
-        ? await uploadConnection({ name: name.trim(), file, description: description.trim() })
-        : await createConnection({
+      let created;
+      if (mode === 'upload') {
+        created = await uploadConnection({ name: name.trim(), file, description: description.trim() });
+      } else if (mode === 'sample') {
+        const sampleResponse = await fetch(selectedSample.path);
+        if (!sampleResponse.ok) throw new Error('Could not load the selected sample database.');
+        const sampleBlob = await sampleResponse.blob();
+        const sampleFile = new File([sampleBlob], selectedSample.filename, { type: 'application/x-sqlite3' });
+        created = await uploadConnection({
+          name: name.trim(),
+          file: sampleFile,
+          description: description.trim() || selectedSample.detail,
+        });
+      } else {
+        created = await createConnection({
             name: name.trim(),
             provider,
             mode,
             description: description.trim(),
             credentials: Object.fromEntries(Object.entries(credentials).filter(([, value]) => value !== '')),
           });
+      }
       const result = await testConnection(created.id);
       setTestResult(result);
       if (result.status !== 'healthy') throw new Error(result.message || 'Connection test failed.');
@@ -104,8 +137,9 @@ export default function AddConnectionModal({ isOpen, onClose, onConnectionAdded 
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           {error && <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2"><AlertCircle className="w-4 h-4 shrink-0" />{error}</div>}
-          <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl">
+          <div className="grid grid-cols-3 gap-2 p-1 bg-slate-100 rounded-xl">
             <button type="button" onClick={() => setMode('upload')} className={`flex items-center justify-center gap-2 rounded-lg py-2.5 text-xs font-bold ${mode === 'upload' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500'}`}><Upload className="w-3.5 h-3.5" />Managed upload</button>
+            <button type="button" onClick={() => setMode('sample')} className={`flex items-center justify-center gap-2 rounded-lg py-2.5 text-xs font-bold ${mode === 'sample' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500'}`}><Database className="w-3.5 h-3.5" />Samples</button>
             <button type="button" onClick={() => setMode('direct')} className={`flex items-center justify-center gap-2 rounded-lg py-2.5 text-xs font-bold ${mode === 'direct' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500'}`}><Server className="w-3.5 h-3.5" />Connect directly</button>
           </div>
 
@@ -119,6 +153,30 @@ export default function AddConnectionModal({ isOpen, onClose, onConnectionAdded 
                 <div className="min-w-0"><p className="text-xs font-bold text-slate-800 truncate">{file?.name || 'Choose a .db, .sqlite, or .sqlite3 file'}</p><p className="text-[10px] text-slate-500">A managed copy is stored on the API volume and checked for integrity.</p></div>
                 <input type="file" accept=".db,.sqlite,.sqlite3,application/x-sqlite3" className="sr-only" onChange={(event) => setFile(event.target.files?.[0] || null)} />
               </label>
+            </div>
+          ) : mode === 'sample' ? (
+            <div>
+              <label className={labelClass}>Sample database</label>
+              <div className="grid sm:grid-cols-2 gap-2">
+                {SAMPLE_DATABASES.map((sample) => {
+                  const selected = selectedSample?.id === sample.id;
+                  return (
+                    <button
+                      key={sample.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedSample(sample);
+                        setName(sample.name);
+                      }}
+                      className={`min-h-24 p-3 rounded-xl border text-left transition ${selected ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-500/10' : 'border-slate-200 bg-slate-50 hover:border-slate-300'}`}
+                    >
+                      <span className="flex items-center gap-2 text-xs font-bold text-slate-800"><Database className={`w-4 h-4 ${selected ? 'text-indigo-600' : 'text-slate-400'}`} />{sample.name}</span>
+                      <span className="block mt-2 text-[10px] leading-4 text-slate-500">{sample.detail}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-2 text-[10px] text-slate-500">Selecting a sample creates a private managed copy for this account.</p>
             </div>
           ) : (
             <>

@@ -18,9 +18,18 @@ from backend.app.queries.validator import SqlValidator
 from backend.app.queries.executor import QueryExecutor
 from backend.app.connections.store import connection_store
 from backend.app.connections.runtime import test_external_connection, get_external_catalog
-from backend.app.connections.registry import get_connection, get_credentials, get_sqlite_path
+from backend.app.connections.registry import (
+    default_connection_id,
+    get_connection,
+    get_credentials,
+    get_sqlite_path,
+)
+from backend.app.control_database import control_database
 from backend.app.history.store import history_store
+from backend.app.history.conversation_store import conversation_store
+from backend.app.feedback.store import chat_report_store
 from backend.app.accounts.store import account_store
+from backend.app.accounts.session_store import session_store
 from backend.app.workbench.gemini_agent import chart_idiom_payload, gemini_workbench_agent, summarize_result
 from backend.app.workbench.health import inspect_sqlite_health
 
@@ -95,13 +104,13 @@ class LoginRequest(BaseModel):
 
 class CreateRunRequest(BaseModel):
     question: str
-    model_id: Optional[str] = "anthropic/claude-sonnet-4.5"
-    connection_id: Optional[str] = "sqlite_demo"
+    model_id: Optional[str] = "deepseek/deepseek-v4-flash"
+    connection_id: Optional[str] = None
     conversation_id: Optional[str] = None
 
 class ExecuteSqlRequest(BaseModel):
     sql: str
-    connection_id: Optional[str] = "sqlite_demo"
+    connection_id: Optional[str] = None
 
 class SaveQueryRequest(BaseModel):
     name: str
@@ -118,6 +127,15 @@ class UpdateProfileRequest(BaseModel):
 
 class AddCreditsRequest(BaseModel):
     amount: int = Field(default=100, ge=1, le=1000)
+
+class ChatReportRequest(BaseModel):
+    message_id: str = Field(min_length=1, max_length=128)
+    category: str = Field(default="incorrect_or_unhelpful", min_length=1, max_length=64)
+    note: str = Field(default="", max_length=2000)
+
+class AdminReportUpdateRequest(BaseModel):
+    status: str = Field(min_length=1, max_length=32)
+    resolution_note: str = Field(default="", max_length=2000)
 
 class WorkbenchResultPayload(BaseModel):
     columns: List[str] = Field(default_factory=list, max_length=50)
@@ -142,6 +160,13 @@ def _session_from_request(request: Request, required: bool = False) -> Optional[
     auth_header = request.headers.get("Authorization", "")
     token = auth_header.replace("Bearer ", "").strip()
     session = ACTIVE_SESSIONS.get(token)
+    if not session and token:
+        stored_session = session_store.get(token)
+        if stored_session:
+            profile = account_store.get(stored_session["user_id"])
+            if profile:
+                session = _build_session(token, profile, stored_session["authenticated_at"])
+                ACTIVE_SESSIONS[token] = session
     if required and not session:
         raise HTTPException(status_code=401, detail="Authentication is required.")
     return session
@@ -152,10 +177,33 @@ def _owner_id(request: Request) -> str:
     return session["user"]["id"] if session else "anonymous_demo"
 
 
+def _require_admin(request: Request) -> Dict[str, Any]:
+    session = _session_from_request(request, required=True)
+    role = str(session.get("user", {}).get("role") or "").casefold()
+    if "admin" not in role and "owner" not in role:
+        raise HTTPException(status_code=403, detail="Administrator access is required.")
+    return session
+
+
 def _refresh_session_profile(user_id: str, profile: Dict[str, Any]) -> None:
     for session in ACTIVE_SESSIONS.values():
         if session.get("user", {}).get("id") == user_id:
             session["user"] = {**session["user"], **profile}
+
+
+def _build_session(token: str, profile: Dict[str, Any], authenticated_at: str) -> Dict[str, Any]:
+    return {
+        "token": token,
+        "user": profile,
+        "organization": {
+            "id": f"org_{profile['id'].replace('usr_', '')}",
+            "name": profile["organization_name"],
+            "plan": "Enterprise Trial",
+            "region": "us-east-1 (Isolated Cluster)",
+            "tier": "Dedicated Tenant",
+        },
+        "authenticated_at": authenticated_at,
+    }
 
 
 def _compact_catalog(catalog) -> Dict[str, Any]:
@@ -219,18 +267,9 @@ async def login(req: LoginRequest):
         organization_name=org_name,
     )
     session_token = f"sess_{uuid.uuid4().hex}"
-    session_data = {
-        "token": session_token,
-        "user": profile,
-        "organization": {
-            "id": f"org_{profile['id'].replace('usr_', '')}",
-            "name": profile["organization_name"],
-            "plan": "Enterprise Trial",
-            "region": "us-east-1 (Isolated Cluster)",
-            "tier": "Dedicated Tenant"
-        },
-        "authenticated_at": datetime.now(timezone.utc).isoformat()
-    }
+    authenticated_at = datetime.now(timezone.utc).isoformat()
+    session_data = _build_session(session_token, profile, authenticated_at)
+    session_store.save(session_token, profile["id"], authenticated_at)
     ACTIVE_SESSIONS[session_token] = session_data
     return session_data
 
@@ -256,8 +295,9 @@ async def get_current_session(request: Request):
 async def logout(request: Request):
     auth_header = request.headers.get("Authorization", "")
     token = auth_header.replace("Bearer ", "").strip()
-    if token in ACTIVE_SESSIONS:
-        del ACTIVE_SESSIONS[token]
+    ACTIVE_SESSIONS.pop(token, None)
+    if token:
+        session_store.delete(token)
     return {"status": "logged_out"}
 
 
@@ -330,7 +370,9 @@ async def health_check():
         "status": "healthy",
         "environment": settings.APP_ENV,
         "active_models_count": len(await openrouter_client.list_models()),
-        "sqlite_demo_ready": True
+        "sqlite_demo_ready": settings.demo_connections_enabled,
+        "default_connection_id": default_connection_id(),
+        "backend_database": control_database.backend,
     }
 
 @app.get("/api/v1/models")
@@ -338,27 +380,36 @@ async def list_models(q: Optional[str] = Query(default=None, max_length=100)) ->
     return await openrouter_client.list_models(q)
 
 # Dynamic Connections Store
-DYNAMIC_CONNECTIONS: Dict[str, Dict[str, Any]] = {
-    "sqlite_demo": {
-        "id": "sqlite_demo",
-        "name": "SlayQL Demo Database (Packaged SQLite)",
-        "engine": "sqlite",
-        "status": "connected",
-        "access_mode": "read_only",
-        "path": settings.SQLITE_DEMO_PATH,
-        "latency_ms": 1.2,
-        "created_at": "2026-08-20T00:00:00Z"
-    },
-    "postgres_demo": {
-        "id": "postgres_demo",
-        "name": "SlayQL Customer PostgreSQL Demo (Neon)",
-        "engine": "postgresql",
-        "status": "ready" if settings.DEMO_POSTGRES_URL else "simulated",
-        "access_mode": "read_only",
-        "latency_ms": 18.5,
-        "created_at": "2026-08-21T00:00:00Z"
-    }
-}
+DYNAMIC_CONNECTIONS: Dict[str, Dict[str, Any]] = {}
+
+if settings.demo_connections_enabled:
+    DYNAMIC_CONNECTIONS.update({
+        "sqlite_demo": {
+            "id": "sqlite_demo",
+            "name": "SlayQL Demo Database (Packaged SQLite)",
+            "engine": "sqlite",
+            "status": "connected",
+            "access_mode": "read_only",
+            "is_default": True,
+            "managed_by_environment": True,
+            "path": settings.SQLITE_DEMO_PATH,
+            "latency_ms": 1.2,
+            "created_at": "2026-08-20T00:00:00Z"
+        },
+        "postgres_demo": {
+            "id": "postgres_demo",
+            "name": "SlayQL Customer PostgreSQL Demo (Neon)",
+            "engine": "postgresql",
+            "status": "ready" if settings.DEMO_POSTGRES_URL else "simulated",
+            "access_mode": "read_only",
+            "is_default": False,
+            "managed_by_environment": True,
+            "latency_ms": 18.5,
+            "created_at": "2026-08-21T00:00:00Z"
+        },
+    })
+
+ENVIRONMENT_CONNECTION_IDS = {"sqlite_demo", "postgres_demo"}
 
 class ColumnDef(BaseModel):
     name: str
@@ -391,7 +442,7 @@ class CreateConnectionRequest(BaseModel):
 
 def _connection_metadata(connection_id: str, owner_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
     dynamic = DYNAMIC_CONNECTIONS.get(connection_id)
-    if dynamic and (connection_id in {"sqlite_demo", "postgres_demo"} or owner_id is None or dynamic.get("owner_id") == owner_id):
+    if dynamic and (connection_id in ENVIRONMENT_CONNECTION_IDS or owner_id is None or dynamic.get("owner_id") == owner_id):
         return dynamic
     return connection_store.get_metadata(connection_id, owner_id=owner_id)
 
@@ -411,10 +462,9 @@ async def list_connections(request: Request):
     result = []
     owner_id = _owner_id(request)
     all_connections = {item["id"]: item for item in connection_store.list_metadata(owner_id=owner_id)}
-    all_connections.update({key: value for key, value in DYNAMIC_CONNECTIONS.items() if key in {"sqlite_demo", "postgres_demo"} or value.get("owner_id") == owner_id})
+    all_connections.update({key: value for key, value in DYNAMIC_CONNECTIONS.items() if key in ENVIRONMENT_CONNECTION_IDS or value.get("owner_id") == owner_id})
     for conn_id, conn in all_connections.items():
-        # calculate table count
-        tbl_count = 7
+        tbl_count = int(conn.get("table_count", 0))
         if conn["engine"] == "sqlite":
             try:
                 cat = CatalogService.get_sqlite_catalog(conn.get("path", settings.SQLITE_DEMO_PATH))
@@ -541,10 +591,10 @@ async def test_connection(connection_id: str, request: Request):
             with sqlite3.connect(path) as db:
                 db.execute("SELECT 1").fetchone()
             result = {"status": "healthy", "message": "SQLite file is readable."}
-        elif not connection_store.get_credentials(connection_id) and settings.APP_ENV == "demo":
+        elif not get_credentials(connection_id) and settings.APP_ENV == "demo":
             result = {"status": "healthy", "message": "Demo connection is available. Add credentials to verify a live provider."}
         else:
-            result = test_external_connection(conn["engine"], connection_store.get_credentials(connection_id))
+            result = test_external_connection(conn["engine"], get_credentials(connection_id))
         connection_store.update_status(connection_id, "connected")
         result.update({"connection_id": connection_id, "engine": conn["engine"], "latency_ms": round((time.perf_counter() - started) * 1000, 1)})
         return result
@@ -554,8 +604,8 @@ async def test_connection(connection_id: str, request: Request):
 
 @app.delete("/api/v1/connections/{connection_id}")
 async def delete_connection(connection_id: str, request: Request):
-    if connection_id in ["sqlite_demo", "postgres_demo"]:
-        raise HTTPException(status_code=400, detail="Default demo database connections cannot be deleted.")
+    if connection_id in ENVIRONMENT_CONNECTION_IDS:
+        raise HTTPException(status_code=400, detail="Environment-managed database connections cannot be deleted.")
     conn = _connection_metadata(connection_id, _owner_id(request))
     if not conn:
         raise HTTPException(status_code=404, detail="Database connection not found.")
@@ -573,7 +623,7 @@ async def get_connection_catalog(connection_id: str, request: Request):
         raise HTTPException(status_code=404, detail="Database connection not found.")
     if conn.get("engine") != "sqlite":
         try:
-            return get_external_catalog(conn["engine"], connection_store.get_credentials(connection_id))
+            return get_external_catalog(conn["engine"], get_credentials(connection_id))
         except Exception as exc:
             raise HTTPException(status_code=502, detail=f"Could not inspect this data source: {exc}") from exc
     db_path = conn.get("path", settings.SQLITE_DEMO_PATH) if conn else settings.SQLITE_DEMO_PATH
@@ -585,6 +635,30 @@ def _catalog_for_connection(conn: Dict[str, Any], connection_id: str):
     if conn.get("engine") == "sqlite":
         return CatalogService.get_sqlite_catalog(get_sqlite_path(connection_id) or settings.SQLITE_DEMO_PATH)
     return get_external_catalog(conn["engine"], get_credentials(connection_id))
+
+
+@app.get("/api/v1/connections/{connection_id}/explore-suggestions")
+async def get_explore_suggestions(connection_id: str, request: Request):
+    owner_id = _owner_id(request)
+    conn = _connection_metadata(connection_id, owner_id)
+    if not conn:
+        raise HTTPException(status_code=404, detail="Database connection not found.")
+    try:
+        catalog = _catalog_for_connection(conn, connection_id)
+        recent_questions = [
+            item["prompt"]
+            for item in history_store.list(owner_id=owner_id, limit=30)
+            if item.get("connection_id") == connection_id and item.get("prompt")
+        ][:8]
+        response = await gemini_workbench_agent.suggest_explorations(
+            _compact_catalog(catalog),
+            list(reversed(recent_questions)),
+        )
+        return response
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Could not generate exploration suggestions: {exc}") from exc
 
 
 @app.get("/api/v1/workbench/chart-idioms")
@@ -745,8 +819,20 @@ async def create_agent_run(req: CreateRunRequest, request: Request):
     if not req.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
     owner_id = _owner_id(request)
-    if not _connection_metadata(req.connection_id or "sqlite_demo", owner_id):
+    connection_id = req.connection_id or default_connection_id()
+    if not connection_id:
+        raise HTTPException(status_code=400, detail="Add and select a data source before running SQL generation.")
+    if not _connection_metadata(connection_id, owner_id):
         raise HTTPException(status_code=404, detail="Selected data source was not found in this workspace.")
+    conversation_id = req.conversation_id or f"conv_{uuid.uuid4().hex[:12]}"
+    conversation_messages: List[Dict[str, str]] = []
+    if req.conversation_id:
+        existing_conversation = conversation_store.get(req.conversation_id, owner_id)
+        if not existing_conversation:
+            raise HTTPException(status_code=404, detail="Conversation not found.")
+        if existing_conversation.get("connection_id") != connection_id:
+            raise HTTPException(status_code=400, detail="A conversation must continue on its original data source.")
+        conversation_messages = conversation_store.context(req.conversation_id, owner_id, limit=8)
     session = _session_from_request(request)
     credits_remaining = None
     if session:
@@ -756,11 +842,32 @@ async def create_agent_run(req: CreateRunRequest, request: Request):
         _refresh_session_profile(profile["id"], profile)
         credits_remaining = profile["credits"]
         
+    occurred_at = datetime.now(timezone.utc).isoformat()
+    conversation = conversation_store.ensure(
+        conversation_id=conversation_id,
+        owner_id=owner_id,
+        connection_id=connection_id,
+        selected_model_id=req.model_id or settings.DEFAULT_MODEL,
+        title=req.question.strip(),
+        occurred_at=occurred_at,
+    )
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found.")
+    conversation_store.add_message(
+        conversation_id=conversation_id,
+        owner_id=owner_id,
+        role="user",
+        content=req.question.strip(),
+        created_at=occurred_at,
+    )
+
     run_response = SlayQLPipeline.create_run(
         question=req.question.strip(),
         model_id=req.model_id or settings.DEFAULT_MODEL,
-        connection_id=req.connection_id or "sqlite_demo",
-        conversation_id=req.conversation_id
+        connection_id=connection_id,
+        conversation_id=conversation_id,
+        owner_id=owner_id,
+        conversation_messages=conversation_messages,
     )
 
     # Record in history
@@ -769,9 +876,9 @@ async def create_agent_run(req: CreateRunRequest, request: Request):
         "conversation_id": run_response["conversation_id"],
         "prompt": req.question.strip(),
         "model_id": req.model_id,
-        "connection_id": req.connection_id,
+        "connection_id": connection_id,
         "owner_id": owner_id,
-        "created_at": datetime.now(timezone.utc).isoformat()
+        "created_at": occurred_at,
     }
     QUERY_HISTORY.insert(0, history_item)
     history_store.add(
@@ -787,10 +894,12 @@ async def create_agent_run(req: CreateRunRequest, request: Request):
     return {**run_response, "credits_remaining": credits_remaining}
 
 @app.get("/api/v1/agent-runs/{run_id}/events")
-async def get_run_events_stream(run_id: str):
+async def get_run_events_stream(run_id: str, request: Request):
     """
     Server-Sent Events endpoint streaming the live SlayQL query lifecycle.
     """
+    if not SlayQLPipeline.owns_run(run_id, _owner_id(request)):
+        raise HTTPException(status_code=404, detail="Agent run not found.")
     event_stream = SlayQLPipeline.stream_run_events(run_id)
     return StreamingResponse(
         event_stream,
@@ -803,24 +912,30 @@ async def get_run_events_stream(run_id: str):
     )
 
 @app.post("/api/v1/agent-runs/{run_id}/cancel")
-async def cancel_agent_run(run_id: str):
-    success = SlayQLPipeline.cancel_run(run_id)
+async def cancel_agent_run(run_id: str, request: Request):
+    success = SlayQLPipeline.cancel_run(run_id, _owner_id(request))
     return {"cancelled": success, "run_id": run_id}
 
 @app.post("/api/v1/agent-runs/{run_id}/execute")
-async def execute_edited_sql(run_id: str, req: ExecuteSqlRequest):
+async def execute_edited_sql(run_id: str, req: ExecuteSqlRequest, request: Request):
     """
-    Executes user-edited SQL against the read-only demo database with full AST safety validation.
+    Executes user-edited SQL against the selected read-only source with full AST safety validation.
     """
-    conn = _connection_metadata(req.connection_id or "sqlite_demo")
+    owner_id = _owner_id(request)
+    if run_id in RUN_METADATA_STORE and not SlayQLPipeline.owns_run(run_id, owner_id):
+        raise HTTPException(status_code=404, detail="Agent run not found.")
+    connection_id = req.connection_id or default_connection_id()
+    if not connection_id:
+        raise HTTPException(status_code=400, detail="Add and select a data source before executing SQL.")
+    conn = _connection_metadata(connection_id, owner_id)
     if not conn:
         raise HTTPException(status_code=404, detail="Database connection not found.")
     try:
         if conn.get("engine") == "sqlite":
-            catalog = CatalogService.get_sqlite_catalog(get_sqlite_path(req.connection_id or "sqlite_demo") or settings.SQLITE_DEMO_PATH)
+            catalog = CatalogService.get_sqlite_catalog(get_sqlite_path(connection_id) or settings.SQLITE_DEMO_PATH)
             dialect = "sqlite"
         else:
-            catalog = get_external_catalog(conn["engine"], get_credentials(req.connection_id or "sqlite_demo"))
+            catalog = get_external_catalog(conn["engine"], get_credentials(connection_id))
             dialect = "postgres" if conn["engine"] in {"postgresql", "supabase"} else conn["engine"]
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Could not inspect this data source: {exc}") from exc
@@ -831,7 +946,7 @@ async def execute_edited_sql(run_id: str, req: ExecuteSqlRequest):
 
     if conn.get("engine") == "sqlite":
         result = await QueryExecutor.execute_sqlite(
-            db_path=get_sqlite_path(req.connection_id or "sqlite_demo") or settings.SQLITE_DEMO_PATH,
+            db_path=get_sqlite_path(connection_id) or settings.SQLITE_DEMO_PATH,
             sql=val.sanitized_sql,
             timeout_seconds=settings.QUERY_TIMEOUT_SECONDS,
             max_rows=settings.MAX_RESULT_ROWS
@@ -839,7 +954,7 @@ async def execute_edited_sql(run_id: str, req: ExecuteSqlRequest):
     else:
         result = await QueryExecutor.execute_external(
             provider=conn["engine"],
-            credentials=get_credentials(req.connection_id or "sqlite_demo"),
+            credentials=get_credentials(connection_id),
             sql=val.sanitized_sql,
             timeout_seconds=settings.QUERY_TIMEOUT_SECONDS,
             max_rows=settings.MAX_RESULT_ROWS
@@ -853,6 +968,73 @@ async def execute_edited_sql(run_id: str, req: ExecuteSqlRequest):
 @app.get("/api/v1/history")
 async def get_history(request: Request):
     return history_store.list(owner_id=_owner_id(request), limit=50)
+
+
+@app.get("/api/v1/conversations")
+async def get_conversations(request: Request):
+    return conversation_store.list(owner_id=_owner_id(request), limit=50)
+
+
+@app.get("/api/v1/conversations/{conversation_id}")
+async def get_conversation(conversation_id: str, request: Request):
+    conversation = conversation_store.get(conversation_id, _owner_id(request))
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found.")
+    return conversation
+
+
+@app.delete("/api/v1/conversations/{conversation_id}")
+async def delete_conversation(conversation_id: str, request: Request):
+    if not conversation_store.delete(conversation_id, _owner_id(request)):
+        raise HTTPException(status_code=404, detail="Conversation not found.")
+    return {"status": "deleted", "id": conversation_id}
+
+
+@app.post("/api/v1/chat-reports")
+async def report_chat_response(req: ChatReportRequest, request: Request):
+    try:
+        report = chat_report_store.create(
+            owner_id=_owner_id(request),
+            message_id=req.message_id,
+            category=req.category,
+            note=req.note,
+            created_at=datetime.now(timezone.utc).isoformat(),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not report:
+        raise HTTPException(status_code=404, detail="Assistant response was not found.")
+    return report
+
+
+@app.get("/api/v1/admin/chat-reports")
+async def list_chat_reports(
+    request: Request,
+    status: Optional[str] = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=200),
+):
+    _require_admin(request)
+    try:
+        return chat_report_store.list(status=status, limit=limit)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.patch("/api/v1/admin/chat-reports/{report_id}")
+async def update_chat_report(report_id: str, req: AdminReportUpdateRequest, request: Request):
+    _require_admin(request)
+    try:
+        report = chat_report_store.update_status(
+            report_id=report_id,
+            status=req.status,
+            resolution_note=req.resolution_note,
+            resolved_at=datetime.now(timezone.utc).isoformat(),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not report:
+        raise HTTPException(status_code=404, detail="Chat report was not found.")
+    return report
 
 
 @app.delete("/api/v1/history/{history_id}")

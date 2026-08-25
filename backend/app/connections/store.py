@@ -8,14 +8,15 @@ from __future__ import annotations
 
 import json
 import logging
-import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 from cryptography.fernet import Fernet, InvalidToken
+from sqlalchemy import delete, insert, select, update
 
 from backend.app.config import settings
+from backend.app.control_database import ControlDatabase, control_database
 
 logger = logging.getLogger(__name__)
 
@@ -27,8 +28,10 @@ def _utc_now() -> str:
 class SecretCipher:
     def __init__(self, configured_key: Optional[str]) -> None:
         self.ephemeral = not bool(configured_key)
-        if self.ephemeral and settings.APP_ENV == "production":
-            raise RuntimeError("FIELD_ENCRYPTION_KEY must be configured before starting in production.")
+        if self.ephemeral and (settings.APP_ENV == "production" or settings.DATABASE_URL):
+            raise RuntimeError(
+                "FIELD_ENCRYPTION_KEY must be configured when using production or Supabase persistence."
+            )
         if configured_key:
             try:
                 self._fernet = Fernet(configured_key.encode())
@@ -55,45 +58,15 @@ class SecretCipher:
 
 
 class ConnectionStore:
-    def __init__(self, db_path: str, data_dir: str, encryption_key: Optional[str]) -> None:
-        self.db_path = str(Path(db_path))
+    def __init__(self, database: ControlDatabase, data_dir: str, encryption_key: Optional[str]) -> None:
+        self.database = database
+        self.connections = database.data_connections
         self.data_dir = Path(data_dir)
         self.data_dir.mkdir(parents=True, exist_ok=True)
-        Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
         self.cipher = SecretCipher(encryption_key)
-        self._init_db()
-
-    def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        return conn
-
-    def _init_db(self) -> None:
-        with self._connect() as conn:
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS data_connections (
-                    id TEXT PRIMARY KEY,
-                    name TEXT NOT NULL,
-                    provider TEXT NOT NULL,
-                    mode TEXT NOT NULL,
-                    description TEXT NOT NULL DEFAULT '',
-                    access_mode TEXT NOT NULL DEFAULT 'read_only',
-                    status TEXT NOT NULL DEFAULT 'pending',
-                    data_path TEXT,
-                    encrypted_credentials TEXT,
-                    created_at TEXT NOT NULL,
-                    last_tested_at TEXT
-                )
-                """
-            )
-            columns = {row[1] for row in conn.execute("PRAGMA table_info(data_connections)").fetchall()}
-            if "owner_id" not in columns:
-                conn.execute("ALTER TABLE data_connections ADD COLUMN owner_id TEXT")
-            conn.commit()
 
     @staticmethod
-    def _metadata(row: sqlite3.Row) -> Dict[str, Any]:
+    def _metadata(row: Any) -> Dict[str, Any]:
         return {
             "id": row["id"],
             "name": row["name"],
@@ -125,70 +98,78 @@ class ConnectionStore:
     ) -> Dict[str, Any]:
         encrypted = self.cipher.encrypt(credentials or {}) if credentials else None
         created_at = _utc_now()
-        with self._connect() as conn:
-            conn.execute(
-                """
-                INSERT OR REPLACE INTO data_connections
-                (id, name, provider, mode, description, access_mode, status, data_path,
-                 encrypted_credentials, created_at, last_tested_at, owner_id)
-                VALUES (?, ?, ?, ?, ?, 'read_only', ?, ?, ?,
-                        COALESCE((SELECT created_at FROM data_connections WHERE id = ?), ?),
-                        (SELECT last_tested_at FROM data_connections WHERE id = ?), ?)
-                """,
-                (connection_id, name, provider, mode, description, status, data_path,
-                 encrypted, connection_id, created_at, connection_id, owner_id),
-            )
-            conn.commit()
+        with self.database.engine.begin() as conn:
+            existing = conn.execute(
+                select(self.connections).where(self.connections.c.id == connection_id)
+            ).mappings().first()
+            values = {
+                "name": name,
+                "provider": provider,
+                "mode": mode,
+                "description": description,
+                "access_mode": "read_only",
+                "status": status,
+                "data_path": data_path,
+                "encrypted_credentials": encrypted,
+                "created_at": existing["created_at"] if existing else created_at,
+                "last_tested_at": existing["last_tested_at"] if existing else None,
+                "owner_id": owner_id,
+            }
+            if existing:
+                conn.execute(
+                    update(self.connections)
+                    .where(self.connections.c.id == connection_id)
+                    .values(**values)
+                )
+            else:
+                conn.execute(insert(self.connections).values(id=connection_id, **values))
         return self.get_metadata(connection_id) or {}
 
     def list_metadata(self, owner_id: Optional[str] = None) -> list[Dict[str, Any]]:
-        with self._connect() as conn:
-            if owner_id is None:
-                rows = conn.execute("SELECT * FROM data_connections ORDER BY created_at DESC").fetchall()
-            else:
-                rows = conn.execute(
-                    "SELECT * FROM data_connections WHERE owner_id = ? ORDER BY created_at DESC", (owner_id,)
-                ).fetchall()
+        query = select(self.connections).order_by(self.connections.c.created_at.desc())
+        if owner_id is not None:
+            query = query.where(self.connections.c.owner_id == owner_id)
+        with self.database.engine.connect() as conn:
+            rows = conn.execute(query).mappings().all()
         return [self._metadata(row) for row in rows]
 
     def get_metadata(self, connection_id: str, owner_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
-        with self._connect() as conn:
-            if owner_id is None:
-                row = conn.execute("SELECT * FROM data_connections WHERE id = ?", (connection_id,)).fetchone()
-            else:
-                row = conn.execute(
-                    "SELECT * FROM data_connections WHERE id = ? AND owner_id = ?", (connection_id, owner_id)
-                ).fetchone()
+        query = select(self.connections).where(self.connections.c.id == connection_id)
+        if owner_id is not None:
+            query = query.where(self.connections.c.owner_id == owner_id)
+        with self.database.engine.connect() as conn:
+            row = conn.execute(query).mappings().first()
         return self._metadata(row) if row else None
 
     def get_credentials(self, connection_id: str) -> Dict[str, Any]:
-        with self._connect() as conn:
+        with self.database.engine.connect() as conn:
             row = conn.execute(
-                "SELECT encrypted_credentials FROM data_connections WHERE id = ?", (connection_id,)
-            ).fetchone()
+                select(self.connections.c.encrypted_credentials).where(
+                    self.connections.c.id == connection_id
+                )
+            ).mappings().first()
         if not row or not row["encrypted_credentials"]:
             return {}
         return self.cipher.decrypt(row["encrypted_credentials"])
 
     def update_status(self, connection_id: str, status: str) -> None:
-        with self._connect() as conn:
+        with self.database.engine.begin() as conn:
             conn.execute(
-                "UPDATE data_connections SET status = ?, last_tested_at = ? WHERE id = ?",
-                (status, _utc_now(), connection_id),
+                update(self.connections)
+                .where(self.connections.c.id == connection_id)
+                .values(status=status, last_tested_at=_utc_now())
             )
-            conn.commit()
 
     def delete(self, connection_id: str) -> Optional[Dict[str, Any]]:
         metadata = self.get_metadata(connection_id)
         if metadata:
-            with self._connect() as conn:
-                conn.execute("DELETE FROM data_connections WHERE id = ?", (connection_id,))
-                conn.commit()
+            with self.database.engine.begin() as conn:
+                conn.execute(delete(self.connections).where(self.connections.c.id == connection_id))
         return metadata
 
 
 connection_store = ConnectionStore(
-    settings.CONTROL_DB_PATH,
+    control_database,
     settings.CONNECTION_DATA_DIR,
     settings.FIELD_ENCRYPTION_KEY,
 )

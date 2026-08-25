@@ -16,7 +16,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
-import { BarChart2, LineChart as LineIcon, PieChart as PieIcon, AreaChart as AreaIcon, Sparkles, ChevronDown } from 'lucide-react';
+import { BarChart2, LineChart as LineIcon, PieChart as PieIcon, AreaChart as AreaIcon, Sparkles, ChevronDown, Gauge } from 'lucide-react';
 
 const PALETTE = ['#4f46e5', '#0ea5e9', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#f97316'];
 
@@ -25,6 +25,7 @@ const CHART_OPTIONS = [
   { id: 'line', label: 'Line Chart', icon: LineIcon },
   { id: 'area', label: 'Area Chart', icon: AreaIcon },
   { id: 'pie', label: 'Pie Chart', icon: PieIcon },
+  { id: 'kpi', label: 'KPI', icon: Gauge },
 ];
 
 function formatMetricLabel(str) {
@@ -41,9 +42,20 @@ export default function VisualizationStudio({
   columnTypes = [],
   rows = [],
   isLoading = false,
+  isDark = false,
 }) {
   const rec = chartRecommendation || recommendation;
   const [chartType, setChartType] = useState('bar');
+
+  // Dark-aware chart tokens
+  const gridColor = isDark ? '#2d3442' : '#f1f5f9';
+  const axisColor = isDark ? '#64748b' : '#64748b';
+  const axisLineColor = isDark ? '#323844' : '#e2e8f0';
+  const tooltipBg = isDark ? '#1b1f27' : '#ffffff';
+  const tooltipBorder = isDark ? '#323844' : '#e2e8f0';
+  const tooltipColor = isDark ? '#f8fafc' : '#0f172a';
+  const legendColor = isDark ? '#94a3b8' : '#64748b';
+  const cursorFill = isDark ? '#2a303b' : '#f8fafc';
 
   useEffect(() => {
     if (rec?.type) {
@@ -123,13 +135,18 @@ export default function VisualizationStudio({
             {rec && (
               <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${isRecommendedView ? 'bg-indigo-50 text-indigo-700 border-indigo-200/60' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>
                 <Sparkles className="w-2.5 h-2.5" />
-                {isRecommendedView ? 'AI Recommended' : 'Custom view'}
+                {isRecommendedView ? (rec?.mode === 'gemini' ? 'Gemini recommended' : 'Recommended') : 'Custom view'}
               </span>
             )}
           </div>
           <p className="text-xs text-slate-400 mt-0.5">
             {rec?.recommendation_reason || (rec ? 'Auto-profiled based on returned data shape' : 'Interactive chart view')}
           </p>
+          {rec?.model && (
+            <p className="mt-1 text-[10px] font-mono text-slate-400">
+              {rec.model}{rec.idiom ? ` / ${rec.idiom}` : ''}
+            </p>
+          )}
         </div>
 
         {/* Keep the backend recommendation as the default, with alternatives
@@ -158,23 +175,32 @@ export default function VisualizationStudio({
           <div className="h-full flex items-center justify-center text-slate-400 text-xs">
             No plottable numeric data found for chart visualization.
           </div>
+        ) : chartType === 'kpi' ? (
+          <div className="flex h-full items-center justify-center">
+            <div className="text-center">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{formatMetricLabel(metrics[0] || title)}</p>
+              <p className="mt-2 text-5xl font-semibold text-slate-950">{String(data[0]?.[metrics[0]] ?? '')}</p>
+            </div>
+          </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             {chartType === 'bar' ? (
               <BarChart data={data} margin={{ top: 10, right: 20, left: 10, bottom: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} />
-                <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} />
+                <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
+                <XAxis dataKey="name" tick={{ fontSize: 11, fill: axisColor }} axisLine={{ stroke: axisLineColor }} />
+                <YAxis tick={{ fontSize: 11, fill: axisColor }} axisLine={{ stroke: axisLineColor }} />
                 <Tooltip
                   contentStyle={{
                     borderRadius: 12,
-                    border: '1px solid #e2e8f0',
+                    border: `1px solid ${tooltipBorder}`,
                     boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
                     fontSize: 12,
+                    backgroundColor: tooltipBg,
+                    color: tooltipColor,
                   }}
-                  cursor={{ fill: '#f8fafc' }}
+                  cursor={{ fill: cursorFill }}
                 />
-                <Legend wrapperStyle={{ fontSize: 11, paddingTop: 10 }} />
+                <Legend wrapperStyle={{ fontSize: 11, paddingTop: 10, color: legendColor }} />
                 {metrics.map((metric, idx) => (
                   <Bar
                     key={metric}
@@ -187,18 +213,20 @@ export default function VisualizationStudio({
               </BarChart>
             ) : chartType === 'line' ? (
               <LineChart data={data} margin={{ top: 10, right: 20, left: 10, bottom: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} />
-                <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} />
+                <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
+                <XAxis dataKey="name" tick={{ fontSize: 11, fill: axisColor }} axisLine={{ stroke: axisLineColor }} />
+                <YAxis tick={{ fontSize: 11, fill: axisColor }} axisLine={{ stroke: axisLineColor }} />
                 <Tooltip
                   contentStyle={{
                     borderRadius: 12,
-                    border: '1px solid #e2e8f0',
+                    border: `1px solid ${tooltipBorder}`,
                     boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
                     fontSize: 12,
+                    backgroundColor: tooltipBg,
+                    color: tooltipColor,
                   }}
                 />
-                <Legend wrapperStyle={{ fontSize: 11, paddingTop: 10 }} />
+                <Legend wrapperStyle={{ fontSize: 11, paddingTop: 10, color: legendColor }} />
                 {metrics.map((metric, idx) => (
                   <Line
                     key={metric}
@@ -214,11 +242,11 @@ export default function VisualizationStudio({
               </LineChart>
             ) : chartType === 'area' ? (
               <AreaChart data={data} margin={{ top: 10, right: 20, left: 10, bottom: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} />
-                <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} />
-                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
-                <Legend wrapperStyle={{ fontSize: 11, paddingTop: 10 }} />
+                <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
+                <XAxis dataKey="name" tick={{ fontSize: 11, fill: axisColor }} axisLine={{ stroke: axisLineColor }} />
+                <YAxis tick={{ fontSize: 11, fill: axisColor }} axisLine={{ stroke: axisLineColor }} />
+                <Tooltip contentStyle={{ borderRadius: 12, border: `1px solid ${tooltipBorder}`, fontSize: 12, backgroundColor: tooltipBg, color: tooltipColor }} />
+                <Legend wrapperStyle={{ fontSize: 11, paddingTop: 10, color: legendColor }} />
                 {metrics.map((metric, idx) => (
                   <Area
                     key={metric}
@@ -241,14 +269,14 @@ export default function VisualizationStudio({
                   dataKey={metrics[0] || 'value'}
                   nameKey="name"
                   label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                  labelLine={{ stroke: '#cbd5e1' }}
+                  labelLine={{ stroke: isDark ? '#475569' : '#cbd5e1' }}
                 >
                   {data.map((_, i) => (
                     <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
                   ))}
                 </Pie>
-                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
-                <Legend wrapperStyle={{ fontSize: 11, paddingTop: 10 }} />
+                <Tooltip contentStyle={{ borderRadius: 12, border: `1px solid ${tooltipBorder}`, fontSize: 12, backgroundColor: tooltipBg, color: tooltipColor }} />
+                <Legend wrapperStyle={{ fontSize: 11, paddingTop: 10, color: legendColor }} />
               </PieChart>
             )}
           </ResponsiveContainer>
