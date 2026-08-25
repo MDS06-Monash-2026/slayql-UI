@@ -64,6 +64,18 @@ def _is_fast_greeting(normalized: str) -> bool:
     ))
 
 
+def _fast_greeting_answer(question: str) -> Optional[str]:
+    normalized = re.sub(r"\s+", " ", question.strip().casefold())
+    if not _is_fast_greeting(normalized):
+        return None
+    answers = [
+        "Hi! I can help you explore the selected database. Ask about its tables, metrics, trends, or a specific data question.",
+        "Hey! Tell me what you would like to learn from the database and I will point you to the right analysis.",
+        "Hello! You can ask about tables, row counts, business metrics, or a read-only data query.",
+    ]
+    return answers[sum(ord(char) for char in question) % len(answers)]
+
+
 def _fallback_chat_intent(question: str, recent_messages: List[Dict[str, str]]) -> Dict[str, Any]:
     normalized = re.sub(r"\s+", " ", question.strip().casefold())
     is_greeting = _is_fast_greeting(normalized)
@@ -377,17 +389,12 @@ class GeminiWorkbenchAgent:
         recent_messages: Optional[List[Dict[str, str]]] = None,
     ) -> Dict[str, Any]:
         """Answer a non-SQL turn with Gemini without inventing a query result."""
-        normalized = re.sub(r"\s+", " ", question.strip().casefold())
         # Greetings are handled locally so the conversational path stays below
         # the interactive latency target and never waits on a model round trip.
-        if _is_fast_greeting(normalized):
-            greeting_answers = [
-                "Hi! I can help you explore the selected database. Ask about its tables, metrics, trends, or a specific data question.",
-                "Hey! Tell me what you would like to learn from the database and I will point you to the right analysis.",
-                "Hello! You can ask about tables, row counts, business metrics, or a read-only data query.",
-            ]
+        greeting_answer = _fast_greeting_answer(question)
+        if greeting_answer:
             return {
-                "answer": greeting_answers[sum(ord(char) for char in question) % len(greeting_answers)],
+                "answer": greeting_answer,
                 "model": "slayql/local-response",
                 "mode": "local_heuristic",
             }

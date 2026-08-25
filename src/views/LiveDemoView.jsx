@@ -549,6 +549,10 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
       const runId = runData.run_id;
       setCurrentRunId(runId);
       setConversationId(runData.conversation_id);
+      if (runData.initial_answer) {
+        setActiveAnswer(runData.initial_answer);
+        setActiveIsSqlQuery(runData.initial_is_sql_query !== false);
+      }
       if (typeof runData.credits_remaining === 'number') {
         setCreditBalance(runData.credits_remaining);
         onSessionUpdate?.({ ...session, user: { ...session.user, credits: runData.credits_remaining } });
@@ -636,7 +640,10 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
               setActiveIsSqlQuery(payload.is_sql_query);
             }
           } else if (type === 'assistant.delta') {
-            setActiveAnswer((current) => `${current}${payload.delta || ''}`);
+            setActiveAnswer((current) => {
+              const delta = payload.delta || '';
+              return payload.mode === 'local_heuristic' && current === delta ? current : `${current}${delta}`;
+            });
           } else if (type === 'sql.candidate_ready' || type === 'sql.ready') {
             if (payload.sql) setActiveSql(payload.sql);
           } else if (type === 'sql.validation_check') {

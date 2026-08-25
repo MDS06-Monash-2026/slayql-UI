@@ -35,6 +35,7 @@ from backend.app.accounts.store import account_store
 from backend.app.accounts.session_store import session_store
 from backend.app.workbench.gemini_agent import (
     _fallback_chat_intent,
+    _fast_greeting_answer,
     chart_idiom_payload,
     gemini_workbench_agent,
     summarize_result,
@@ -967,7 +968,13 @@ async def create_agent_run(req: CreateRunRequest, request: Request):
     else:
         history_store.add(**history_values)
 
-    return {**run_response, "credits_remaining": credits_remaining}
+    initial_answer = _fast_greeting_answer(req.question) if is_fast_greeting else None
+    return {
+        **run_response,
+        "credits_remaining": credits_remaining,
+        "initial_answer": initial_answer,
+        "initial_is_sql_query": False if initial_answer else None,
+    }
 
 @app.get("/api/v1/agent-runs/{run_id}/events")
 async def get_run_events_stream(run_id: str, request: Request):

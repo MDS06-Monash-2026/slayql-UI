@@ -337,6 +337,8 @@ async def test_chat_intent_routes_metadata_no_query_and_reports():
             "connection_id": "sqlite_demo",
             "thinking_effort": "max",
         })).json()
+        assert no_query_run["initial_answer"]
+        assert no_query_run["initial_is_sql_query"] is False
         no_query_stream = await client.get(no_query_run["events_url"])
         assert "slayql/local-response" in no_query_stream.text
         assert "provider.request_started" not in no_query_stream.text
