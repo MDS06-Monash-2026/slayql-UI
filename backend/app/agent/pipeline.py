@@ -109,6 +109,16 @@ class SlayQLPipeline:
         return bool(metadata and metadata.get("owner_id") == owner_id)
 
     @staticmethod
+    def attach_start_persistence(run_id: str, task: asyncio.Task) -> None:
+        RUN_METADATA_STORE[run_id]["start_persistence_task"] = task
+
+    @staticmethod
+    async def _await_start_persistence(run_id: str) -> None:
+        task = RUN_METADATA_STORE[run_id].pop("start_persistence_task", None)
+        if task is not None:
+            await task
+
+    @staticmethod
     def cancel_run(run_id: str, owner_id: Optional[str] = None) -> bool:
         if run_id not in RUN_CANCEL_FLAGS:
             return False
@@ -487,6 +497,11 @@ class SlayQLPipeline:
             "general_response.completed",
             {"model": response.get("model", GEMINI_WORKBENCH_MODEL), "mode": response.get("mode", "gemini"), "summary": "Conversational response ready."},
         )
+        try:
+            await SlayQLPipeline._await_start_persistence(run_id)
+        except Exception:
+            SlayQLPipeline._fail(run_id, "persistence", "The response was ready, but this conversation could not be saved.")
+            return
         intent_decision = {**intent_decision, "response_model": response.get("model", GEMINI_WORKBENCH_MODEL)}
         SlayQLPipeline._complete_without_generated_sql(
             run_id,

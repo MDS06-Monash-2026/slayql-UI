@@ -333,10 +333,13 @@ async def test_chat_intent_routes_metadata_no_query_and_reports():
         assert count_message["sql"]
 
         no_query_run = (await client.post("/api/v1/agent-runs", json={
-            "question": "Hello",
+            "question": "Hey there",
             "connection_id": "sqlite_demo",
+            "thinking_effort": "max",
         })).json()
-        await client.get(no_query_run["events_url"])
+        no_query_stream = await client.get(no_query_run["events_url"])
+        assert "slayql/local-response" in no_query_stream.text
+        assert "provider.request_started" not in no_query_stream.text
         no_query_thread = (await client.get(f"/api/v1/conversations/{no_query_run['conversation_id']}")).json()
         no_query_message = no_query_thread["messages"][-1]
         assert no_query_message["payload"]["status"] == "no_query"

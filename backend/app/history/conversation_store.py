@@ -95,6 +95,16 @@ class ConversationStore:
             )
         return self._message_payload(record)
 
+    def get_metadata(self, conversation_id: str, owner_id: str) -> Optional[Dict[str, Any]]:
+        with self.database.engine.connect() as conn:
+            row = conn.execute(
+                select(self.conversations).where(
+                    self.conversations.c.id == conversation_id,
+                    self.conversations.c.owner_id == owner_id,
+                )
+            ).mappings().first()
+        return dict(row) if row else None
+
     def list(self, owner_id: str, limit: int = 50) -> List[Dict[str, Any]]:
         safe_limit = max(1, min(limit, 100))
         with self.database.engine.connect() as conn:

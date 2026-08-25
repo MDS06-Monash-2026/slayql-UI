@@ -1170,6 +1170,13 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
                       </>
                     )}
 
+                    {activeIsSqlQuery === false && isRunning && !activeAnswer && (
+                      <div className="flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800 shadow-sm dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-200">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Understanding your message...</span>
+                      </div>
+                    )}
+
                     {activeAnswer && (
                       <div className={activeIsSqlQuery === false
                         ? 'rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sky-950 shadow-sm dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-100'

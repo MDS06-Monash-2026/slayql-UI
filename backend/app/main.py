@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 import sqlite3
 import time
@@ -32,7 +33,12 @@ from backend.app.history.conversation_store import conversation_store
 from backend.app.feedback.store import chat_report_store
 from backend.app.accounts.store import account_store
 from backend.app.accounts.session_store import session_store
-from backend.app.workbench.gemini_agent import chart_idiom_payload, gemini_workbench_agent, summarize_result
+from backend.app.workbench.gemini_agent import (
+    _fallback_chat_intent,
+    chart_idiom_payload,
+    gemini_workbench_agent,
+    summarize_result,
+)
 from backend.app.workbench.health import inspect_sqlite_health
 
 app = FastAPI(
@@ -827,11 +833,45 @@ async def drop_table(connection_id: str, table_name: str, request: Request):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+def _persist_run_start(
+    *,
+    conversation_id: str,
+    owner_id: str,
+    connection_id: str,
+    model_id: Optional[str],
+    question: str,
+    occurred_at: str,
+    history_item: Dict[str, Any],
+) -> None:
+    conversation = conversation_store.ensure(
+        conversation_id=conversation_id,
+        owner_id=owner_id,
+        connection_id=connection_id,
+        selected_model_id=model_id,
+        title=question,
+        occurred_at=occurred_at,
+    )
+    if not conversation:
+        raise RuntimeError("Conversation could not be created for this workspace.")
+    message = conversation_store.add_message(
+        conversation_id=conversation_id,
+        owner_id=owner_id,
+        role="user",
+        content=question,
+        created_at=occurred_at,
+    )
+    if not message:
+        raise RuntimeError("The user message could not be saved.")
+    history_store.add(**history_item)
+
+
 @app.post("/api/v1/agent-runs")
 async def create_agent_run(req: CreateRunRequest, request: Request):
     if not req.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
     owner_id = _owner_id(request)
+    preflight = _fallback_chat_intent(req.question, [])
+    is_fast_greeting = bool(preflight.get("fast_path"))
     connection_id = req.connection_id or default_connection_id()
     if not connection_id:
         raise HTTPException(status_code=400, detail="Add and select a data source before running SQL generation.")
@@ -840,39 +880,47 @@ async def create_agent_run(req: CreateRunRequest, request: Request):
     conversation_id = req.conversation_id or f"conv_{uuid.uuid4().hex[:12]}"
     conversation_messages: List[Dict[str, str]] = []
     if req.conversation_id:
-        existing_conversation = conversation_store.get(req.conversation_id, owner_id)
+        existing_conversation = (
+            conversation_store.get_metadata(req.conversation_id, owner_id)
+            if is_fast_greeting
+            else conversation_store.get(req.conversation_id, owner_id)
+        )
         if not existing_conversation:
             raise HTTPException(status_code=404, detail="Conversation not found.")
         if existing_conversation.get("connection_id") != connection_id:
             raise HTTPException(status_code=400, detail="A conversation must continue on its original data source.")
-        conversation_messages = conversation_store.context(req.conversation_id, owner_id, limit=8)
+        if not is_fast_greeting:
+            conversation_messages = conversation_store.context(req.conversation_id, owner_id, limit=8)
     session = _session_from_request(request)
     credits_remaining = None
-    if session:
+    if session and not is_fast_greeting:
         profile = account_store.consume_credit(session["user"]["id"], 1, "AI query")
         if not profile:
             raise HTTPException(status_code=402, detail="Not enough credits to run this query.")
         _refresh_session_profile(profile["id"], profile)
         credits_remaining = profile["credits"]
+    elif session:
+        credits_remaining = session["user"].get("credits")
         
     occurred_at = datetime.now(timezone.utc).isoformat()
-    conversation = conversation_store.ensure(
-        conversation_id=conversation_id,
-        owner_id=owner_id,
-        connection_id=connection_id,
-        selected_model_id=req.model_id or settings.DEFAULT_MODEL,
-        title=req.question.strip(),
-        occurred_at=occurred_at,
-    )
-    if not conversation:
-        raise HTTPException(status_code=404, detail="Conversation not found.")
-    conversation_store.add_message(
-        conversation_id=conversation_id,
-        owner_id=owner_id,
-        role="user",
-        content=req.question.strip(),
-        created_at=occurred_at,
-    )
+    if not is_fast_greeting:
+        conversation = conversation_store.ensure(
+            conversation_id=conversation_id,
+            owner_id=owner_id,
+            connection_id=connection_id,
+            selected_model_id=req.model_id or settings.DEFAULT_MODEL,
+            title=req.question.strip(),
+            occurred_at=occurred_at,
+        )
+        if not conversation:
+            raise HTTPException(status_code=404, detail="Conversation not found.")
+        conversation_store.add_message(
+            conversation_id=conversation_id,
+            owner_id=owner_id,
+            role="user",
+            content=req.question.strip(),
+            created_at=occurred_at,
+        )
 
     run_response = SlayQLPipeline.create_run(
         question=req.question.strip(),
@@ -895,7 +943,7 @@ async def create_agent_run(req: CreateRunRequest, request: Request):
         "created_at": occurred_at,
     }
     QUERY_HISTORY.insert(0, history_item)
-    history_store.add(
+    history_values = dict(
         run_id=history_item["id"],
         conversation_id=history_item["conversation_id"],
         prompt=history_item["prompt"],
@@ -904,6 +952,20 @@ async def create_agent_run(req: CreateRunRequest, request: Request):
         created_at=history_item["created_at"],
         owner_id=owner_id,
     )
+    if is_fast_greeting:
+        persistence_task = asyncio.create_task(asyncio.to_thread(
+            _persist_run_start,
+            conversation_id=conversation_id,
+            owner_id=owner_id,
+            connection_id=connection_id,
+            model_id=req.model_id or settings.DEFAULT_MODEL,
+            question=req.question.strip(),
+            occurred_at=occurred_at,
+            history_item=history_values,
+        ))
+        SlayQLPipeline.attach_start_persistence(run_response["run_id"], persistence_task)
+    else:
+        history_store.add(**history_values)
 
     return {**run_response, "credits_remaining": credits_remaining}
 
