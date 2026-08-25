@@ -1,4 +1,8 @@
-const API_BASE = '/api/v1';
+// Same-origin is correct for the VPS Caddy deployment. Vercel needs the
+// public API prefix because its frontend and the API are hosted separately.
+export const API_BASE = (
+  import.meta.env.VITE_API_BASE_URL || '/api/v1'
+).trim().replace(/\/+$/, '');
 
 export function getSessionToken() {
   return localStorage.getItem('slayql_session_token') || '';

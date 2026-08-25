@@ -1,4 +1,4 @@
-import { getSessionToken } from './api';
+import { API_BASE, getSessionToken } from './api';
 
 /**
  * Authenticated SSE reader. Fetch streaming keeps the session token in the
@@ -33,7 +33,7 @@ export function connectRunEventStream(runId, { onEvent, onError, onComplete }) {
   (async () => {
     try {
       const token = getSessionToken();
-      const response = await fetch(`/api/v1/agent-runs/${encodeURIComponent(runId)}/events`, {
+      const response = await fetch(`${API_BASE}/agent-runs/${encodeURIComponent(runId)}/events`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         signal: controller.signal,
       });
