@@ -176,7 +176,7 @@ class SlayQLPipeline:
             "duration_ms", "latency_ms", "row_count", "batch_index", "offset",
             "is_final", "is_valid", "name", "message", "model", "mode", "idiom",
             "reason", "token_usage", "usage",
-            "intent", "requires_sql", "confidence", "is_follow_up", "resolved_question",
+            "intent", "is_sql_query", "requires_sql", "confidence", "is_follow_up", "resolved_question",
             "reportable", "resolution_code",
             "is_semantically_valid", "missing_requirements",
             "thinking_effort", "provider_reasoning_effort", "max_repair_attempts",
@@ -361,6 +361,18 @@ class SlayQLPipeline:
         ]
         digest = hashlib.sha256(f"{run_id}:{question}".encode("utf-8")).digest()
         return responses[digest[0] % len(responses)]
+
+    @staticmethod
+    def _business_guidance_answer(catalog: Any) -> str:
+        table_names = list(catalog.tables)[:6]
+        table_hint = ", ".join(table_names) if table_names else "your connected tables"
+        return (
+            "For a useful dashboard, start with questions that measure business outcomes: "
+            "revenue or volume over time, conversion or completion rates, top and bottom segments, "
+            "and operational exceptions. Then add breakdowns by the dimensions your teams act on, "
+            "such as customer, product, region, channel, or status. "
+            f"This database includes {table_hint}; ask me to turn any of those business questions into a validated SQL query."
+        )
 
     @staticmethod
     def _fast_result_answer(columns: List[str], rows: List[List[Any]], is_truncated: bool) -> str:
@@ -556,6 +568,7 @@ class SlayQLPipeline:
                     "model": intent_decision.get("model", GEMINI_WORKBENCH_MODEL),
                     "mode": intent_decision.get("mode", "gemini"),
                     "intent": intent_decision["intent"],
+                    "is_sql_query": intent_decision["is_sql_query"],
                     "requires_sql": intent_decision["requires_sql"],
                     "is_follow_up": intent_decision["is_follow_up"],
                     "confidence": intent_decision["confidence"],
@@ -566,7 +579,7 @@ class SlayQLPipeline:
                 },
             )
 
-            if intent_decision["intent"] in {"schema_overview", "clarification", "unsupported"}:
+            if not intent_decision["is_sql_query"]:
                 SlayQLPipeline._emit(
                     run_id,
                     "schema_discovery",
@@ -599,6 +612,15 @@ class SlayQLPipeline:
                         column_types=overview["column_types"],
                         rows=overview["rows"],
                         is_truncated=overview["is_truncated"],
+                    )
+                elif intent_decision["intent"] == "business_guidance":
+                    SlayQLPipeline._complete_without_generated_sql(
+                        run_id,
+                        answer=SlayQLPipeline._business_guidance_answer(catalog),
+                        started=started,
+                        intent_decision=intent_decision,
+                        status="success",
+                        resolution_code="business_guidance",
                     )
                 else:
                     SlayQLPipeline._complete_without_generated_sql(

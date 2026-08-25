@@ -342,6 +342,20 @@ async def test_chat_intent_routes_metadata_no_query_and_reports():
         assert no_query_message["payload"]["status"] == "no_query"
         assert no_query_message["payload"]["reportable"] is True
 
+        guidance_run = (await client.post("/api/v1/agent-runs", json={
+            "question": "What kind of query is important for a dashboard?",
+            "connection_id": "sqlite_demo",
+        })).json()
+        guidance_stream = await client.get(guidance_run["events_url"])
+        assert guidance_stream.status_code == 200
+        assert '"intent": "business_guidance"' in guidance_stream.text
+        assert '"is_sql_query": false' in guidance_stream.text
+        assert "provider.request_started" not in guidance_stream.text
+        guidance_thread = (await client.get(f"/api/v1/conversations/{guidance_run['conversation_id']}")).json()
+        guidance_message = guidance_thread["messages"][-1]
+        assert guidance_message["payload"]["resolution_code"] == "business_guidance"
+        assert guidance_message["sql"] is None
+
         report_resp = await client.post("/api/v1/chat-reports", json={
             "message_id": no_query_message["id"],
             "category": "incorrect_or_unhelpful",

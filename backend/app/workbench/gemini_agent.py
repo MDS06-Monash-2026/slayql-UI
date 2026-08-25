@@ -18,6 +18,7 @@ CHAT_INTENTS = {
     "data_query",
     "schema_overview",
     "row_count_overview",
+    "business_guidance",
     "clarification",
     "unsupported",
 }
@@ -74,6 +75,11 @@ def _fallback_chat_intent(question: str, recent_messages: List[Dict[str, str]]) 
         "what columns", "which columns", "list columns", "show columns", "describe table",
         "table structure", "table relationships",
     )
+    business_markers = (
+        "dashboard", "important query", "important queries", "key metric", "kpi",
+        "what should i ask", "what questions can i ask", "what can i analyze",
+        "business insight", "business question", "recommend a query", "recommend queries",
+    )
     unsupported_markers = {
         "hi", "hello", "hey", "thanks", "thank you", "who are you", "help",
         "tell me a joke", "what can you do",
@@ -88,6 +94,9 @@ def _fallback_chat_intent(question: str, recent_messages: List[Dict[str, str]]) 
     elif any(marker in normalized for marker in schema_markers):
         intent = "schema_overview"
         reason = "The request asks for database catalog metadata rather than generated SQL."
+    elif any(marker in normalized for marker in business_markers):
+        intent = "business_guidance"
+        reason = "The request asks for analytical or dashboard guidance rather than a database result."
     elif len(normalized.split()) < 2 and not is_follow_up:
         intent = "clarification"
         reason = "The request is too short to identify a reliable data operation."
@@ -97,6 +106,7 @@ def _fallback_chat_intent(question: str, recent_messages: List[Dict[str, str]]) 
 
     return {
         "intent": intent,
+        "is_sql_query": intent in {"data_query", "row_count_overview"},
         "requires_sql": intent in {"data_query", "row_count_overview"},
         "is_follow_up": is_follow_up,
         "resolved_question": question.strip(),
@@ -352,6 +362,7 @@ class GeminiWorkbenchAgent:
             "type": "object",
             "properties": {
                 "intent": {"type": "string", "enum": sorted(CHAT_INTENTS)},
+                "is_sql_query": {"type": "boolean"},
                 "requires_sql": {"type": "boolean"},
                 "is_follow_up": {"type": "boolean"},
                 "resolved_question": {"type": "string"},
@@ -359,7 +370,7 @@ class GeminiWorkbenchAgent:
                 "reason": {"type": "string"},
             },
             "required": [
-                "intent", "requires_sql", "is_follow_up", "resolved_question",
+                "intent", "is_sql_query", "requires_sql", "is_follow_up", "resolved_question",
                 "confidence", "reason",
             ],
             "additionalProperties": False,
@@ -410,7 +421,8 @@ class GeminiWorkbenchAgent:
         if fallback["intent"] in {"schema_overview", "row_count_overview"}:
             intent = fallback["intent"]
         result["intent"] = intent
-        result["requires_sql"] = intent in {"data_query", "row_count_overview"}
+        result["is_sql_query"] = intent in {"data_query", "row_count_overview"}
+        result["requires_sql"] = result["is_sql_query"]
         result["is_follow_up"] = bool(result.get("is_follow_up"))
         result["resolved_question"] = str(result.get("resolved_question") or question).strip()[:2000]
         try:

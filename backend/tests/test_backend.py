@@ -117,11 +117,17 @@ def test_gemini_chart_plan_is_materialized_for_the_renderer():
 def test_chat_intent_fallback_handles_metadata_and_follow_ups():
     schema_intent = _fallback_chat_intent("What tables are in the database?", [])
     assert schema_intent["intent"] == "schema_overview"
+    assert schema_intent["is_sql_query"] is False
     assert schema_intent["requires_sql"] is False
 
     count_intent = _fallback_chat_intent("How many total rows are in the database?", [])
     assert count_intent["intent"] == "row_count_overview"
+    assert count_intent["is_sql_query"] is True
     assert count_intent["requires_sql"] is True
+
+    dashboard_intent = _fallback_chat_intent("What kind of query is important for a dashboard?", [])
+    assert dashboard_intent["intent"] == "business_guidance"
+    assert dashboard_intent["is_sql_query"] is False
 
     specific_count = _fallback_chat_intent("How many rows are in customers?", [])
     assert specific_count["intent"] == "data_query"
