@@ -1,3 +1,5 @@
+import { cachedRequest, clearClientCache, invalidateClientCache } from './clientCache';
+
 // Same-origin is correct for the VPS Caddy deployment. Vercel needs the
 // public API prefix because its frontend and the API are hosted separately.
 export const API_BASE = (
@@ -22,6 +24,7 @@ export function getStoredSession() {
 }
 
 export function setStoredSession(session) {
+  clearClientCache();
   if (session) {
     localStorage.setItem('slayql_session_data', JSON.stringify(session));
     if (session.token) setSessionToken(session.token);
@@ -140,19 +143,23 @@ export async function fetchHealth() {
 
 export async function fetchModels({ query = '' } = {}) {
   const params = query ? `?q=${encodeURIComponent(query)}` : '';
-  const res = await fetch(`${API_BASE}/models${params}`, {
-    headers: { ...getAuthHeaders() },
-  });
-  if (!res.ok) throw new Error('Failed to load models');
-  return res.json();
+  return cachedRequest(`models:${query}`, async () => {
+    const res = await fetch(`${API_BASE}/models${params}`, {
+      headers: { ...getAuthHeaders() },
+    });
+    if (!res.ok) throw new Error('Failed to load models');
+    return res.json();
+  }, 10 * 60 * 1000);
 }
 
-export async function fetchConnections() {
-  const res = await fetch(`${API_BASE}/connections`, {
-    headers: { ...getAuthHeaders() },
-  });
-  if (!res.ok) throw new Error('Failed to load database connections');
-  return res.json();
+export async function fetchConnections({ force = false } = {}) {
+  return cachedRequest('connections', async () => {
+    const res = await fetch(`${API_BASE}/connections`, {
+      headers: { ...getAuthHeaders() },
+    });
+    if (!res.ok) throw new Error('Failed to load database connections');
+    return res.json();
+  }, 15 * 1000, { force });
 }
 
 export async function createConnection({ name, provider, engine = 'sqlite', mode = 'direct', connection_string = '', credentials = {}, description = '' }) {
@@ -168,7 +175,9 @@ export async function createConnection({ name, provider, engine = 'sqlite', mode
     const err = await res.json().catch(() => ({ detail: 'Failed to create database connection' }));
     throw new Error(err.detail || 'Connection creation failed');
   }
-  return res.json();
+  const data = await res.json();
+  invalidateClientCache('connections');
+  return data;
 }
 
 export async function uploadConnection({ name, file, description = '' }) {
@@ -185,7 +194,9 @@ export async function uploadConnection({ name, file, description = '' }) {
     const err = await res.json().catch(() => ({ detail: 'Failed to upload database' }));
     throw new Error(err.detail || 'Database upload failed');
   }
-  return res.json();
+  const data = await res.json();
+  invalidateClientCache('connections');
+  return data;
 }
 
 export async function testConnection(connectionId) {
@@ -206,25 +217,33 @@ export async function deleteConnection(connectionId) {
     const err = await res.json().catch(() => ({ detail: 'Failed to delete connection' }));
     throw new Error(err.detail || 'Delete failed');
   }
-  return res.json();
+  const data = await res.json();
+  invalidateClientCache('connections');
+  invalidateClientCache(`catalog:${connectionId}`);
+  invalidateClientCache(`explore:${connectionId}`);
+  return data;
 }
 
-export async function fetchCatalog(connectionId) {
+export async function fetchCatalog(connectionId, { force = false } = {}) {
   if (!connectionId) throw new Error('A database connection must be selected');
-  const res = await fetch(`${API_BASE}/connections/${connectionId}/catalog`, {
-    headers: { ...getAuthHeaders() },
-  });
-  if (!res.ok) throw new Error('Failed to load schema catalog');
-  return res.json();
+  return cachedRequest(`catalog:${connectionId}`, async () => {
+    const res = await fetch(`${API_BASE}/connections/${connectionId}/catalog`, {
+      headers: { ...getAuthHeaders() },
+    });
+    if (!res.ok) throw new Error('Failed to load schema catalog');
+    return res.json();
+  }, 5 * 60 * 1000, { force });
 }
 
-export async function fetchExploreSuggestions(connectionId) {
+export async function fetchExploreSuggestions(connectionId, { force = false } = {}) {
   if (!connectionId) return { suggestions: [] };
-  const res = await fetch(`${API_BASE}/connections/${connectionId}/explore-suggestions`, {
-    headers: { ...getAuthHeaders() },
-  });
-  if (!res.ok) throw new Error('Failed to generate exploration suggestions');
-  return res.json();
+  return cachedRequest(`explore:${connectionId}`, async () => {
+    const res = await fetch(`${API_BASE}/connections/${connectionId}/explore-suggestions`, {
+      headers: { ...getAuthHeaders() },
+    });
+    if (!res.ok) throw new Error('Failed to generate exploration suggestions');
+    return res.json();
+  }, 10 * 60 * 1000, { force });
 }
 
 export async function createCustomTable(connectionId, { table_name, description = '', columns, foreign_keys = [], initial_rows = [] }) {
@@ -246,7 +265,11 @@ export async function createCustomTable(connectionId, { table_name, description 
     const err = await res.json().catch(() => ({ detail: 'Failed to create table' }));
     throw new Error(err.detail || 'Table creation failed');
   }
-  return res.json();
+  const data = await res.json();
+  invalidateClientCache(`catalog:${connectionId}`);
+  invalidateClientCache(`explore:${connectionId}`);
+  invalidateClientCache('connections');
+  return data;
 }
 
 export async function dropCustomTable(connectionId, tableName) {
@@ -255,7 +278,11 @@ export async function dropCustomTable(connectionId, tableName) {
     headers: { ...getAuthHeaders() },
   });
   if (!res.ok) throw new Error('Failed to drop table');
-  return res.json();
+  const data = await res.json();
+  invalidateClientCache(`catalog:${connectionId}`);
+  invalidateClientCache(`explore:${connectionId}`);
+  invalidateClientCache('connections');
+  return data;
 }
 
 async function workbenchRequest(path, body) {
@@ -272,9 +299,11 @@ async function workbenchRequest(path, body) {
 }
 
 export async function fetchChartIdioms() {
-  const res = await fetch(`${API_BASE}/workbench/chart-idioms`, { headers: { ...getAuthHeaders() } });
-  if (!res.ok) throw new Error('Failed to load visualization catalog');
-  return res.json();
+  return cachedRequest('chart-idioms', async () => {
+    const res = await fetch(`${API_BASE}/workbench/chart-idioms`, { headers: { ...getAuthHeaders() } });
+    if (!res.ok) throw new Error('Failed to load visualization catalog');
+    return res.json();
+  }, 30 * 60 * 1000);
 }
 
 export function executeWorkbenchQuery(connectionId, sql) {

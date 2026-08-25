@@ -53,8 +53,8 @@ export default function DatabaseCenterView({ setView, session }) {
   const [latestResult, setLatestResult] = useState(null);
   const [latestSql, setLatestSql] = useState('');
 
-  const loadConnections = async () => {
-    const items = await fetchConnections();
+  const loadConnections = async (force = false) => {
+    const items = await fetchConnections({ force });
     setConnections(items);
     if (!items.some((item) => item.id === selectedId)) {
       const defaultConnection = items.find((item) => item.is_default) || items[0];
@@ -90,7 +90,11 @@ export default function DatabaseCenterView({ setView, session }) {
     try {
       const result = await testConnection(connection.id);
       setNotice(result.message);
-      await loadConnections();
+      await loadConnections(true);
+      if (selectedId === connection.id) {
+        const freshCatalog = await fetchCatalog(connection.id, { force: true });
+        setCatalog(freshCatalog);
+      }
     } catch (error) {
       setNotice(error.message);
     } finally {

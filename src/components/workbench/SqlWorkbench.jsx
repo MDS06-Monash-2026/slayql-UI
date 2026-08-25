@@ -51,15 +51,17 @@ export default function SqlWorkbench({ connectionId, initialTable, initialTableK
       setResult(response.result);
       onResult?.(response.result, response.validation.sanitized_sql);
       setResultTab('rows');
-      try {
-        const visual = await recommendWorkbenchVisualization(connectionId, { question: instruction || 'Choose the clearest visualization for this SQL result', result: { columns: response.result.columns, column_types: response.result.column_types, rows: response.result.rows } });
-        setRecommendation(visual);
-      } catch {
-        // Query results remain usable when AI is unavailable.
-      }
+      // Show database rows as soon as execution returns. Visualization is a
+      // secondary AI request and must not block the primary data workflow.
+      setRunning(false);
+      recommendWorkbenchVisualization(connectionId, {
+        question: instruction || 'Choose the clearest visualization for this SQL result',
+        result: { columns: response.result.columns, column_types: response.result.column_types, rows: response.result.rows },
+      }).then(setRecommendation).catch(() => {
+        // Query results remain usable when AI visualization is unavailable.
+      });
     } catch (err) {
       setError(err.message);
-    } finally {
       setRunning(false);
     }
   };
