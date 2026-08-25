@@ -132,6 +132,8 @@ class OpenRouterClient:
         repair_feedback: str = "",
         session_id: Optional[str] = None,
         fallback_sql: str = "SELECT 1 AS result",
+        reasoning_effort: str = "medium",
+        max_tokens: int = 1500,
     ) -> AsyncGenerator[Dict[str, Any], None]:
         system_prompt = self.build_system_prompt(
             dialect,
@@ -152,7 +154,8 @@ class OpenRouterClient:
             requested_model_id=requested_model_id,
             messages=messages,
             session_id=session_id,
-            max_tokens=1800,
+            max_tokens=max_tokens,
+            reasoning_effort=reasoning_effort,
             fallback_text=f"```sql\n{fallback_sql}\n```",
         ):
             if event["type"] == "completed":
@@ -168,6 +171,8 @@ class OpenRouterClient:
         columns: List[str],
         rows: List[List[Any]],
         session_id: Optional[str],
+        reasoning_effort: str = "minimal",
+        max_tokens: int = 360,
     ) -> AsyncGenerator[Dict[str, Any], None]:
         bounded_result = json.dumps(
             {"columns": columns, "rows": rows[:25]},
@@ -193,7 +198,8 @@ class OpenRouterClient:
             requested_model_id=requested_model_id,
             messages=messages,
             session_id=session_id,
-            max_tokens=500,
+            max_tokens=max_tokens,
+            reasoning_effort=reasoning_effort,
             fallback_text=fallback,
         ):
             yield event
@@ -205,6 +211,7 @@ class OpenRouterClient:
         messages: List[Dict[str, str]],
         session_id: Optional[str],
         max_tokens: int,
+        reasoning_effort: str,
         fallback_text: str,
     ) -> AsyncGenerator[Dict[str, Any], None]:
         started = time.perf_counter()
@@ -225,6 +232,7 @@ class OpenRouterClient:
                 "resolved_model_id": TEST_EXECUTION_MODEL,
                 "resolved_provider": "local",
                 "response_id": None,
+                "reasoning_effort": reasoning_effort,
             }
             return
 
@@ -240,7 +248,10 @@ class OpenRouterClient:
             "temperature": 0,
             "max_tokens": max_tokens,
             "stream": True,
-            "reasoning": {"effort": "high", "exclude": False},
+            "reasoning": {
+                "effort": reasoning_effort,
+                "exclude": reasoning_effort == "none",
+            },
         }
         if session_id:
             payload["session_id"] = session_id
@@ -344,6 +355,7 @@ class OpenRouterClient:
             "resolved_model_id": resolved_model_id or TEST_EXECUTION_MODEL,
             "resolved_provider": resolved_provider,
             "response_id": response_id,
+            "reasoning_effort": reasoning_effort,
         }
 
     @staticmethod

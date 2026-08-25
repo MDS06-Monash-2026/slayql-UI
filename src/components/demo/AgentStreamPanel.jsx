@@ -10,6 +10,7 @@ const SAFE_PAYLOAD_KEYS = new Set([
   'intent', 'requires_sql', 'confidence', 'is_follow_up', 'resolved_question',
   'reportable', 'resolution_code',
   'is_semantically_valid', 'missing_requirements',
+  'thinking_effort', 'provider_reasoning_effort', 'max_repair_attempts',
 ]);
 
 export function normalizeStreamEvent(event, fallbackType) {

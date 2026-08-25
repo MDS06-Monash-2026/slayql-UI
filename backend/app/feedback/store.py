@@ -87,6 +87,7 @@ class ChatReportStore:
                 "resolution_code": message_payload.get("resolution_code"),
                 "requested_model_id": message_payload.get("requested_model_id"),
                 "execution_model_id": message_payload.get("execution_model_id"),
+                "thinking_effort": message_payload.get("thinking_effort"),
                 "attempt_count": message_payload.get("attempt_count"),
                 "error": message_payload.get("error"),
                 "intent_validation": {

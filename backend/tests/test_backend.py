@@ -4,6 +4,7 @@ from backend.app.db.seed_demo import seed_sqlite_demo
 from backend.app.catalog.discovery import CatalogService
 from backend.app.agent.rbp import RBPGraphEngine
 from backend.app.agent.pipeline import SlayQLPipeline
+from backend.app.agent.effort import THINKING_PROFILES, get_thinking_profile
 from backend.app.queries.validator import SqlValidator
 from backend.app.queries.executor import QueryExecutor
 from backend.app.providers.openrouter_client import ProviderError, openrouter_client
@@ -36,6 +37,24 @@ def test_catalog_discovery():
     customers_tbl = catalog.tables["customers"]
     assert len(customers_tbl.columns) > 0
     assert customers_tbl.row_count_estimate == 60
+
+
+def test_thinking_effort_profiles_scale_work_and_reasoning():
+    assert list(THINKING_PROFILES) == ["minimal", "low", "medium", "high", "max"]
+    minimal = get_thinking_profile("minimal")
+    medium = get_thinking_profile("medium")
+    maximum = get_thinking_profile("max")
+
+    assert minimal.provider_sql_effort == "minimal"
+    assert minimal.max_repair_attempts == 1
+    assert minimal.use_model_intent is False
+    assert minimal.use_model_semantic_validation is False
+    assert minimal.use_model_chart is False
+    assert minimal.use_model_answer is False
+    assert medium.max_repair_attempts == 2
+    assert maximum.provider_sql_effort == "xhigh"
+    assert maximum.max_repair_attempts == 3
+    assert maximum.sql_max_tokens > medium.sql_max_tokens > minimal.sql_max_tokens
 
 
 def test_supabase_url_uses_installed_psycopg_driver():

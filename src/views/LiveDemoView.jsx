@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 
 import ModelSelector from '../components/demo/ModelSelector';
+import ThinkingEffortSelector, { THINKING_EFFORT_LEVELS } from '../components/demo/ThinkingEffortSelector';
 import SlayQLTraceTimeline from '../components/demo/SlayQLTraceTimeline';
 import AgentStreamPanel, { normalizeStreamEvent } from '../components/demo/AgentStreamPanel';
 import SqlEditorPanel from '../components/demo/SqlEditorPanel';
@@ -149,6 +150,14 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
   // --- Infrastructure & Metadata State ---
   const [models, setModels] = useState([]);
   const [selectedModelId, setSelectedModelId] = useState('deepseek/deepseek-v4-flash');
+  const [thinkingEffort, setThinkingEffort] = useState(() => {
+    try {
+      const stored = localStorage.getItem('slayql_thinking_effort');
+      return THINKING_EFFORT_LEVELS.some((level) => level.id === stored) ? stored : 'minimal';
+    } catch {
+      return 'minimal';
+    }
+  });
   const [connections, setConnections] = useState([]);
   const [selectedConnectionId, setSelectedConnectionId] = useState(null);
   const [catalog, setCatalog] = useState(null);
@@ -225,6 +234,14 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
       // Storage can be unavailable in private or embedded contexts.
     }
   }, [theme]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('slayql_thinking_effort', thinkingEffort);
+    } catch {
+      // Storage can be unavailable in private or embedded contexts.
+    }
+  }, [thinkingEffort]);
 
   // --- Data Fetching ---
   const loadCatalog = useCallback(async (connId) => {
@@ -461,6 +478,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
         modelId: selectedModelId,
         connectionId: selectedConnectionId,
         conversationId,
+        thinkingEffort,
       });
 
       const runId = runData.run_id;
@@ -607,7 +625,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
       setErrorMessage(err.message || 'Failed to initialize agent run.');
       setIsRunning(false);
     }
-  }, [inputPrompt, isRunning, selectedModelId, selectedConnectionId, conversationId, loadConversationThread, loadExploreSuggestions, loadHistory, onSessionUpdate, session]);
+  }, [inputPrompt, isRunning, selectedModelId, selectedConnectionId, conversationId, thinkingEffort, loadConversationThread, loadExploreSuggestions, loadHistory, onSessionUpdate, session]);
 
   const handleCancelRun = async () => {
     if (currentRunId) {
@@ -1191,6 +1209,11 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
                   >
                     <Plus className="w-3.5 h-3.5" />
                   </button>
+                  <ThinkingEffortSelector
+                    value={thinkingEffort}
+                    onChange={setThinkingEffort}
+                    disabled={isRunning}
+                  />
                   <Database className="w-3 h-3 text-indigo-600" />
                   <span className="truncate max-w-[150px]">{activeConnection.name}</span>
                   <span className="text-slate-300">•</span>

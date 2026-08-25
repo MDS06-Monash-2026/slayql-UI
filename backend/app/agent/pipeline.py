@@ -10,6 +10,11 @@ from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
+from backend.app.agent.effort import (
+    DEFAULT_THINKING_EFFORT,
+    ThinkingEffort,
+    get_thinking_profile,
+)
 from backend.app.agent.rbp import RBPGraphEngine
 from backend.app.catalog.discovery import CatalogService
 from backend.app.config import settings
@@ -59,8 +64,6 @@ TERMINAL_STATUSES = {"completed", "failed", "cancelled"}
 
 
 class SlayQLPipeline:
-    MAX_REPAIR_ATTEMPTS = 3
-
     @staticmethod
     def create_run(
         question: str,
@@ -69,6 +72,7 @@ class SlayQLPipeline:
         conversation_id: Optional[str] = None,
         owner_id: str = "anonymous_demo",
         conversation_messages: Optional[List[Dict[str, str]]] = None,
+        thinking_effort: ThinkingEffort = DEFAULT_THINKING_EFFORT,
     ) -> Dict[str, Any]:
         run_id = f"run_{uuid.uuid4().hex[:12]}"
         conv_id = conversation_id or f"conv_{uuid.uuid4().hex[:12]}"
@@ -84,6 +88,7 @@ class SlayQLPipeline:
             "connection_id": connection_id,
             "owner_id": owner_id,
             "conversation_messages": conversation_messages or [],
+            "thinking_effort": thinking_effort,
             "status": "pending",
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
@@ -94,6 +99,7 @@ class SlayQLPipeline:
             "initial_state": "creating_run",
             "requested_model_id": model_id,
             "execution_model_id": TEST_EXECUTION_MODEL,
+            "thinking_effort": thinking_effort,
         }
 
     @staticmethod
@@ -173,6 +179,7 @@ class SlayQLPipeline:
             "intent", "requires_sql", "confidence", "is_follow_up", "resolved_question",
             "reportable", "resolution_code",
             "is_semantically_valid", "missing_requirements",
+            "thinking_effort", "provider_reasoning_effort", "max_repair_attempts",
         }
         for event in events:
             payload = {
@@ -356,6 +363,20 @@ class SlayQLPipeline:
         return responses[digest[0] % len(responses)]
 
     @staticmethod
+    def _fast_result_answer(columns: List[str], rows: List[List[Any]], is_truncated: bool) -> str:
+        if not rows:
+            return "The validated query returned no matching rows."
+        if len(rows) == 1:
+            values = []
+            for index, column in enumerate(columns[:3]):
+                value = rows[0][index] if index < len(rows[0]) else None
+                values.append(f"{column.replace('_', ' ')}: {value}")
+            if values:
+                return "Result: " + ", ".join(values) + "."
+        suffix = " The result was capped at the configured row limit." if is_truncated else ""
+        return f"The validated query returned {len(rows)} rows.{suffix}"
+
+    @staticmethod
     def _complete_without_generated_sql(
         run_id: str,
         *,
@@ -384,6 +405,7 @@ class SlayQLPipeline:
             "checks": [],
             "requested_model_id": metadata["requested_model_id"],
             "execution_model_id": TEST_EXECUTION_MODEL,
+            "thinking_effort": metadata["thinking_effort"],
             "attempt_count": 0,
             "token_usage": {},
             "reasoning": "",
@@ -462,6 +484,7 @@ class SlayQLPipeline:
         requested_model_id = metadata["requested_model_id"]
         connection_id = metadata["connection_id"]
         conversation_id = metadata["conversation_id"]
+        thinking_profile = get_thinking_profile(metadata["thinking_effort"])
         started = time.perf_counter()
 
         try:
@@ -474,6 +497,9 @@ class SlayQLPipeline:
                     "requested_model_id": requested_model_id,
                     "execution_model_id": TEST_EXECUTION_MODEL,
                     "connection_id": connection_id,
+                    "thinking_effort": thinking_profile.name,
+                    "provider_reasoning_effort": thinking_profile.provider_sql_effort,
+                    "max_repair_attempts": thinking_profile.max_repair_attempts,
                 },
             )
             SlayQLPipeline._emit(run_id, "preparation", "stream.ready", {"replayable": True})
@@ -508,7 +534,11 @@ class SlayQLPipeline:
                 "intent_validation",
                 "intent.validator_started",
                 {
-                    "model": GEMINI_WORKBENCH_MODEL,
+                    "model": (
+                        GEMINI_WORKBENCH_MODEL
+                        if thinking_profile.use_model_intent
+                        else "slayql/local-intent"
+                    ),
                     "summary": "Checking whether this turn requires SQL or database metadata.",
                 },
             )
@@ -516,6 +546,7 @@ class SlayQLPipeline:
                 question,
                 SlayQLPipeline._intent_catalog_summary(catalog),
                 metadata["conversation_messages"],
+                use_model=thinking_profile.use_model_intent,
             )
             SlayQLPipeline._emit(
                 run_id,
@@ -696,7 +727,7 @@ class SlayQLPipeline:
             reasoning_parts: List[str] = []
             attempt_count = 0
 
-            for attempt in range(1, SlayQLPipeline.MAX_REPAIR_ATTEMPTS + 1):
+            for attempt in range(1, thinking_profile.max_repair_attempts + 1):
                 attempt_count = attempt
                 if SlayQLPipeline._cancelled(run_id):
                     return
@@ -711,6 +742,8 @@ class SlayQLPipeline:
                         "execution_model_id": TEST_EXECUTION_MODEL,
                         "provider": "SlayQL metadata planner" if deterministic_sql else "OpenRouter",
                         "is_repair": attempt > 1,
+                        "thinking_effort": thinking_profile.name,
+                        "provider_reasoning_effort": thinking_profile.provider_sql_effort,
                     },
                 )
                 if attempt > 1:
@@ -752,6 +785,8 @@ class SlayQLPipeline:
                         repair_feedback=repair_feedback,
                         session_id=conversation_id,
                         fallback_sql=fallback_sql,
+                        reasoning_effort=thinking_profile.provider_sql_effort,
+                        max_tokens=thinking_profile.sql_max_tokens,
                     )
                 async for provider_event in provider_stream:
                     event_type = provider_event["type"]
@@ -823,6 +858,11 @@ class SlayQLPipeline:
                         "resolved_model_id": completion.get("resolved_model_id", TEST_EXECUTION_MODEL),
                         "resolved_provider": completion.get("resolved_provider"),
                         "response_id": completion.get("response_id"),
+                        "thinking_effort": thinking_profile.name,
+                        "provider_reasoning_effort": completion.get(
+                            "reasoning_effort",
+                            thinking_profile.provider_sql_effort,
+                        ),
                         "summary": (
                             "Prepared validator-bound row-count SQL from the inspected catalog."
                             if deterministic_sql
@@ -876,7 +916,7 @@ class SlayQLPipeline:
                         "The previous SQL failed static validation. Correct it using only the verified schema. "
                         f"Validator feedback: {validation.error_message or 'invalid SQL'}"
                     )
-                    if not deterministic_sql and attempt < SlayQLPipeline.MAX_REPAIR_ATTEMPTS:
+                    if not deterministic_sql and attempt < thinking_profile.max_repair_attempts:
                         continue
                     SlayQLPipeline._complete_without_generated_sql(
                         run_id,
@@ -898,7 +938,11 @@ class SlayQLPipeline:
                     "sql.semantic_validation_started",
                     {
                         "attempt": attempt,
-                        "model": GEMINI_WORKBENCH_MODEL,
+                        "model": (
+                            GEMINI_WORKBENCH_MODEL
+                            if thinking_profile.use_model_semantic_validation
+                            else "slayql/local-semantic-validator"
+                        ),
                         "summary": "Checking whether the safe SQL answers the user's request.",
                     },
                 )
@@ -908,6 +952,7 @@ class SlayQLPipeline:
                     dialect=dialect,
                     catalog_summary=SlayQLPipeline._intent_catalog_summary(catalog),
                     recent_messages=metadata["conversation_messages"],
+                    use_model=thinking_profile.use_model_semantic_validation,
                 )
                 SlayQLPipeline._emit(
                     run_id,
@@ -935,7 +980,7 @@ class SlayQLPipeline:
                         f"Semantic feedback: {semantic_validation['reason']} "
                         f"Missing requirements: {missing_requirements or 'match the requested result exactly.'}"
                     )
-                    if not deterministic_sql and attempt < SlayQLPipeline.MAX_REPAIR_ATTEMPTS:
+                    if not deterministic_sql and attempt < thinking_profile.max_repair_attempts:
                         continue
                     SlayQLPipeline._complete_without_generated_sql(
                         run_id,
@@ -976,7 +1021,7 @@ class SlayQLPipeline:
                         "The previous SQL passed static validation but failed when executed. "
                         f"Database feedback: {result.error}"
                     )
-                    if not deterministic_sql and attempt < SlayQLPipeline.MAX_REPAIR_ATTEMPTS:
+                    if not deterministic_sql and attempt < thinking_profile.max_repair_attempts:
                         continue
                     SlayQLPipeline._complete_without_generated_sql(
                         run_id,
@@ -1053,57 +1098,82 @@ class SlayQLPipeline:
                 "visualization",
                 "visualization.agent_started",
                 {
-                    "model": GEMINI_WORKBENCH_MODEL,
-                    "summary": "Gemini is selecting a chart from the bounded result profile.",
+                    "model": (
+                        GEMINI_WORKBENCH_MODEL
+                        if thinking_profile.use_model_chart
+                        else "slayql/local-chart-planner"
+                    ),
+                    "summary": "Selecting a chart from the bounded result profile.",
                 },
             )
             chart = None
-            try:
-                result_profile = summarize_result(
-                    execution_result.columns,
-                    execution_result.column_types,
-                    execution_result.rows,
-                )
-                chart_plan = await gemini_workbench_agent.recommend_chart(question, result_profile)
-                chart = materialize_chart_recommendation(
-                    chart_plan,
-                    execution_result.columns,
-                    execution_result.column_types,
-                    execution_result.rows,
-                )
-                SlayQLPipeline._emit(
-                    run_id,
-                    "visualization",
-                    "visualization.agent_completed",
-                    {
-                        "model": chart_plan.get("model", GEMINI_WORKBENCH_MODEL),
-                        "mode": chart_plan.get("mode", "gemini"),
-                        "idiom": chart_plan.get("idiom"),
-                        "reason": chart_plan.get("reason"),
-                        "duration_ms": int((time.perf_counter() - visualization_started) * 1000),
-                        "summary": "Gemini completed the visualization plan.",
-                    },
-                )
-            except Exception:
-                fallback_chart = execution_result.chart_recommendation
-                if fallback_chart:
-                    fallback_chart = {
-                        **fallback_chart,
-                        "model": GEMINI_WORKBENCH_MODEL,
-                        "mode": "local_fallback",
+            if not thinking_profile.use_model_chart:
+                chart = execution_result.chart_recommendation
+                if chart:
+                    chart = {
+                        **chart,
+                        "model": "slayql/local-chart-planner",
+                        "mode": "deterministic",
                     }
-                chart = fallback_chart
                 SlayQLPipeline._emit(
                     run_id,
                     "visualization",
                     "visualization.agent_completed",
                     {
-                        "model": GEMINI_WORKBENCH_MODEL,
-                        "mode": "local_fallback",
+                        "model": "slayql/local-chart-planner",
+                        "mode": "deterministic",
+                        "idiom": chart.get("type") if chart else None,
                         "duration_ms": int((time.perf_counter() - visualization_started) * 1000),
-                        "summary": "Gemini was unavailable; the bounded local chart fallback was used.",
+                        "summary": "Completed the fast local visualization plan.",
                     },
                 )
+            else:
+                try:
+                    result_profile = summarize_result(
+                        execution_result.columns,
+                        execution_result.column_types,
+                        execution_result.rows,
+                    )
+                    chart_plan = await gemini_workbench_agent.recommend_chart(question, result_profile)
+                    chart = materialize_chart_recommendation(
+                        chart_plan,
+                        execution_result.columns,
+                        execution_result.column_types,
+                        execution_result.rows,
+                    )
+                    SlayQLPipeline._emit(
+                        run_id,
+                        "visualization",
+                        "visualization.agent_completed",
+                        {
+                            "model": chart_plan.get("model", GEMINI_WORKBENCH_MODEL),
+                            "mode": chart_plan.get("mode", "gemini"),
+                            "idiom": chart_plan.get("idiom"),
+                            "reason": chart_plan.get("reason"),
+                            "duration_ms": int((time.perf_counter() - visualization_started) * 1000),
+                            "summary": "Gemini completed the visualization plan.",
+                        },
+                    )
+                except Exception:
+                    fallback_chart = execution_result.chart_recommendation
+                    if fallback_chart:
+                        fallback_chart = {
+                            **fallback_chart,
+                            "model": GEMINI_WORKBENCH_MODEL,
+                            "mode": "local_fallback",
+                        }
+                    chart = fallback_chart
+                    SlayQLPipeline._emit(
+                        run_id,
+                        "visualization",
+                        "visualization.agent_completed",
+                        {
+                            "model": GEMINI_WORKBENCH_MODEL,
+                            "mode": "local_fallback",
+                            "duration_ms": int((time.perf_counter() - visualization_started) * 1000),
+                            "summary": "Gemini was unavailable; the bounded local chart fallback was used.",
+                        },
+                    )
             SlayQLPipeline._emit(
                 run_id,
                 "visualization",
@@ -1125,65 +1195,88 @@ class SlayQLPipeline:
             )
             try:
                 first_answer_delta = False
-                async for answer_event in openrouter_client.stream_answer(
-                    requested_model_id=requested_model_id,
-                    question=question,
-                    sql=final_sql,
-                    columns=execution_result.columns,
-                    rows=execution_result.rows,
-                    session_id=conversation_id,
-                ):
-                    answer_event_type = answer_event["type"]
-                    if answer_event_type in {"reasoning_delta", "reasoning_detail", "content_delta"} and not first_answer_delta:
-                        first_answer_delta = True
-                        SlayQLPipeline._emit(
-                            run_id,
-                            "answer_generation",
-                            "provider.first_delta",
-                            {"phase": "answer", "kind": answer_event_type},
-                        )
-                    if answer_event_type == "reasoning_delta":
-                        delta = answer_event.get("delta", "")
-                        reasoning_parts.append(delta)
-                        SlayQLPipeline._emit(
-                            run_id,
-                            "answer_generation",
-                            "provider.reasoning_delta",
-                            {"phase": "answer", "delta": delta},
-                        )
-                    elif answer_event_type == "reasoning_detail":
-                        delta = answer_event.get("delta", "")
-                        if delta:
+                if not thinking_profile.use_model_answer:
+                    local_answer = SlayQLPipeline._fast_result_answer(
+                        execution_result.columns,
+                        execution_result.rows,
+                        execution_result.is_truncated,
+                    )
+                    answer_parts.append(local_answer)
+                    SlayQLPipeline._emit(
+                        run_id,
+                        "answer_generation",
+                        "assistant.delta",
+                        {"delta": local_answer},
+                    )
+                    answer_completion = {
+                        "finish_reason": "deterministic_summary",
+                        "latency_ms": 0,
+                        "resolved_model_id": "slayql/local-result-summary",
+                        "resolved_provider": "SlayQL",
+                        "reasoning_effort": "none",
+                    }
+                else:
+                    async for answer_event in openrouter_client.stream_answer(
+                        requested_model_id=requested_model_id,
+                        question=question,
+                        sql=final_sql,
+                        columns=execution_result.columns,
+                        rows=execution_result.rows,
+                        session_id=conversation_id,
+                        reasoning_effort=thinking_profile.provider_answer_effort,
+                        max_tokens=thinking_profile.answer_max_tokens,
+                    ):
+                        answer_event_type = answer_event["type"]
+                        if answer_event_type in {"reasoning_delta", "reasoning_detail", "content_delta"} and not first_answer_delta:
+                            first_answer_delta = True
+                            SlayQLPipeline._emit(
+                                run_id,
+                                "answer_generation",
+                                "provider.first_delta",
+                                {"phase": "answer", "kind": answer_event_type},
+                            )
+                        if answer_event_type == "reasoning_delta":
+                            delta = answer_event.get("delta", "")
                             reasoning_parts.append(delta)
-                        SlayQLPipeline._emit(
-                            run_id,
-                            "answer_generation",
-                            "provider.reasoning_detail",
-                            {
-                                "phase": "answer",
-                                "delta": delta,
-                                "detail": answer_event.get("detail") or {},
-                            },
-                        )
-                    elif answer_event_type == "content_delta":
-                        delta = answer_event.get("delta", "")
-                        answer_parts.append(delta)
-                        SlayQLPipeline._emit(
-                            run_id,
-                            "answer_generation",
-                            "assistant.delta",
-                            {"delta": delta},
-                        )
-                    elif answer_event_type == "usage":
-                        SlayQLPipeline._emit(
-                            run_id,
-                            "answer_generation",
-                            "provider.usage_finalized",
-                            {"phase": "answer", "usage": answer_event.get("usage") or {}},
-                        )
-                    elif answer_event_type == "completed":
-                        answer_completion = answer_event
-                        answer_usage = answer_event.get("usage") or {}
+                            SlayQLPipeline._emit(
+                                run_id,
+                                "answer_generation",
+                                "provider.reasoning_delta",
+                                {"phase": "answer", "delta": delta},
+                            )
+                        elif answer_event_type == "reasoning_detail":
+                            delta = answer_event.get("delta", "")
+                            if delta:
+                                reasoning_parts.append(delta)
+                            SlayQLPipeline._emit(
+                                run_id,
+                                "answer_generation",
+                                "provider.reasoning_detail",
+                                {
+                                    "phase": "answer",
+                                    "delta": delta,
+                                    "detail": answer_event.get("detail") or {},
+                                },
+                            )
+                        elif answer_event_type == "content_delta":
+                            delta = answer_event.get("delta", "")
+                            answer_parts.append(delta)
+                            SlayQLPipeline._emit(
+                                run_id,
+                                "answer_generation",
+                                "assistant.delta",
+                                {"delta": delta},
+                            )
+                        elif answer_event_type == "usage":
+                            SlayQLPipeline._emit(
+                                run_id,
+                                "answer_generation",
+                                "provider.usage_finalized",
+                                {"phase": "answer", "usage": answer_event.get("usage") or {}},
+                            )
+                        elif answer_event_type == "completed":
+                            answer_completion = answer_event
+                            answer_usage = answer_event.get("usage") or {}
                 SlayQLPipeline._emit(
                     run_id,
                     "answer_generation",
@@ -1199,11 +1292,20 @@ class SlayQLPipeline:
                         "resolved_model_id": answer_completion.get("resolved_model_id", TEST_EXECUTION_MODEL),
                         "resolved_provider": answer_completion.get("resolved_provider"),
                         "response_id": answer_completion.get("response_id"),
+                        "thinking_effort": thinking_profile.name,
+                        "provider_reasoning_effort": answer_completion.get(
+                            "reasoning_effort",
+                            thinking_profile.provider_answer_effort,
+                        ),
                         "summary": "Answer synthesis stream completed.",
                     },
                 )
             except ProviderError:
-                answer_parts = [f"The validated query returned {len(execution_result.rows)} rows."]
+                answer_parts = [SlayQLPipeline._fast_result_answer(
+                    execution_result.columns,
+                    execution_result.rows,
+                    execution_result.is_truncated,
+                )]
 
             answer = "".join(answer_parts).strip() or f"The validated query returned {len(execution_result.rows)} rows."
             SlayQLPipeline._emit(
@@ -1225,6 +1327,7 @@ class SlayQLPipeline:
                 "checks": [check.model_dump() for check in final_validation.checks],
                 "requested_model_id": requested_model_id,
                 "execution_model_id": TEST_EXECUTION_MODEL,
+                "thinking_effort": thinking_profile.name,
                 "attempt_count": attempt_count,
                 "token_usage": {"sql": sql_usage, "answer": answer_usage},
                 "reasoning": "".join(reasoning_parts)[-8000:],

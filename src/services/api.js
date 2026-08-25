@@ -293,7 +293,7 @@ export function inspectWorkbenchHealth(connectionId) {
   return workbenchRequest(`/connections/${connectionId}/workbench/ai/health`);
 }
 
-export async function createAgentRun({ question, modelId, connectionId, conversationId }) {
+export async function createAgentRun({ question, modelId, connectionId, conversationId, thinkingEffort }) {
   const res = await fetch(`${API_BASE}/agent-runs`, {
     method: 'POST',
     headers: {
@@ -305,6 +305,7 @@ export async function createAgentRun({ question, modelId, connectionId, conversa
       model_id: modelId,
       connection_id: connectionId,
       conversation_id: conversationId || null,
+      thinking_effort: thinkingEffort || 'minimal',
     }),
   });
   if (!res.ok) {

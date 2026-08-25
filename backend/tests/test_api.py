@@ -213,10 +213,12 @@ async def test_agent_stream_is_replayable_and_persists_assistant_thread():
             "question": "List customers for review",
             "model_id": "openai/gpt-5.6-solar",
             "connection_id": "sqlite_demo",
+            "thinking_effort": "high",
         })
         assert create_resp.status_code == 200
         run = create_resp.json()
         assert run["execution_model_id"] == "deepseek/deepseek-v4-flash"
+        assert run["thinking_effort"] == "high"
 
         stream_resp = await client.get(run["events_url"])
         assert stream_resp.status_code == 200
@@ -239,6 +241,7 @@ async def test_agent_stream_is_replayable_and_persists_assistant_thread():
         assert [message["role"] for message in thread["messages"]] == ["user", "assistant"]
         assert thread["messages"][-1]["payload"]["status"] == "success"
         assert thread["messages"][-1]["payload"]["execution_model_id"] == "deepseek/deepseek-v4-flash"
+        assert thread["messages"][-1]["payload"]["thinking_effort"] == "high"
         assert thread["messages"][-1]["payload"]["stream_events"]
         assert thread["messages"][-1]["payload"]["semantic_validation"]["is_semantically_valid"] is True
         assert thread["messages"][-1]["payload"]["chart"]["model"] == "gemini-3.5-flash-lite"
@@ -258,6 +261,46 @@ async def test_agent_stream_is_replayable_and_persists_assistant_thread():
             "user", "assistant", "user", "assistant"
         ]
         assert updated_thread["messages"][-1]["payload"]["intent_validation"]["is_follow_up"] is True
+
+
+@pytest.mark.asyncio
+async def test_minimal_thinking_effort_uses_fast_local_agents():
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        create_resp = await client.post("/api/v1/agent-runs", json={
+            "question": "List customers for review",
+            "connection_id": "sqlite_demo",
+            "thinking_effort": "minimal",
+        })
+        assert create_resp.status_code == 200
+        run = create_resp.json()
+        assert run["thinking_effort"] == "minimal"
+
+        stream = await client.get(run["events_url"])
+        assert stream.status_code == 200
+        assert '"thinking_effort": "minimal"' in stream.text
+        assert '"provider_reasoning_effort": "minimal"' in stream.text
+        assert "slayql/local-intent" in stream.text
+        assert "slayql/local-semantic-validator" in stream.text
+        assert "slayql/local-chart-planner" in stream.text
+        assert "slayql/local-result-summary" in stream.text
+
+        thread = (await client.get(f"/api/v1/conversations/{run['conversation_id']}")).json()
+        payload = thread["messages"][-1]["payload"]
+        assert payload["thinking_effort"] == "minimal"
+        assert payload["attempt_count"] == 1
+        assert payload["intent_validation"]["mode"] == "local_heuristic"
+        assert payload["semantic_validation"]["mode"] == "local_heuristic"
+
+
+@pytest.mark.asyncio
+async def test_invalid_thinking_effort_is_rejected():
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post("/api/v1/agent-runs", json={
+            "question": "List customers",
+            "connection_id": "sqlite_demo",
+            "thinking_effort": "unlimited",
+        })
+        assert response.status_code == 422
 
 
 @pytest.mark.asyncio

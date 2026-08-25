@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from backend.app.config import settings
 from backend.app.catalog.discovery import CatalogService
 from backend.app.providers.openrouter_client import openrouter_client, ModelInfo
+from backend.app.agent.effort import DEFAULT_THINKING_EFFORT, ThinkingEffort
 from backend.app.agent.pipeline import SlayQLPipeline, RUN_METADATA_STORE
 from backend.app.queries.validator import SqlValidator
 from backend.app.queries.executor import QueryExecutor
@@ -107,6 +108,7 @@ class CreateRunRequest(BaseModel):
     model_id: Optional[str] = "deepseek/deepseek-v4-flash"
     connection_id: Optional[str] = None
     conversation_id: Optional[str] = None
+    thinking_effort: ThinkingEffort = DEFAULT_THINKING_EFFORT
 
 class ExecuteSqlRequest(BaseModel):
     sql: str
@@ -868,6 +870,7 @@ async def create_agent_run(req: CreateRunRequest, request: Request):
         conversation_id=conversation_id,
         owner_id=owner_id,
         conversation_messages=conversation_messages,
+        thinking_effort=req.thinking_effort,
     )
 
     # Record in history
