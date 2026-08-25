@@ -82,7 +82,12 @@ function ConversationAssistantMessage({ message, isDark = false }) {
 
   return (
     <div className="py-4 space-y-3">
-      <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-wrap">{message.content}</p>
+      <div className={isSqlQuery
+        ? ''
+        : 'rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sky-950 shadow-sm dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-100'}
+      >
+        <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+      </div>
       {isSqlQuery && payload.reasoning && (
         <details className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
           <summary className="cursor-pointer font-semibold text-slate-600">Reasoning output</summary>
@@ -1166,7 +1171,12 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
                     )}
 
                     {activeAnswer && (
-                      <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-wrap">{activeAnswer}</p>
+                      <div className={activeIsSqlQuery === false
+                        ? 'rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sky-950 shadow-sm dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-100'
+                        : ''}
+                      >
+                        <p className="text-sm leading-relaxed whitespace-pre-wrap">{activeAnswer}</p>
+                      </div>
                     )}
 
                     {/* Generated SQL Code Block */}

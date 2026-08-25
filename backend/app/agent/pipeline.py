@@ -455,11 +455,19 @@ class SlayQLPipeline:
     ) -> None:
         """Generate and stream a Gemini answer for turns that do not require SQL."""
         metadata = RUN_METADATA_STORE[run_id]
+        response_start_model = "slayql/local-response" if intent_decision.get("fast_path") else GEMINI_WORKBENCH_MODEL
         SlayQLPipeline._emit(
             run_id,
             "answer_generation",
             "general_response.started",
-            {"model": GEMINI_WORKBENCH_MODEL, "summary": "Gemini is preparing a conversational response."},
+            {
+                "model": response_start_model,
+                "summary": (
+                    "Local conversational response is ready to stream."
+                    if response_start_model == "slayql/local-response"
+                    else "Gemini is preparing a conversational response."
+                ),
+            },
         )
         response = await gemini_workbench_agent.answer_general_question(
             question,
@@ -567,26 +575,13 @@ class SlayQLPipeline:
             if SlayQLPipeline._cancelled(run_id):
                 return
 
-            stage_started = time.perf_counter()
-            SlayQLPipeline._emit(
-                run_id,
-                "schema_discovery",
-                "stage.started",
-                {"label": "BM25 schema indexing", "status": "active"},
-            )
-            connection = get_connection(connection_id)
-            if not connection:
-                SlayQLPipeline._fail(run_id, "schema_discovery", "Selected data source was not found.")
-                return
-
-            # Short-circuit clearly non-SQL turns before touching the selected
-            # source. This keeps greetings and business questions useful even
-            # when a source file is unavailable locally.
+            # Route obvious conversational turns before touching the selected
+            # source. This keeps greetings fast even when the source is remote,
+            # unavailable, or still being indexed.
             preflight = _fallback_chat_intent(question, metadata["conversation_messages"])
-            if (
-                not thinking_profile.use_model_intent
-                and preflight["intent"] in {"business_guidance", "general_question", "unsupported", "clarification"}
-            ):
+            fast_non_sql = preflight["intent"] in {"unsupported", "clarification"}
+            local_non_sql = preflight["intent"] in {"business_guidance", "general_question"} and not thinking_profile.use_model_intent
+            if fast_non_sql or local_non_sql:
                 SlayQLPipeline._emit(
                     run_id,
                     "intent_validation",
@@ -614,6 +609,19 @@ class SlayQLPipeline:
                     intent_decision=preflight,
                 )
                 return
+
+            stage_started = time.perf_counter()
+            SlayQLPipeline._emit(
+                run_id,
+                "schema_discovery",
+                "stage.started",
+                {"label": "BM25 schema indexing", "status": "active"},
+            )
+            connection = get_connection(connection_id)
+            if not connection:
+                SlayQLPipeline._fail(run_id, "schema_discovery", "Selected data source was not found.")
+                return
+
             try:
                 if connection.get("engine") == "sqlite":
                     db_path = get_sqlite_path(connection_id)

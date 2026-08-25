@@ -57,8 +57,16 @@ def chart_idiom_payload() -> List[Dict[str, str]]:
     return [{"id": item[0], "label": item[1], "family": item[2]} for item in CHART_IDIOMS]
 
 
+def _is_fast_greeting(normalized: str) -> bool:
+    return bool(re.fullmatch(
+        r"(?:hi|hello|hey|hiya|yo)(?:\s+there)?[!,.?]*|good (?:morning|afternoon|evening)[!,.?]*",
+        normalized,
+    ))
+
+
 def _fallback_chat_intent(question: str, recent_messages: List[Dict[str, str]]) -> Dict[str, Any]:
     normalized = re.sub(r"\s+", " ", question.strip().casefold())
+    is_greeting = _is_fast_greeting(normalized)
     is_follow_up = bool(recent_messages) and bool(re.match(
         r"^(and |also |now |then |what about |how about |only |same |those |them |it |that )",
         normalized,
@@ -86,7 +94,7 @@ def _fallback_chat_intent(question: str, recent_messages: List[Dict[str, str]]) 
         "tell me a joke", "what can you do",
     }
 
-    if not normalized or normalized in unsupported_markers:
+    if not normalized or normalized in unsupported_markers or is_greeting:
         intent = "unsupported"
         reason = "The request does not identify a database information need."
     elif any(marker in normalized for marker in row_count_markers):
@@ -124,6 +132,7 @@ def _fallback_chat_intent(question: str, recent_messages: List[Dict[str, str]]) 
         "resolved_question": question.strip(),
         "confidence": 0.72,
         "reason": reason,
+        "fast_path": is_greeting,
     }
 
 
@@ -368,6 +377,20 @@ class GeminiWorkbenchAgent:
         recent_messages: Optional[List[Dict[str, str]]] = None,
     ) -> Dict[str, Any]:
         """Answer a non-SQL turn with Gemini without inventing a query result."""
+        normalized = re.sub(r"\s+", " ", question.strip().casefold())
+        # Greetings are handled locally so the conversational path stays below
+        # the interactive latency target and never waits on a model round trip.
+        if _is_fast_greeting(normalized):
+            greeting_answers = [
+                "Hi! I can help you explore the selected database. Ask about its tables, metrics, trends, or a specific data question.",
+                "Hey! Tell me what you would like to learn from the database and I will point you to the right analysis.",
+                "Hello! You can ask about tables, row counts, business metrics, or a read-only data query.",
+            ]
+            return {
+                "answer": greeting_answers[sum(ord(char) for char in question) % len(greeting_answers)],
+                "model": "slayql/local-response",
+                "mode": "local_heuristic",
+            }
         fallback_answers = [
             "I can help you explore the connected database. Ask about its tables, row counts, trends, comparisons, or a specific business metric.",
             "I can answer database questions and turn clear data requests into read-only SQL. Try asking what tables exist or which metric you want to analyze.",
