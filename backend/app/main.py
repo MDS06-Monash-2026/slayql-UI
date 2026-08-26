@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import uuid
 import sqlite3
 import time
@@ -41,6 +42,8 @@ from backend.app.workbench.gemini_agent import (
     summarize_result,
 )
 from backend.app.workbench.health import inspect_sqlite_health
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -104,6 +107,12 @@ QUERY_HISTORY: List[Dict[str, Any]] = []  # Compatibility mirror; persistent his
 
 # In-memory session store
 ACTIVE_SESSIONS: Dict[str, Dict[str, Any]] = {}
+
+# Connection metadata changes infrequently, while run creation reads it on
+# every turn. A short process-local cache removes a Supabase round trip from
+# the common path without caching credentials or user data.
+_CONNECTION_METADATA_CACHE: Dict[tuple[str, Optional[str]], tuple[float, Dict[str, Any]]] = {}
+_CONNECTION_METADATA_CACHE_TTL_SECONDS = 30.0
 
 class LoginRequest(BaseModel):
     email: Optional[str] = None
@@ -453,8 +462,23 @@ class CreateConnectionRequest(BaseModel):
 def _connection_metadata(connection_id: str, owner_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
     dynamic = DYNAMIC_CONNECTIONS.get(connection_id)
     if dynamic and (connection_id in ENVIRONMENT_CONNECTION_IDS or owner_id is None or dynamic.get("owner_id") == owner_id):
-        return dynamic
-    return connection_store.get_metadata(connection_id, owner_id=owner_id)
+        return dict(dynamic)
+    cache_key = (connection_id, owner_id)
+    cached = _CONNECTION_METADATA_CACHE.get(cache_key)
+    now = time.monotonic()
+    if cached and now - cached[0] < _CONNECTION_METADATA_CACHE_TTL_SECONDS:
+        return dict(cached[1])
+    metadata = connection_store.get_metadata(connection_id, owner_id=owner_id)
+    if metadata:
+        _CONNECTION_METADATA_CACHE[cache_key] = (now, dict(metadata))
+        return dict(metadata)
+    _CONNECTION_METADATA_CACHE.pop(cache_key, None)
+    return None
+
+
+def _invalidate_connection_metadata(connection_id: str) -> None:
+    for cache_key in [key for key in _CONNECTION_METADATA_CACHE if key[0] == connection_id]:
+        _CONNECTION_METADATA_CACHE.pop(cache_key, None)
 
 
 def _provider_credentials(req: CreateConnectionRequest) -> Dict[str, Any]:
@@ -536,6 +560,7 @@ async def create_connection(req: CreateConnectionRequest, request: Request):
         data_path=new_conn.get("path"),
         owner_id=owner_id,
     )
+    _invalidate_connection_metadata(conn_id)
     new_conn["credentials_configured"] = bool(credentials)
     DYNAMIC_CONNECTIONS[conn_id] = new_conn
     return new_conn
@@ -592,6 +617,7 @@ async def upload_connection(
         data_path=f"connections/{conn_id}.sqlite3",
         owner_id=owner_id,
     )
+    _invalidate_connection_metadata(conn_id)
     metadata.update({"path": f"connections/{conn_id}.sqlite3", "status": "connected"})
     DYNAMIC_CONNECTIONS[conn_id] = metadata
     return metadata
@@ -613,10 +639,12 @@ async def test_connection(connection_id: str, request: Request):
         else:
             result = test_external_connection(conn["engine"], get_credentials(connection_id))
         connection_store.update_status(connection_id, "connected")
+        _invalidate_connection_metadata(connection_id)
         result.update({"connection_id": connection_id, "engine": conn["engine"], "latency_ms": round((time.perf_counter() - started) * 1000, 1)})
         return result
     except Exception as exc:
         connection_store.update_status(connection_id, "error")
+        _invalidate_connection_metadata(connection_id)
         return {"status": "error", "connection_id": connection_id, "engine": conn["engine"], "latency_ms": round((time.perf_counter() - started) * 1000, 1), "message": str(exc)}
 
 @app.delete("/api/v1/connections/{connection_id}")
@@ -632,6 +660,7 @@ async def delete_connection(connection_id: str, request: Request):
         Path(sqlite_path).unlink(missing_ok=True)
     DYNAMIC_CONNECTIONS.pop(connection_id, None)
     connection_store.delete(connection_id)
+    _invalidate_connection_metadata(connection_id)
     return {"status": "deleted"}
 
 @app.get("/api/v1/connections/{connection_id}/catalog")
@@ -844,20 +873,12 @@ def _persist_run_start(
     occurred_at: str,
     history_item: Dict[str, Any],
 ) -> None:
-    conversation = conversation_store.ensure(
+    message = conversation_store.persist_user_message(
         conversation_id=conversation_id,
         owner_id=owner_id,
         connection_id=connection_id,
         selected_model_id=model_id,
         title=question,
-        occurred_at=occurred_at,
-    )
-    if not conversation:
-        raise RuntimeError("Conversation could not be created for this workspace.")
-    message = conversation_store.add_message(
-        conversation_id=conversation_id,
-        owner_id=owner_id,
-        role="user",
         content=question,
         created_at=occurred_at,
     )
@@ -866,36 +887,55 @@ def _persist_run_start(
     history_store.add(**history_item)
 
 
+def _schedule_history_persistence(history_item: Dict[str, Any]) -> asyncio.Task:
+    """Persist the compatibility history index without blocking run creation."""
+    task = asyncio.create_task(asyncio.to_thread(history_store.add, **history_item))
+
+    def _log_failure(completed: asyncio.Task) -> None:
+        try:
+            completed.result()
+        except asyncio.CancelledError:
+            return
+        except Exception:
+            logger.exception("Background query-history persistence failed for %s", history_item.get("id"))
+
+    task.add_done_callback(_log_failure)
+    return task
+
+
 @app.post("/api/v1/agent-runs")
 async def create_agent_run(req: CreateRunRequest, request: Request):
     if not req.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
-    owner_id = _owner_id(request)
+    # Resolve authentication once. Store lookups are synchronous SQLAlchemy
+    # calls, so run them in a worker thread instead of blocking FastAPI's loop.
+    session = await asyncio.to_thread(_session_from_request, request)
+    owner_id = session["user"]["id"] if session else "anonymous_demo"
     preflight = _fallback_chat_intent(req.question, [])
     is_fast_greeting = bool(preflight.get("fast_path"))
     connection_id = req.connection_id or default_connection_id()
     if not connection_id:
         raise HTTPException(status_code=400, detail="Add and select a data source before running SQL generation.")
-    if not _connection_metadata(connection_id, owner_id):
+    if not await asyncio.to_thread(_connection_metadata, connection_id, owner_id):
         raise HTTPException(status_code=404, detail="Selected data source was not found in this workspace.")
     conversation_id = req.conversation_id or f"conv_{uuid.uuid4().hex[:12]}"
     conversation_messages: List[Dict[str, str]] = []
     if req.conversation_id:
-        existing_conversation = (
-            conversation_store.get_metadata(req.conversation_id, owner_id)
-            if is_fast_greeting
-            else conversation_store.get(req.conversation_id, owner_id)
+        existing_conversation = await asyncio.to_thread(
+            conversation_store.get_metadata if is_fast_greeting else conversation_store.get,
+            req.conversation_id,
+            owner_id,
         )
         if not existing_conversation:
             raise HTTPException(status_code=404, detail="Conversation not found.")
         if existing_conversation.get("connection_id") != connection_id:
             raise HTTPException(status_code=400, detail="A conversation must continue on its original data source.")
         if not is_fast_greeting:
-            conversation_messages = conversation_store.context(req.conversation_id, owner_id, limit=8)
-    session = _session_from_request(request)
+            # ``conversation_store.context`` would load the same thread again.
+            conversation_messages = conversation_store.context_from_thread(existing_conversation, limit=8)
     credits_remaining = None
     if session and not is_fast_greeting:
-        profile = account_store.consume_credit(session["user"]["id"], 1, "AI query")
+        profile = await asyncio.to_thread(account_store.consume_credit, session["user"]["id"], 1, "AI query")
         if not profile:
             raise HTTPException(status_code=402, detail="Not enough credits to run this query.")
         _refresh_session_profile(profile["id"], profile)
@@ -904,25 +944,6 @@ async def create_agent_run(req: CreateRunRequest, request: Request):
         credits_remaining = session["user"].get("credits")
         
     occurred_at = datetime.now(timezone.utc).isoformat()
-    if not is_fast_greeting:
-        conversation = conversation_store.ensure(
-            conversation_id=conversation_id,
-            owner_id=owner_id,
-            connection_id=connection_id,
-            selected_model_id=req.model_id or settings.DEFAULT_MODEL,
-            title=req.question.strip(),
-            occurred_at=occurred_at,
-        )
-        if not conversation:
-            raise HTTPException(status_code=404, detail="Conversation not found.")
-        conversation_store.add_message(
-            conversation_id=conversation_id,
-            owner_id=owner_id,
-            role="user",
-            content=req.question.strip(),
-            created_at=occurred_at,
-        )
-
     run_response = SlayQLPipeline.create_run(
         question=req.question.strip(),
         model_id=req.model_id or settings.DEFAULT_MODEL,
@@ -966,7 +987,24 @@ async def create_agent_run(req: CreateRunRequest, request: Request):
         ))
         SlayQLPipeline.attach_start_persistence(run_response["run_id"], persistence_task)
     else:
-        history_store.add(**history_values)
+        message = await asyncio.to_thread(
+            conversation_store.persist_user_message,
+            conversation_id=conversation_id,
+            owner_id=owner_id,
+            connection_id=connection_id,
+            selected_model_id=req.model_id or settings.DEFAULT_MODEL,
+            title=req.question.strip(),
+            content=req.question.strip(),
+            created_at=occurred_at,
+        )
+        if not message:
+            raise HTTPException(status_code=404, detail="Conversation not found.")
+        history_task = _schedule_history_persistence(history_values)
+        SlayQLPipeline.attach_history_persistence(run_response["run_id"], history_task)
+
+    # Begin processing before the client opens SSE. Events are retained and
+    # replayed, so a late stream connection remains complete and ordered.
+    SlayQLPipeline.start_run(run_response["run_id"])
 
     initial_answer = _fast_greeting_answer(req.question) if is_fast_greeting else None
     return {
@@ -1050,7 +1088,17 @@ async def execute_edited_sql(run_id: str, req: ExecuteSqlRequest, request: Reque
 
 @app.get("/api/v1/history")
 async def get_history(request: Request):
-    return history_store.list(owner_id=_owner_id(request), limit=50)
+    owner_id = _owner_id(request)
+    persisted = await asyncio.to_thread(history_store.list, owner_id=owner_id, limit=50)
+    by_id = {item["id"]: item for item in persisted}
+    # A newly accepted run is visible immediately even while its compatibility
+    # history row is being written by the background task.
+    for item in QUERY_HISTORY:
+        if item.get("owner_id") == owner_id:
+            by_id.setdefault(item["id"], {key: item.get(key) for key in (
+                "id", "conversation_id", "prompt", "model_id", "connection_id", "created_at"
+            )})
+    return sorted(by_id.values(), key=lambda item: item.get("created_at") or "", reverse=True)[:50]
 
 
 @app.get("/api/v1/conversations")

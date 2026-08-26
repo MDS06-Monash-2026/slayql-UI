@@ -19,6 +19,8 @@ from backend.app.workbench.gemini_agent import (
 from backend.app.workbench.health import inspect_sqlite_health
 from backend.app.connections.runtime import connection_url
 from backend.app.connections.registry import default_connection_id, get_connection, get_credentials
+from backend.app.control_database import ControlDatabase
+from backend.app.history.conversation_store import ConversationStore
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_db():
@@ -69,6 +71,39 @@ def test_database_url_is_backend_only(monkeypatch):
     assert default_connection_id() is None
     assert get_connection("supabase_default") is None
     assert get_credentials("supabase_default") == {}
+
+
+def test_persist_user_message_updates_thread_atomically():
+    database = ControlDatabase(None, ":memory:", "slayql")
+    store = ConversationStore(database)
+    timestamp = "2026-08-26T00:00:00+00:00"
+
+    first = store.persist_user_message(
+        conversation_id="conv_atomic",
+        owner_id="owner_atomic",
+        connection_id="sqlite_demo",
+        selected_model_id="deepseek/deepseek-v4-flash",
+        title="First question",
+        content="First question",
+        created_at=timestamp,
+    )
+    second = store.persist_user_message(
+        conversation_id="conv_atomic",
+        owner_id="owner_atomic",
+        connection_id="sqlite_demo",
+        selected_model_id="deepseek/deepseek-v4-flash",
+        title="Second question",
+        content="Second question",
+        created_at="2026-08-26T00:00:01+00:00",
+    )
+
+    assert first and second
+    thread = store.get("conv_atomic", "owner_atomic")
+    assert thread["connection_id"] == "sqlite_demo"
+    assert [message["content"] for message in thread["messages"]] == [
+        "First question",
+        "Second question",
+    ]
 
 
 def test_demo_catalog_has_complex_company_scale_schema():

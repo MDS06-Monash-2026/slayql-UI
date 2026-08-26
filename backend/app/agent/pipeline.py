@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import logging
 import time
 import uuid
 from datetime import datetime, timezone
@@ -35,6 +36,8 @@ from backend.app.workbench.gemini_agent import (
     materialize_chart_recommendation,
     summarize_result,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class SSEEventEnvelope(BaseModel):
@@ -109,14 +112,41 @@ class SlayQLPipeline:
         return bool(metadata and metadata.get("owner_id") == owner_id)
 
     @staticmethod
+    def start_run(run_id: str) -> bool:
+        """Start a run once, allowing the SSE client to attach afterwards."""
+        metadata = RUN_METADATA_STORE.get(run_id)
+        if not metadata:
+            return False
+        task = RUN_TASKS.get(run_id)
+        if task is None or (task.done() and metadata["status"] not in TERMINAL_STATUSES):
+            RUN_TASKS[run_id] = asyncio.create_task(SlayQLPipeline._execute_run(run_id))
+        return True
+
+    @staticmethod
     def attach_start_persistence(run_id: str, task: asyncio.Task) -> None:
         RUN_METADATA_STORE[run_id]["start_persistence_task"] = task
+
+    @staticmethod
+    def attach_history_persistence(run_id: str, task: asyncio.Task) -> None:
+        RUN_METADATA_STORE[run_id]["history_persistence_task"] = task
 
     @staticmethod
     async def _await_start_persistence(run_id: str) -> None:
         task = RUN_METADATA_STORE[run_id].pop("start_persistence_task", None)
         if task is not None:
             await task
+
+    @staticmethod
+    async def _await_history_persistence(run_id: str) -> None:
+        task = RUN_METADATA_STORE[run_id].pop("history_persistence_task", None)
+        if task is None:
+            return
+        try:
+            await task
+        except Exception:
+            # History is a compatibility index and is intentionally outside
+            # the POST critical path. The conversation remains authoritative.
+            logger.exception("Background query-history persistence failed for %s", run_id)
 
     @staticmethod
     def cancel_run(run_id: str, owner_id: Optional[str] = None) -> bool:
@@ -138,9 +168,7 @@ class SlayQLPipeline:
         if run_id not in RUN_METADATA_STORE:
             yield "event: error\ndata: {\"error\":\"Run not found\"}\n\n"
             return
-        task = RUN_TASKS.get(run_id)
-        if task is None or task.done() and RUN_METADATA_STORE[run_id]["status"] not in TERMINAL_STATUSES:
-            RUN_TASKS[run_id] = asyncio.create_task(SlayQLPipeline._execute_run(run_id))
+        SlayQLPipeline.start_run(run_id)
 
         cursor = 0
         notifier = RUN_NOTIFIERS[run_id]
@@ -150,6 +178,7 @@ class SlayQLPipeline:
                 yield events[cursor].to_sse_format()
                 cursor += 1
             if RUN_METADATA_STORE[run_id]["status"] in TERMINAL_STATUSES:
+                await SlayQLPipeline._await_history_persistence(run_id)
                 break
             try:
                 await asyncio.wait_for(notifier.wait(), timeout=15.0)

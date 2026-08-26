@@ -40,6 +40,8 @@ class ControlDatabase:
             self.engine = create_engine(
                 url,
                 pool_pre_ping=True,
+                pool_recycle=1800,
+                pool_use_lifo=True,
                 connect_args={"prepare_threshold": None},
             )
         else:

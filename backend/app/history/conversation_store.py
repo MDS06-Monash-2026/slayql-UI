@@ -95,6 +95,66 @@ class ConversationStore:
             )
         return self._message_payload(record)
 
+    def persist_user_message(
+        self,
+        *,
+        conversation_id: str,
+        owner_id: str,
+        connection_id: Optional[str],
+        selected_model_id: Optional[str],
+        title: str,
+        content: str,
+        created_at: str,
+        message_id: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Create/update a conversation and append its user message atomically.
+
+        The run-start path used to execute ``ensure`` and ``add_message`` as
+        separate transactions. Keeping both operations on one connection
+        removes a round trip while preserving the ownership check.
+        """
+        record = {
+            "id": message_id or f"msg_{uuid.uuid4().hex[:16]}",
+            "conversation_id": conversation_id,
+            "owner_id": owner_id,
+            "role": "user",
+            "content": content,
+            "sql": None,
+            "payload_json": "{}",
+            "created_at": created_at,
+        }
+        conversation_values = {
+            "connection_id": connection_id,
+            "selected_model_id": selected_model_id,
+            "updated_at": created_at,
+        }
+        with self.database.engine.begin() as conn:
+            existing = conn.execute(
+                select(self.conversations).where(self.conversations.c.id == conversation_id)
+            ).mappings().first()
+            if existing:
+                if existing["owner_id"] != owner_id:
+                    return None
+                conn.execute(
+                    update(self.conversations)
+                    .where(self.conversations.c.id == conversation_id)
+                    .values(**conversation_values)
+                )
+            else:
+                conn.execute(
+                    insert(self.conversations).values(
+                        id=conversation_id,
+                        owner_id=owner_id,
+                        connection_id=connection_id,
+                        title=title.strip()[:140] or "New chat",
+                        selected_model_id=selected_model_id,
+                        created_at=created_at,
+                        updated_at=created_at,
+                    )
+                )
+            conn.execute(insert(self.messages).values(**record))
+        return self._message_payload(record)
+
     def get_metadata(self, conversation_id: str, owner_id: str) -> Optional[Dict[str, Any]]:
         with self.database.engine.connect() as conn:
             row = conn.execute(
@@ -150,6 +210,11 @@ class ConversationStore:
         thread = self.get(conversation_id, owner_id)
         if not thread:
             return []
+        return self.context_from_thread(thread, limit=limit)
+
+    @staticmethod
+    def context_from_thread(thread: Dict[str, Any], limit: int = 8) -> List[Dict[str, str]]:
+        """Build model context from an already loaded conversation payload."""
         context_messages = []
         for message in thread["messages"][-max(1, min(limit, 20)):]:
             content = message["content"]

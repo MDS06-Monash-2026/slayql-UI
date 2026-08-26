@@ -153,7 +153,12 @@ class AccountStore:
                     created_at=_now(),
                 )
             )
-        return self.get(user_id)
+            # Read the updated row on the same connection. This avoids a
+            # second transaction just to refresh the caller's credit balance.
+            row = conn.execute(
+                select(self.profiles).where(self.profiles.c.id == user_id)
+            ).mappings().first()
+        return self._profile(row) if row else None
 
     def credit_summary(self, user_id: str) -> Optional[Dict[str, Any]]:
         profile = self.get(user_id)
