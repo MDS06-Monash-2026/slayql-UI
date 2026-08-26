@@ -662,6 +662,173 @@ button:disabled,
   transition: background-color 180ms ease, color 180ms ease;
 }
 
+/* ── AI response bubble ────────────────────────────────────────── */
+.ai-bubble {
+  background-color: #edf1f7;
+  color: #000000;
+  border: 1px solid #dde3ee;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.live-demo-shell.theme-dark .ai-bubble {
+  background-color: #20242d !important;
+  color: #f8fafc !important;
+  border-color: #323844 !important;
+}
+
+/* ── Thinking status row (non-SQL questions) ──────────────────── */
+.thinking-status-row {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0;
+}
+
+.thinking-dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #6366f1;
+  animation: thinking-orb-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes thinking-orb-pulse {
+  0%, 100% { opacity: 1;   transform: scale(1);    box-shadow: 0 0 0 0 rgba(99,102,241,0.5); }
+  50%       { opacity: 0.6; transform: scale(0.78); box-shadow: 0 0 0 5px rgba(99,102,241,0); }
+}
+
+.thinking-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: transparent;
+  background: linear-gradient(
+    90deg,
+    #94a3b8 0%,
+    #475569 30%,
+    #94a3b8 50%,
+    #475569 70%,
+    #94a3b8 100%
+  );
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: thinking-shimmer 2s linear infinite;
+}
+
+@keyframes thinking-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.live-demo-shell.theme-dark .thinking-dot {
+  background: #818cf8;
+}
+
+.live-demo-shell.theme-dark .thinking-label {
+  background: linear-gradient(
+    90deg,
+    #475569 0%,
+    #94a3b8 30%,
+    #475569 50%,
+    #94a3b8 70%,
+    #475569 100%
+  );
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: thinking-shimmer 2s linear infinite;
+}
+
+/* ── Live reasoning stream panel ──────────────────────────────── */
+.reasoning-stream-panel {
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #f8fafc;
+  overflow: hidden;
+}
+.reasoning-stream-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f1f5f9;
+}
+.reasoning-stream-orb {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #6366f1;
+  flex-shrink: 0;
+  animation: thinking-orb-pulse 1.4s ease-in-out infinite;
+}
+.reasoning-stream-body {
+  max-height: 160px;
+  overflow-y: auto;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.72rem;
+  line-height: 1.65;
+  color: #64748b;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  -webkit-mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+}
+.reasoning-collapsed-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: #94a3b8;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  padding: 0.125rem 0;
+  transition: color 0.15s ease;
+}
+.reasoning-collapsed-summary:hover { color: #64748b; }
+.reasoning-collapsed-summary::-webkit-details-marker { display: none; }
+.reasoning-collapsed-body {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: #f8fafc;
+  font-size: 0.7rem;
+  line-height: 1.65;
+  color: #64748b;
+  white-space: pre-wrap;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.live-demo-shell.theme-dark .reasoning-stream-panel {
+  background: #1b1f27 !important;
+  border-color: #323844 !important;
+}
+.live-demo-shell.theme-dark .reasoning-stream-header {
+  background: #20242d !important;
+  border-color: #323844 !important;
+  color: #64748b !important;
+}
+.live-demo-shell.theme-dark .reasoning-stream-body { color: #475569 !important; }
+.live-demo-shell.theme-dark .reasoning-collapsed-summary { color: #475569 !important; }
+.live-demo-shell.theme-dark .reasoning-collapsed-body {
+  background: #1b1f27 !important;
+  border-color: #323844 !important;
+  color: #475569 !important;
+}
+
 .live-demo-composer-footer {
   background: linear-gradient(to top, #f7f9fc 0%, rgba(247, 249, 252, 0.95) 75%, transparent 100%);
 }

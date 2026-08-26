@@ -82,10 +82,7 @@ function ConversationAssistantMessage({ message, isDark = false }) {
 
   return (
     <div className="py-4 space-y-3">
-      <div className={isSqlQuery
-        ? ''
-        : 'rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sky-950 shadow-sm dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-100'}
-      >
+      <div className={isSqlQuery ? '' : 'ai-bubble'}>
         <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
       </div>
       {isSqlQuery && payload.reasoning && (
@@ -235,6 +232,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
   const [activeIsSqlQuery, setActiveIsSqlQuery] = useState(null);
   const [activeStreamEvents, setActiveStreamEvents] = useState([]);
   const [activeResultTab, setActiveResultTab] = useState('chart'); // 'chart' | 'table'
+  const [activeThinkingLabel, setActiveThinkingLabel] = useState('');
   const [composerFocused, setComposerFocused] = useState(false);
 
   const activeStreamRef = useRef(null);
@@ -245,6 +243,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
   const exploreRequestRef = useRef(0);
   const catalogRequestRef = useRef(0);
   const selectedConnectionRef = useRef(selectedConnectionId);
+  const reasoningScrollRef = useRef(null);
 
   const handleExploreMouseEnter = useCallback(() => {
     if (explorePopTimeoutRef.current) {
@@ -406,6 +405,8 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
     table_count: 0,
   };
 
+
+
   const selectedModel = models.find((m) => m.id === selectedModelId) || {
     name: 'DeepSeek V4 Flash',
     provider: 'DeepSeek',
@@ -417,6 +418,12 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Auto-scroll reasoning panel as tokens stream in
+  useEffect(() => {
+    const el = reasoningScrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [activeReasoning]);
+
   const formatHistoryDate = (value) => {
     if (!value) return '';
     const date = new Date(value);
@@ -426,6 +433,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
       ? date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
       : date.toLocaleDateString([], { month: 'short', day: 'numeric' });
   };
+
 
   const handleNewThread = () => {
     if (activeStreamRef.current) activeStreamRef.current.close();
@@ -533,9 +541,12 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
     setActiveTokenUsage(null);
     setActiveReasoning('');
     setActiveAnswer('');
-    setActiveIsSqlQuery(isLikelySqlTurn(queryText));
+    // Wait for the orchestrator to delegate to the SQL agent before showing
+    // the detailed SQL/reasoning workspace.
+    setActiveIsSqlQuery(null);
     setActiveStreamEvents([]);
     setActiveResultTab('chart');
+    setActiveThinkingLabel('');
 
     try {
       const runData = await createAgentRun({
@@ -602,7 +613,8 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
                   type === 'intent.validator_started' ||
                   type === 'sql.semantic_validation_started' ||
                   type === 'visualization.agent_started' ||
-                  type === 'execution.started'
+                  type === 'execution.started' ||
+                  type === 'orchestrator.tool_call.started'
                     ? 'in_progress'
                     : type === 'stage.completed' ||
                   type === 'sql.validation_completed' ||
@@ -613,6 +625,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
                   type === 'visualization.agent_completed' ||
                   type === 'visualization.recommended' ||
                   type === 'visualization.not_recommended' ||
+                  type === 'orchestrator.tool_call.completed' ||
                   type === 'run.completed'
                     ? 'completed'
                     : type === 'stage.failed' || type === 'execution.failed' || type === 'run.failed'
@@ -635,11 +648,29 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
             setActiveTokenUsage(payload.token_usage);
           } else if (type === 'provider.reasoning_delta' || type === 'provider.reasoning_detail') {
             setActiveReasoning((current) => `${current}${payload.delta || ''}`.slice(-12000));
+          } else if (type === 'intent.validator_started') {
+            setActiveThinkingLabel('Classifying your question\u2026');
           } else if (type === 'intent.validator_completed') {
             if (typeof payload.is_sql_query === 'boolean') {
-              setActiveIsSqlQuery(payload.is_sql_query);
+              if (!payload.is_sql_query) {
+                setActiveIsSqlQuery(false);
+                setActiveThinkingLabel('Generating response\u2026');
+              } else {
+                setActiveThinkingLabel('Selecting the SQL agent\u2026');
+              }
             }
+          } else if (type === 'orchestrator.tool_call.started') {
+            if (payload.tool === 'sql_agent') {
+              setActiveIsSqlQuery(true);
+              setActiveThinkingLabel('SQL agent is working\u2026');
+            } else {
+              setActiveIsSqlQuery(false);
+              setActiveThinkingLabel('Reading the verified catalog\u2026');
+            }
+          } else if (type === 'provider.request_started') {
+            setActiveThinkingLabel('Generating response\u2026');
           } else if (type === 'assistant.delta') {
+            setActiveThinkingLabel('');
             setActiveAnswer((current) => {
               const delta = payload.delta || '';
               return payload.mode === 'local_heuristic' && current === delta ? current : `${current}${delta}`;
@@ -1156,7 +1187,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
             {(isRunning || activeAnswer || activeSql || activeRows.length > 0 || Object.keys(activeStages).length > 0) && (
               <div className="w-full space-y-3 animate-fade-in-up">
                 <div className="flex-1 space-y-3 min-w-0">
-                    {activeIsSqlQuery !== false && isRunning && (
+                    {activeIsSqlQuery === true && isRunning && (
                       <div className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
                         <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">Thinking…</span>
@@ -1164,7 +1195,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
                     )}
 
                     {/* Thinking Process */}
-                    {activeIsSqlQuery !== false && (
+                    {activeIsSqlQuery === true && (
                       <>
                         <SlayQLTraceTimeline
                           stages={activeStages}
@@ -1177,24 +1208,44 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
                       </>
                     )}
 
-                    {activeIsSqlQuery === false && isRunning && !activeAnswer && (
-                      <div className="flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800 shadow-sm dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-200">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>Understanding your message...</span>
+                    {activeIsSqlQuery !== true && isRunning && !activeAnswer && (
+                      <div className="space-y-3">
+                        <div className="thinking-status-row">
+                          <span className="thinking-dot" />
+                          <span className="thinking-label">
+                            {activeThinkingLabel || 'Understanding your question\u2026'}
+                          </span>
+                        </div>
+                        {activeReasoning && (
+                          <div className="reasoning-stream-panel">
+                            <div className="reasoning-stream-header">
+                              <span className="reasoning-stream-orb" />
+                              <span>Reasoning</span>
+                            </div>
+                            <div className="reasoning-stream-body" ref={reasoningScrollRef}>
+                              {activeReasoning}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 
                     {activeAnswer && (
-                      <div className={activeIsSqlQuery === false
-                        ? 'rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sky-950 shadow-sm dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-100'
-                        : ''}
-                      >
-                        <p className="text-sm leading-relaxed whitespace-pre-wrap">{activeAnswer}</p>
+                      <div className="space-y-2">
+                        <div className={activeIsSqlQuery === false ? 'ai-bubble' : ''}>
+                          <p className="text-sm leading-relaxed whitespace-pre-wrap">{activeAnswer}</p>
+                        </div>
+                        {activeIsSqlQuery === false && activeReasoning && (
+                          <details className="reasoning-collapsed">
+                            <summary className="reasoning-collapsed-summary">View reasoning</summary>
+                            <div className="reasoning-collapsed-body">{activeReasoning}</div>
+                          </details>
+                        )}
                       </div>
                     )}
 
                     {/* Generated SQL Code Block */}
-                    {activeSql && (
+                    {activeIsSqlQuery === true && activeSql && (
                       <SqlEditorPanel
                         sql={activeSql}
                         validationChecks={activeChecks}
@@ -1205,7 +1256,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
                     )}
 
                     {/* Results Studio (Chart / Table) */}
-                    {activeIsSqlQuery !== false && (activeRows.length > 0 || isRunning) && (
+                    {activeIsSqlQuery === true && (activeRows.length > 0 || isRunning) && (
                       <div className="rounded-2xl border border-slate-200/90 bg-white p-4 space-y-3 shadow-xs">
                         {/* Minimalist Tabs Header */}
                         <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">

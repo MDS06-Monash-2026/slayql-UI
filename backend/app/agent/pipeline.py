@@ -188,6 +188,7 @@ class SlayQLPipeline:
             "is_final", "is_valid", "name", "message", "model", "mode", "idiom",
             "reason", "token_usage", "usage",
             "intent", "is_sql_query", "requires_sql", "confidence", "is_follow_up", "resolved_question",
+            "orchestrator_route", "tool_name", "catalog_operation", "tool", "agent", "operation",
             "reportable", "resolution_code",
             "is_semantically_valid", "missing_requirements",
             "thinking_effort", "provider_reasoning_effort", "max_repair_attempts",
@@ -331,6 +332,80 @@ class SlayQLPipeline:
         }
 
     @staticmethod
+    def _related_tables_overview(catalog: Any, question: str) -> Dict[str, Any]:
+        """Resolve a catalog-only relationship question without executing SQL."""
+        # Include business synonyms so a topic such as "sales" can retrieve
+        # tables whose physical schema uses orders, transactions, or revenue.
+        search_question = (
+            f"{question} sales sale orders order transactions transaction revenue "
+            "amount total price customer product"
+        )
+        graph = RBPGraphEngine(catalog)
+        matches = graph.match_schema_entities(search_question)
+        ranked = [item["table"] for item in matches.get("ranked_tables", [])]
+        # Keep the strongest topic matches as anchors; their FK neighbors are
+        # added below. This avoids turning every table with a generic `id` or
+        # `amount` column into a sales table.
+        anchor_tables = ranked[:3]
+        selected: List[str] = []
+        reasons: Dict[str, str] = {}
+        for table_name in anchor_tables:
+            if table_name in catalog.tables and table_name not in selected:
+                selected.append(table_name)
+                reasons[table_name] = "Matched sales/order/revenue terms in the table or its columns."
+
+        # Include immediate FK neighbors so the answer explains the usable
+        # sales model (for example orders -> customers and orders -> products).
+        for anchor in list(selected):
+            for neighbor, _, _ in graph.adj.get(anchor, []):
+                if neighbor in catalog.tables and neighbor not in selected:
+                    selected.append(neighbor)
+                    reasons[neighbor] = f"Connected to {anchor} by a verified foreign-key relationship."
+
+        total_selected = len(selected)
+        selected = selected[: min(settings.MAX_RESULT_ROWS, 12)]
+        columns = ["table_name", "why_related", "columns", "relationships"]
+        column_types = ["string", "string", "string", "string"]
+        rows: List[List[Any]] = []
+        for table_name in selected:
+            table = catalog.tables[table_name]
+            relationships = [
+                f"{table_name}.{fk.from_column} -> {fk.to_table}.{fk.to_column}"
+                for fk in table.foreign_keys
+                if fk.to_table in catalog.tables
+            ]
+            for neighbor, from_column, to_column in graph.adj.get(table_name, []):
+                edge = f"{table_name}.{from_column} -> {neighbor}.{to_column}"
+                if edge not in relationships:
+                    relationships.append(edge)
+            rows.append([
+                table_name,
+                reasons.get(table_name, "Related catalog table."),
+                ", ".join(column.name for column in table.columns),
+                "; ".join(relationships) or "No direct foreign-key relationship recorded.",
+            ])
+
+        if rows:
+            names = ", ".join(f"`{row[0]}`" for row in rows)
+            answer = (
+                f"The catalog tool found {len(rows)} table{'s' if len(rows) != 1 else ''} related to sales: "
+                f"{names}. These matches use verified table/column names and foreign-key relationships; "
+                "no data rows were queried."
+            )
+        else:
+            answer = (
+                "I could not find a verified sales-related table in this database catalog. "
+                "Try naming a business term, table, or column you expect to contain sales data."
+            )
+        return {
+            "answer": answer,
+            "columns": columns,
+            "column_types": column_types,
+            "rows": rows,
+            "is_truncated": total_selected > len(rows),
+        }
+
+    @staticmethod
     def _row_count_sql(catalog: Any, dialect: str) -> str:
         table_names = sorted(catalog.tables)[:max(1, settings.MAX_RESULT_ROWS - 1)]
         if not table_names:
@@ -434,6 +509,8 @@ class SlayQLPipeline:
             "reasoning": "",
             "intent_validation": intent_decision,
             "is_sql_query": bool(intent_decision.get("is_sql_query")),
+            "orchestrator_route": intent_decision.get("orchestrator_route", "direct_response"),
+            "tool_name": intent_decision.get("tool_name"),
             "response_model": intent_decision.get("response_model"),
             "resolution_code": resolution_code,
             "reportable": True,
@@ -617,6 +694,17 @@ class SlayQLPipeline:
                         "summary": f"Classified this turn as {preflight['intent'].replace('_', ' ')}.",
                     },
                 )
+                SlayQLPipeline._emit(
+                    run_id,
+                    "orchestration",
+                    "orchestrator.decision",
+                    {
+                        "route": "direct_response",
+                        "intent": preflight["intent"],
+                        "requires_sql": False,
+                        "summary": "Orchestrator selected the direct response path.",
+                    },
+                )
                 await SlayQLPipeline._complete_general_turn(
                     run_id,
                     question=question,
@@ -687,6 +775,9 @@ class SlayQLPipeline:
                     "is_sql_query": intent_decision["is_sql_query"],
                     "requires_sql": intent_decision["requires_sql"],
                     "is_follow_up": intent_decision["is_follow_up"],
+                    "orchestrator_route": intent_decision.get("orchestrator_route"),
+                    "tool_name": intent_decision.get("tool_name"),
+                    "catalog_operation": intent_decision.get("catalog_operation"),
                     "confidence": intent_decision["confidence"],
                     "resolved_question": intent_decision["resolved_question"],
                     "reason": intent_decision["reason"],
@@ -694,6 +785,56 @@ class SlayQLPipeline:
                     "summary": f"Classified this turn as {intent_decision['intent'].replace('_', ' ')}.",
                 },
             )
+
+            orchestrator_route = intent_decision.get("orchestrator_route") or (
+                "sql_agent" if intent_decision.get("is_sql_query") else
+                "catalog_agent" if intent_decision.get("intent") == "schema_overview" else
+                "direct_response"
+            )
+            intent_decision = {
+                **intent_decision,
+                "orchestrator_route": orchestrator_route,
+                "tool_name": (
+                    "sql_agent" if orchestrator_route == "sql_agent"
+                    else "catalog_agent" if orchestrator_route == "catalog_agent"
+                    else None
+                ),
+            }
+            SlayQLPipeline._emit(
+                run_id,
+                "orchestration",
+                "orchestrator.decision",
+                {
+                    "route": orchestrator_route,
+                    "intent": intent_decision["intent"],
+                    "requires_sql": bool(intent_decision.get("requires_sql")),
+                    "summary": f"Orchestrator selected the {orchestrator_route.replace('_', ' ')} path.",
+                },
+            )
+            if orchestrator_route == "sql_agent":
+                SlayQLPipeline._emit(
+                    run_id,
+                    "orchestration",
+                    "orchestrator.tool_call.started",
+                    {
+                        "tool": "sql_agent",
+                        "agent": TEST_EXECUTION_MODEL,
+                        "operation": "generate_validate_execute_sql",
+                        "summary": "Orchestrator delegated the database operation to the SQL agent.",
+                    },
+                )
+            elif orchestrator_route == "catalog_agent":
+                SlayQLPipeline._emit(
+                    run_id,
+                    "orchestration",
+                    "orchestrator.tool_call.started",
+                    {
+                        "tool": "catalog_agent",
+                        "agent": "slayql/catalog-agent",
+                        "operation": intent_decision.get("catalog_operation") or "overview",
+                        "summary": "Orchestrator delegated the request to the verified catalog tool.",
+                    },
+                )
 
             if not intent_decision["is_sql_query"]:
                 SlayQLPipeline._emit(
@@ -716,7 +857,22 @@ class SlayQLPipeline:
                     },
                 )
                 if intent_decision["intent"] == "schema_overview":
-                    overview = SlayQLPipeline._schema_overview(catalog)
+                    overview = (
+                        SlayQLPipeline._related_tables_overview(catalog, question)
+                        if intent_decision.get("catalog_operation") == "related_tables"
+                        else SlayQLPipeline._schema_overview(catalog)
+                    )
+                    SlayQLPipeline._emit(
+                        run_id,
+                        "orchestration",
+                        "orchestrator.tool_call.completed",
+                        {
+                            "tool": "catalog_agent",
+                            "agent": "slayql/catalog-agent",
+                            "operation": intent_decision.get("catalog_operation") or "overview",
+                            "summary": "Verified catalog metadata was used to answer the request.",
+                        },
+                    )
                     SlayQLPipeline._complete_without_generated_sql(
                         run_id,
                         answer=overview["answer"],
@@ -1451,6 +1607,17 @@ class SlayQLPipeline:
                 "stage.completed",
                 {"label": "Answer synthesis", "status": "passed", "summary": answer},
             )
+            SlayQLPipeline._emit(
+                run_id,
+                "orchestration",
+                "orchestrator.tool_call.completed",
+                {
+                    "tool": "sql_agent",
+                    "agent": TEST_EXECUTION_MODEL,
+                    "operation": "generate_validate_execute_sql",
+                    "summary": "The delegated SQL agent validated and executed the read-only query.",
+                },
+            )
             result_payload = {
                 "status": "success",
                 "answer": answer,
@@ -1469,6 +1636,8 @@ class SlayQLPipeline:
                 "token_usage": {"sql": sql_usage, "answer": answer_usage},
                 "reasoning": "".join(reasoning_parts)[-8000:],
                 "intent_validation": intent_decision,
+                "orchestrator_route": intent_decision.get("orchestrator_route", "sql_agent"),
+                "tool_name": intent_decision.get("tool_name", "sql_agent"),
                 "semantic_validation": semantic_validation,
                 "resolution_code": "sql_executed",
                 "reportable": True,

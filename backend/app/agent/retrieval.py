@@ -14,6 +14,8 @@ QUERY_ALIASES = {
     "spend": ["amount", "total", "revenue", "sales"],
     "spending": ["amount", "total", "revenue", "sales"],
     "revenue": ["amount", "total", "sales", "price"],
+    "sales": ["sale", "order", "orders", "transaction", "revenue", "amount", "total", "price"],
+    "sale": ["sales", "order", "transaction", "revenue", "amount", "total", "price"],
     "profit": ["margin", "revenue", "cost", "price"],
     "customer": ["client", "account", "buyer"],
     "employee": ["staff", "worker", "representative"],

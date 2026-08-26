@@ -139,6 +139,15 @@ def test_chat_intent_fallback_handles_metadata_and_follow_ups():
     assert follow_up["intent"] == "data_query"
     assert follow_up["is_follow_up"] is True
 
+    related_sales = _fallback_chat_intent(
+        "What are the tables in my database that are related to sales?",
+        [],
+    )
+    assert related_sales["intent"] == "schema_overview"
+    assert related_sales["orchestrator_route"] == "catalog_agent"
+    assert related_sales["tool_name"] == "catalog_agent"
+    assert related_sales["catalog_operation"] == "related_tables"
+
 
 @pytest.mark.asyncio
 async def test_row_count_metadata_sql_is_validated_and_executable():

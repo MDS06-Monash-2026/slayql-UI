@@ -313,6 +313,8 @@ async def test_chat_intent_routes_metadata_no_query_and_reports():
         schema_stream = await client.get(schema_run["events_url"])
         assert "event: intent.validator_completed" in schema_stream.text
         assert '"intent": "schema_overview"' in schema_stream.text
+        assert '"tool": "catalog_agent"' in schema_stream.text
+        assert "event: orchestrator.tool_call.completed" in schema_stream.text
         schema_thread = (await client.get(f"/api/v1/conversations/{schema_run['conversation_id']}")).json()
         schema_message = schema_thread["messages"][-1]
         assert schema_message["payload"]["resolution_code"] == "schema_overview"
@@ -326,6 +328,7 @@ async def test_chat_intent_routes_metadata_no_query_and_reports():
         })).json()
         count_stream = await client.get(count_run["events_url"])
         assert "slayql/metadata-planner" in count_stream.text
+        assert '"tool": "sql_agent"' in count_stream.text
         count_thread = (await client.get(f"/api/v1/conversations/{schema_run['conversation_id']}")).json()
         count_message = count_thread["messages"][-1]
         assert count_message["payload"]["intent_validation"]["intent"] == "row_count_overview"
