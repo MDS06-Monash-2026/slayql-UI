@@ -34,6 +34,7 @@ import ModelSelector from '../components/demo/ModelSelector';
 import ThinkingEffortSelector, { THINKING_EFFORT_LEVELS } from '../components/demo/ThinkingEffortSelector';
 import SlayQLTraceTimeline from '../components/demo/SlayQLTraceTimeline';
 import AgentStreamPanel, { normalizeStreamEvent } from '../components/demo/AgentStreamPanel';
+import ChatDebugPanel from '../components/demo/ChatDebugPanel';
 import SqlEditorPanel from '../components/demo/SqlEditorPanel';
 import VisualizationStudio from '../components/demo/VisualizationStudio';
 import DataTablePanel from '../components/demo/DataTablePanel';
@@ -85,6 +86,10 @@ function ConversationAssistantMessage({ message, isDark = false }) {
       <div className={isSqlQuery ? '' : 'ai-bubble'}>
         <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
       </div>
+      <ChatDebugPanel
+        events={payload.stream_events || []}
+        durationMs={payload.total_duration_ms}
+      />
       {isSqlQuery && payload.reasoning && (
         <details className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
           <summary className="cursor-pointer font-semibold text-slate-600">Reasoning output</summary>
@@ -233,6 +238,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
   const [activeStreamEvents, setActiveStreamEvents] = useState([]);
   const [activeResultTab, setActiveResultTab] = useState('chart'); // 'chart' | 'table'
   const [activeThinkingLabel, setActiveThinkingLabel] = useState('');
+  const [activeStartedAt, setActiveStartedAt] = useState(null);
   const [composerFocused, setComposerFocused] = useState(false);
 
   const activeStreamRef = useRef(null);
@@ -455,6 +461,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
     setActiveAnswer('');
     setActiveIsSqlQuery(null);
     setActiveStreamEvents([]);
+    setActiveStartedAt(null);
     if (composerRef.current) composerRef.current.style.height = '';
   };
 
@@ -508,6 +515,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
       setActiveAnswer('');
       setActiveIsSqlQuery(null);
       setActiveStreamEvents([]);
+      setActiveStartedAt(null);
     } catch (err) {
       setErrorMessage(err.message || 'Failed to load conversation.');
     }
@@ -545,6 +553,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
     // the detailed SQL/reasoning workspace.
     setActiveIsSqlQuery(null);
     setActiveStreamEvents([]);
+    setActiveStartedAt(Date.now());
     setActiveResultTab('chart');
     setActiveThinkingLabel('');
 
@@ -1229,6 +1238,12 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
                         )}
                       </div>
                     )}
+
+                    <ChatDebugPanel
+                      events={activeStreamEvents}
+                      isRunning={isRunning}
+                      startedAt={activeStartedAt}
+                    />
 
                     {activeAnswer && (
                       <div className="space-y-2">

@@ -8,6 +8,7 @@ const SAFE_PAYLOAD_KEYS = new Set([
   'row_count', 'batch_index', 'offset', 'is_final', 'is_valid', 'name', 'message',
   'model', 'mode', 'idiom', 'reason', 'token_usage', 'usage', 'detail', 'chart',
   'intent', 'requires_sql', 'confidence', 'is_follow_up', 'resolved_question',
+  'orchestrator_route', 'tool_name', 'catalog_operation', 'tool', 'agent', 'operation', 'route',
   'reportable', 'resolution_code',
   'is_semantically_valid', 'missing_requirements',
   'thinking_effort', 'provider_reasoning_effort', 'max_repair_attempts',
@@ -32,6 +33,9 @@ const EVENT_TYPE_LABELS = {
   'visualization.not_recommended': 'Table View Recommended',
   'run.completed': 'Agent Run Completed',
   'run.failed': 'Agent Run Failed',
+  'orchestrator.decision': 'Orchestrator Route Selected',
+  'orchestrator.tool_call.started': 'Agent Tool Call Started',
+  'orchestrator.tool_call.completed': 'Agent Tool Call Completed',
 };
 
 export function normalizeStreamEvent(event, fallbackType) {
