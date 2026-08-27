@@ -51,7 +51,6 @@ import {
   fetchConnections,
   fetchCatalog,
   fetchExploreSuggestions,
-  createAgentRun,
   cancelAgentRun,
   executeCustomSql,
   fetchSavedQueries,
@@ -61,7 +60,13 @@ import {
   deleteConversation,
   reportChatMessage,
 } from '../services/api';
-import { connectRunEventStream } from '../services/sse';
+import { connectNewRunEventStream } from '../services/sse';
+
+function normalizeDraftSql(value) {
+  return value
+    .replace(/^\s*```(?:sql)?\s*/i, '')
+    .replace(/\s*```\s*$/i, '');
+}
 
 const ConversationAssistantMessage = React.memo(function ConversationAssistantMessage({ message, isDark = false }) {
   const payload = message.payload || {};
@@ -580,41 +585,46 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
     setActiveThinkingLabel('');
 
     try {
-      const runData = await createAgentRun({
+      let runData = null;
+      let runId = null;
+      if (activeStreamRef.current) activeStreamRef.current.close();
+
+      const stream = connectNewRunEventStream({
         question: queryText,
         modelId: selectedModelId,
         connectionId: selectedConnectionId,
         conversationId,
         thinkingEffort,
-      });
-
-      const runId = runData.run_id;
-      setCurrentRunId(runId);
-      setConversationId(runData.conversation_id);
-      if (runData.initial_answer) {
-        setActiveAnswer(runData.initial_answer);
-        setActiveIsSqlQuery(runData.initial_is_sql_query !== false);
-      }
-      if (typeof runData.credits_remaining === 'number') {
-        setCreditBalance(runData.credits_remaining);
-        onSessionUpdate?.({ ...session, user: { ...session.user, credits: runData.credits_remaining } });
-      }
-      setHistoryList((current) => [
-        {
-          id: runData.conversation_id,
-          prompt: queryText,
-          selected_model_id: selectedModelId,
-          model_id: selectedModelId,
-          connection_id: selectedConnectionId,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+      }, {
+        onCreated: (createdRunData) => {
+          runData = createdRunData;
+          runId = createdRunData.run_id;
+          setCurrentRunId(runId);
+          setConversationId(createdRunData.conversation_id);
+          if (createdRunData.initial_answer) {
+            setActiveAnswer(createdRunData.initial_answer);
+            setActiveIsSqlQuery(createdRunData.initial_is_sql_query !== false);
+          }
+          if (typeof createdRunData.credits_remaining === 'number') {
+            setCreditBalance(createdRunData.credits_remaining);
+            onSessionUpdate?.({
+              ...session,
+              user: { ...session.user, credits: createdRunData.credits_remaining },
+            });
+          }
+          setHistoryList((current) => [
+            {
+              id: createdRunData.conversation_id,
+              prompt: queryText,
+              selected_model_id: selectedModelId,
+              model_id: selectedModelId,
+              connection_id: selectedConnectionId,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            },
+            ...current.filter((item) => item.id !== createdRunData.conversation_id),
+          ]);
         },
-        ...current.filter((item) => item.id !== runData.conversation_id),
-      ]);
-
-      if (activeStreamRef.current) activeStreamRef.current.close();
-
-      activeStreamRef.current = connectRunEventStream(runId, {
         onEvent: (event, eventType) => {
           const evt =
             typeof event === 'object' && event !== null
@@ -675,7 +685,11 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
             }));
           }
 
-          if (type === 'provider.usage_finalized' && payload?.usage) {
+          if (type === 'provider.content_delta' && payload?.phase === 'sql') {
+            setActiveIsSqlQuery(true);
+            setActiveThinkingLabel('Drafting SQL\u2026');
+            setActiveSql((current) => normalizeDraftSql(`${current}${payload.delta || ''}`));
+          } else if (type === 'provider.usage_finalized' && payload?.usage) {
             setActiveTokenUsage(payload.usage);
           } else if ((type === 'provider.completed' || type === 'orchestrator.provider.completed') && payload?.token_usage) {
             setActiveTokenUsage(payload.token_usage);
@@ -755,7 +769,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
           const terminalPayload = event?.payload && typeof event.payload === 'object'
             ? event.payload
             : {};
-          const completedConversationId = event?.conversation_id || runData.conversation_id;
+          const completedConversationId = event?.conversation_id || runData?.conversation_id;
           const terminalStatus = terminalPayload.status
             || (_type === 'run.completed' ? 'success' : _type === 'run.cancelled' ? 'cancelled' : 'failed');
           const content = terminalPayload.answer
@@ -820,9 +834,12 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
         },
         onError: (err) => {
           console.warn('Stream error:', err);
+          setErrorMessage(err.message || 'The agent stream failed.');
           setIsRunning(false);
         },
       });
+      activeStreamRef.current = stream;
+      await stream.started;
     } catch (err) {
       setErrorMessage(err.message || 'Failed to initialize agent run.');
       setIsRunning(false);
@@ -832,10 +849,10 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
   const handleCancelRun = async () => {
     if (currentRunId) {
       await cancelAgentRun(currentRunId);
-      if (activeStreamRef.current) activeStreamRef.current.close();
-      setIsRunning(false);
-      setActiveStageKey(null);
     }
+    if (activeStreamRef.current) activeStreamRef.current.close();
+    setIsRunning(false);
+    setActiveStageKey(null);
   };
 
   const handleExecuteEditedSql = async (editedSql) => {

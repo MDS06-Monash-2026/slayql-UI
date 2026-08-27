@@ -61,7 +61,16 @@ export default function ChatDebugPanel({
   const decision = [...normalizedEvents].reverse().find((event) => event.type === 'orchestrator.decision');
   const toolCall = [...normalizedEvents].reverse().find((event) => event.type === 'orchestrator.tool_call.started');
   const latest = normalizedEvents[normalizedEvents.length - 1];
-  const providerCompleted = [...normalizedEvents].reverse().find((event) => event.type === 'provider.completed');
+  const providerEvents = normalizedEvents.filter((event) => event.type === 'provider.completed');
+  const sqlProviderCompleted = providerEvents.find((event) => event.payload?.phase === 'sql')
+    || providerEvents[0];
+  const answerProviderCompleted = providerEvents.find((event) => event.payload?.phase === 'answer');
+  const sqlFirstDelta = normalizedEvents.find(
+    (event) => event.type === 'provider.first_delta' && event.payload?.phase === 'sql',
+  );
+  const executionCompleted = [...normalizedEvents].reverse().find(
+    (event) => event.type === 'execution.completed',
+  );
   const elapsed = isRunning && startedAt
     ? now - startedAt
     : durationMs ?? (startedAt ? now - startedAt : null);
@@ -94,7 +103,7 @@ export default function ChatDebugPanel({
 
       {isOpen && (
         <div className="border-t border-slate-100 bg-slate-50/70 p-3 dark:border-slate-800 dark:bg-[#0f141c]">
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             <div className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 dark:border-slate-800 dark:bg-[#161c27]">
               <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400"><Route className="h-3 w-3" />Route</div>
               <div className="mt-1 truncate font-mono text-[11px] text-slate-700 dark:text-slate-200">{route || 'classifying'}</div>
@@ -104,12 +113,24 @@ export default function ChatDebugPanel({
               <div className="mt-1 truncate font-mono text-[11px] text-slate-700 dark:text-slate-200">{toolCall?.payload?.tool || 'pending'}</div>
             </div>
             <div className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 dark:border-slate-800 dark:bg-[#161c27]">
-              <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400"><Clock3 className="h-3 w-3" />Elapsed</div>
-              <div className="mt-1 font-mono text-[11px] text-slate-700 dark:text-slate-200">{durationLabel(elapsed)}</div>
+              <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400"><Clock3 className="h-3 w-3" />First token</div>
+              <div className="mt-1 font-mono text-[11px] text-slate-700 dark:text-slate-200">{durationLabel(sqlFirstDelta?.payload?.duration_ms)}</div>
             </div>
             <div className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 dark:border-slate-800 dark:bg-[#161c27]">
-              <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400"><Radio className="h-3 w-3" />Provider</div>
-              <div className="mt-1 font-mono text-[11px] text-slate-700 dark:text-slate-200">{durationLabel(providerCompleted?.payload?.duration_ms)}</div>
+              <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400"><Radio className="h-3 w-3" />SQL model</div>
+              <div className="mt-1 font-mono text-[11px] text-slate-700 dark:text-slate-200">{durationLabel(sqlProviderCompleted?.payload?.duration_ms)}</div>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 dark:border-slate-800 dark:bg-[#161c27]">
+              <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400"><Wrench className="h-3 w-3" />Database</div>
+              <div className="mt-1 font-mono text-[11px] text-slate-700 dark:text-slate-200">{durationLabel(executionCompleted?.payload?.execution_time_ms)}</div>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 dark:border-slate-800 dark:bg-[#161c27]">
+              <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400"><Radio className="h-3 w-3" />Answer</div>
+              <div className="mt-1 font-mono text-[11px] text-slate-700 dark:text-slate-200">{durationLabel(answerProviderCompleted?.payload?.duration_ms)}</div>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 dark:border-slate-800 dark:bg-[#161c27]">
+              <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400"><Clock3 className="h-3 w-3" />Total</div>
+              <div className="mt-1 font-mono text-[11px] text-slate-700 dark:text-slate-200">{durationLabel(elapsed)}</div>
             </div>
           </div>
 

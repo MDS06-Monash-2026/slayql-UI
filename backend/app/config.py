@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     # Legacy migration alias. New deployments should set OPENROUTER_KEY.
     OPENROUTER_API_KEY: Optional[str] = None
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
+    OPENROUTER_EXECUTION_MODEL: str = "deepseek/deepseek-v4-flash"
     DEFAULT_MODEL: str = "deepseek/deepseek-v4-flash"
     
     # Direct Provider Keys (fallback or direct use)

@@ -84,6 +84,7 @@ class SlayQLPipeline:
     ) -> Dict[str, Any]:
         run_id = f"run_{uuid.uuid4().hex[:12]}"
         conv_id = conversation_id or f"conv_{uuid.uuid4().hex[:12]}"
+        execution_model_id = openrouter_client.execution_model_id(model_id)
         RUN_EVENTS_STORE[run_id] = []
         RUN_CANCEL_FLAGS[run_id] = False
         RUN_NOTIFIERS[run_id] = asyncio.Event()
@@ -92,7 +93,7 @@ class SlayQLPipeline:
             "conversation_id": conv_id,
             "question": question,
             "requested_model_id": model_id,
-            "execution_model_id": TEST_EXECUTION_MODEL,
+            "execution_model_id": execution_model_id,
             "connection_id": connection_id,
             "owner_id": owner_id,
             "conversation_messages": conversation_messages or [],
@@ -107,7 +108,7 @@ class SlayQLPipeline:
             "events_url": f"/api/v1/agent-runs/{run_id}/events",
             "initial_state": "creating_run",
             "requested_model_id": model_id,
-            "execution_model_id": TEST_EXECUTION_MODEL,
+            "execution_model_id": execution_model_id,
             "thinking_effort": thinking_effort,
         }
 
@@ -305,7 +306,7 @@ class SlayQLPipeline:
             "attempt", "phase", "kind", "is_repair", "label", "status", "summary", "error", "delta",
             "finish_reason", "requested_model_id", "execution_model_id",
             "resolved_model_id", "resolved_provider", "provider", "response_id",
-            "duration_ms", "latency_ms", "row_count", "batch_index", "offset",
+            "duration_ms", "latency_ms", "execution_time_ms", "row_count", "batch_index", "offset",
             "is_final", "is_valid", "name", "message", "model", "mode", "idiom",
             "reason", "token_usage", "usage",
             "intent", "is_sql_query", "requires_sql", "confidence", "is_follow_up", "resolved_question",
@@ -675,7 +676,7 @@ class SlayQLPipeline:
             "chart": None,
             "checks": [],
             "requested_model_id": metadata["requested_model_id"],
-            "execution_model_id": TEST_EXECUTION_MODEL,
+            "execution_model_id": metadata["execution_model_id"],
             "thinking_effort": metadata["thinking_effort"],
             "attempt_count": 0,
             "token_usage": token_usage or {},
@@ -718,7 +719,7 @@ class SlayQLPipeline:
         response_start_model = (
             "slayql/local-response"
             if intent_decision.get("fast_path")
-            else orchestrator_model or TEST_EXECUTION_MODEL
+            else orchestrator_model or metadata["execution_model_id"]
         )
         SlayQLPipeline._emit(
             run_id,
@@ -737,7 +738,7 @@ class SlayQLPipeline:
             answer = orchestrator_answer.strip()
             response = {
                 "answer": answer,
-                "model": orchestrator_model or TEST_EXECUTION_MODEL,
+                "model": orchestrator_model or metadata["execution_model_id"],
                 "mode": intent_decision.get("mode", "openrouter_tool_calling"),
             }
         else:
@@ -826,6 +827,7 @@ class SlayQLPipeline:
         metadata["status"] = "running"
         question = metadata["question"]
         requested_model_id = metadata["requested_model_id"]
+        execution_model_id = openrouter_client.execution_model_id(requested_model_id)
         connection_id = metadata["connection_id"]
         conversation_id = metadata["conversation_id"]
         thinking_profile = get_thinking_profile(metadata["thinking_effort"])
@@ -839,7 +841,7 @@ class SlayQLPipeline:
                 {
                     "question": question,
                     "requested_model_id": requested_model_id,
-                    "execution_model_id": TEST_EXECUTION_MODEL,
+                    "execution_model_id": execution_model_id,
                     "connection_id": connection_id,
                     "thinking_effort": thinking_profile.name,
                     "provider_reasoning_effort": thinking_profile.provider_sql_effort,
@@ -924,7 +926,11 @@ class SlayQLPipeline:
                         db_path
                     )
                 else:
-                    catalog = get_external_catalog(connection["engine"], get_credentials(connection_id))
+                    catalog = await asyncio.to_thread(
+                        get_external_catalog,
+                        connection["engine"],
+                        get_credentials(connection_id),
+                    )
             except Exception:
                 SlayQLPipeline._fail(run_id, "schema_discovery", "Could not inspect the selected data source.")
                 return
@@ -936,7 +942,7 @@ class SlayQLPipeline:
                 "intent.validator_started",
                 {
                     "model": (
-                        TEST_EXECUTION_MODEL
+                        execution_model_id
                         if thinking_profile.use_model_intent
                         else "slayql/local-intent"
                     ),
@@ -967,7 +973,7 @@ class SlayQLPipeline:
                 "intent_validation",
                 "intent.validator_completed",
                 {
-                    "model": intent_decision.get("model", TEST_EXECUTION_MODEL),
+                    "model": intent_decision.get("model", execution_model_id),
                     "mode": intent_decision.get("mode", "openrouter_tool_calling"),
                     "intent": intent_decision["intent"],
                     "is_sql_query": intent_decision["is_sql_query"],
@@ -1017,7 +1023,7 @@ class SlayQLPipeline:
                     "orchestrator.tool_call.started",
                     {
                         "tool": "sql_agent",
-                        "agent": TEST_EXECUTION_MODEL,
+                        "agent": execution_model_id,
                         "operation": "generate_validate_execute_sql",
                         "summary": "Orchestrator delegated the database operation to the SQL agent.",
                     },
@@ -1273,8 +1279,9 @@ class SlayQLPipeline:
                     "provider.request_started",
                     {
                         "attempt": attempt,
+                        "phase": "sql",
                         "requested_model_id": requested_model_id,
-                        "execution_model_id": TEST_EXECUTION_MODEL,
+                        "execution_model_id": execution_model_id,
                         "provider": "SlayQL metadata planner" if deterministic_sql else "OpenRouter",
                         "is_repair": attempt > 1,
                         "thinking_effort": thinking_profile.name,
@@ -1331,7 +1338,12 @@ class SlayQLPipeline:
                             run_id,
                             "model_generation",
                             "provider.first_delta",
-                            {"attempt": attempt, "kind": event_type},
+                            {
+                                "attempt": attempt,
+                                "phase": "sql",
+                                "kind": event_type,
+                                "duration_ms": int((time.perf_counter() - generation_started) * 1000),
+                            },
                         )
                     if event_type == "reasoning_delta":
                         delta = provider_event.get("delta", "")
@@ -1361,7 +1373,11 @@ class SlayQLPipeline:
                             run_id,
                             "model_generation",
                             "provider.content_delta",
-                            {"attempt": attempt, "delta": provider_event.get("delta", "")},
+                            {
+                                "attempt": attempt,
+                                "phase": "sql",
+                                "delta": provider_event.get("delta", ""),
+                            },
                         )
                     elif event_type == "usage":
                         SlayQLPipeline._emit(
@@ -1384,13 +1400,14 @@ class SlayQLPipeline:
                     "provider.completed",
                     {
                         "attempt": attempt,
+                        "phase": "sql",
                         "requested_model_id": requested_model_id,
-                        "execution_model_id": TEST_EXECUTION_MODEL,
+                        "execution_model_id": execution_model_id,
                         "latency_ms": completion.get("latency_ms", 0),
                         "duration_ms": int((time.perf_counter() - generation_started) * 1000),
                         "token_usage": usage,
                         "finish_reason": completion.get("finish_reason", "stop"),
-                        "resolved_model_id": completion.get("resolved_model_id", TEST_EXECUTION_MODEL),
+                        "resolved_model_id": completion.get("resolved_model_id", execution_model_id),
                         "resolved_provider": completion.get("resolved_provider"),
                         "response_id": completion.get("response_id"),
                         "thinking_effort": thinking_profile.name,
@@ -1751,6 +1768,19 @@ class SlayQLPipeline:
                         "reasoning_effort": "none",
                     }
                 else:
+                    SlayQLPipeline._emit(
+                        run_id,
+                        "answer_generation",
+                        "provider.request_started",
+                        {
+                            "phase": "answer",
+                            "requested_model_id": requested_model_id,
+                            "execution_model_id": execution_model_id,
+                            "provider": "OpenRouter",
+                            "thinking_effort": thinking_profile.name,
+                            "provider_reasoning_effort": thinking_profile.provider_answer_effort,
+                        },
+                    )
                     async for answer_event in openrouter_client.stream_answer(
                         requested_model_id=requested_model_id,
                         question=question,
@@ -1768,7 +1798,11 @@ class SlayQLPipeline:
                                 run_id,
                                 "answer_generation",
                                 "provider.first_delta",
-                                {"phase": "answer", "kind": answer_event_type},
+                                {
+                                    "phase": "answer",
+                                    "kind": answer_event_type,
+                                    "duration_ms": int((time.perf_counter() - answer_generation_started) * 1000),
+                                },
                             )
                         if answer_event_type == "reasoning_delta":
                             delta = answer_event.get("delta", "")
@@ -1819,12 +1853,12 @@ class SlayQLPipeline:
                     {
                         "phase": "answer",
                         "requested_model_id": requested_model_id,
-                        "execution_model_id": TEST_EXECUTION_MODEL,
+                        "execution_model_id": execution_model_id,
                         "latency_ms": answer_completion.get("latency_ms", 0),
                         "duration_ms": int((time.perf_counter() - answer_generation_started) * 1000),
                         "token_usage": answer_usage,
                         "finish_reason": answer_completion.get("finish_reason", "stop"),
-                        "resolved_model_id": answer_completion.get("resolved_model_id", TEST_EXECUTION_MODEL),
+                        "resolved_model_id": answer_completion.get("resolved_model_id", execution_model_id),
                         "resolved_provider": answer_completion.get("resolved_provider"),
                         "response_id": answer_completion.get("response_id"),
                         "thinking_effort": thinking_profile.name,
@@ -1855,7 +1889,7 @@ class SlayQLPipeline:
                 "orchestrator.tool_call.completed",
                 {
                     "tool": "sql_agent",
-                    "agent": TEST_EXECUTION_MODEL,
+                    "agent": execution_model_id,
                     "operation": "generate_validate_execute_sql",
                     "summary": "The delegated SQL agent validated and executed the read-only query.",
                 },
@@ -1872,7 +1906,7 @@ class SlayQLPipeline:
                 "chart": chart,
                 "checks": [check.model_dump() for check in final_validation.checks],
                 "requested_model_id": requested_model_id,
-                "execution_model_id": TEST_EXECUTION_MODEL,
+                "execution_model_id": execution_model_id,
                 "thinking_effort": thinking_profile.name,
                 "attempt_count": attempt_count,
                 "token_usage": {"sql": sql_usage, "answer": answer_usage},

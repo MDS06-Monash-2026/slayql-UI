@@ -7,11 +7,24 @@ installing every cloud database driver.
 from __future__ import annotations
 
 import time
+import hashlib
+import threading
 from typing import Any, Dict
 from urllib.parse import quote_plus, urlsplit, urlunsplit
 import json
 
 from backend.app.catalog.discovery import CatalogSchema, ColumnInfo, ForeignKeyInfo, TableInfo
+
+
+_CATALOG_CACHE: Dict[str, tuple[float, CatalogSchema]] = {}
+_CATALOG_CACHE_LOCK = threading.Lock()
+_CATALOG_CACHE_TTL_SECONDS = 300.0
+
+
+def _catalog_cache_key(provider: str, credentials: Dict[str, Any]) -> str:
+    normalized = normalized_credentials(credentials)
+    credential_fingerprint = json.dumps(normalized, sort_keys=True, default=str, separators=(",", ":"))
+    return hashlib.sha256(f"{provider.lower()}:{credential_fingerprint}".encode()).hexdigest()
 
 
 def connection_url(provider: str, credentials: Dict[str, Any]) -> str:
@@ -113,6 +126,13 @@ def test_external_connection(provider: str, credentials: Dict[str, Any]) -> Dict
 def get_external_catalog(provider: str, credentials: Dict[str, Any]) -> CatalogSchema:
     from sqlalchemy import create_engine, inspect
 
+    cache_key = _catalog_cache_key(provider, credentials)
+    now = time.monotonic()
+    with _CATALOG_CACHE_LOCK:
+        cached = _CATALOG_CACHE.get(cache_key)
+        if cached and now - cached[0] < _CATALOG_CACHE_TTL_SECONDS:
+            return cached[1]
+
     engine = create_engine(connection_url(provider, credentials), **engine_options(provider, credentials))
     try:
         inspector = inspect(engine)
@@ -137,10 +157,13 @@ def get_external_catalog(provider: str, credentials: Dict[str, Any]) -> CatalogS
                         to_column=target,
                     ))
             tables[table_name] = TableInfo(name=table_name, columns=columns, foreign_keys=fks)
-        return CatalogSchema(
+        catalog = CatalogSchema(
             engine="postgres" if provider in {"postgresql", "supabase"} else provider,
             database_name=str(credentials.get("database") or provider.title()),
             tables=tables,
         )
+        with _CATALOG_CACHE_LOCK:
+            _CATALOG_CACHE[cache_key] = (time.monotonic(), catalog)
+        return catalog
     finally:
         engine.dispose()

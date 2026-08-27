@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import uuid
 import sqlite3
@@ -6,6 +7,7 @@ import time
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 from datetime import datetime, timezone
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request, Response, Query, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
@@ -45,11 +47,19 @@ from backend.app.workbench.health import inspect_sqlite_health
 
 logger = logging.getLogger(__name__)
 
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    yield
+    await openrouter_client.aclose()
+
+
 app = FastAPI(
     title=settings.APP_NAME,
     version="1.0.0",
     docs_url="/api/docs",
-    openapi_url="/api/openapi.json"
+    openapi_url="/api/openapi.json",
+    lifespan=lifespan,
 )
 
 # CORS
@@ -1013,6 +1023,39 @@ async def create_agent_run(req: CreateRunRequest, request: Request):
         "initial_answer": initial_answer,
         "initial_is_sql_query": False if initial_answer else None,
     }
+
+
+@app.post("/api/v1/agent-runs/stream")
+async def create_agent_run_stream(req: CreateRunRequest, request: Request):
+    """Create an agent run and stream it over the same HTTP request."""
+    run_response = await create_agent_run(req, request)
+    run_id = run_response["run_id"]
+    conversation_id = run_response["conversation_id"]
+
+    async def event_stream():
+        created_event = {
+            "event_id": f"{run_id}:0",
+            "sequence": 0,
+            "run_id": run_id,
+            "conversation_id": conversation_id,
+            "occurred_at": datetime.now(timezone.utc).isoformat(),
+            "stage": "preparation",
+            "type": "run.created",
+            "payload": run_response,
+        }
+        yield f"event: run.created\ndata: {json.dumps(created_event, ensure_ascii=True)}\n\n"
+        async for event in SlayQLPipeline.stream_run_events(run_id):
+            yield event
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 @app.get("/api/v1/agent-runs/{run_id}/events")
 async def get_run_events_stream(run_id: str, request: Request):

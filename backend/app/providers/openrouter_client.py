@@ -1,9 +1,4 @@
-"""OpenRouter streaming client used by the SQL agent.
-
-The model picker is intentionally a product-persona surface during testing. Every
-request is executed by the server-controlled model below, regardless of the
-selected persona.
-"""
+"""OpenRouter streaming client used by the SQL agent."""
 
 from __future__ import annotations
 
@@ -72,6 +67,24 @@ class OpenRouterClient:
         # as a migration fallback and is never returned by an API response.
         self.api_key = settings.OPENROUTER_KEY or settings.OPENROUTER_API_KEY
         self.base_url = settings.OPENROUTER_BASE_URL.rstrip("/")
+        self.execution_model = settings.OPENROUTER_EXECUTION_MODEL or TEST_EXECUTION_MODEL
+        self._http_client: Optional[httpx.AsyncClient] = None
+
+    def execution_model_id(self, requested_model_id: Optional[str] = None) -> str:
+        """Return the approved server execution model for a UI persona request."""
+        return self.execution_model
+
+    def _client(self) -> httpx.AsyncClient:
+        if self._http_client is None or self._http_client.is_closed:
+            self._http_client = httpx.AsyncClient(
+                timeout=httpx.Timeout(connect=10.0, read=120.0, write=20.0, pool=10.0),
+                limits=httpx.Limits(max_connections=20, max_keepalive_connections=10, keepalive_expiry=30.0),
+            )
+        return self._http_client
+
+    async def aclose(self) -> None:
+        if self._http_client is not None and not self._http_client.is_closed:
+            await self._http_client.aclose()
 
     async def list_models(self, query: Optional[str] = None) -> List[ModelInfo]:
         normalized = (query or "").strip().lower()
@@ -304,6 +317,7 @@ class OpenRouterClient:
         parallel_tool_calls: bool = False,
     ) -> AsyncGenerator[Dict[str, Any], None]:
         started = time.perf_counter()
+        execution_model_id = self.execution_model_id(requested_model_id)
         if not self.api_key:
             raise ProviderError("The AI provider is not configured.")
         if self.api_key.startswith("mock_"):
@@ -317,8 +331,8 @@ class OpenRouterClient:
                 "finish_reason": "local_fallback",
                 "latency_ms": int((time.perf_counter() - started) * 1000),
                 "requested_model_id": requested_model_id,
-                "model_id": TEST_EXECUTION_MODEL,
-                "resolved_model_id": TEST_EXECUTION_MODEL,
+                "model_id": execution_model_id,
+                "resolved_model_id": execution_model_id,
                 "resolved_provider": "local",
                 "response_id": None,
                 "reasoning_effort": reasoning_effort,
@@ -336,7 +350,7 @@ class OpenRouterClient:
         # use the provider's explicit no-reasoning wire mode for its fast path.
         wire_reasoning_effort = "none" if reasoning_effort == "minimal" else reasoning_effort
         payload: Dict[str, Any] = {
-            "model": TEST_EXECUTION_MODEL,
+            "model": execution_model_id,
             "messages": messages,
             "temperature": 0,
             "max_tokens": max_tokens,
@@ -363,93 +377,91 @@ class OpenRouterClient:
         last_usage_signature = ""
         tool_calls: Dict[int, Dict[str, Any]] = {}
 
-        timeout = httpx.Timeout(connect=10.0, read=120.0, write=20.0, pool=10.0)
         try:
-            async with httpx.AsyncClient(timeout=timeout) as client:
-                async with client.stream(
-                    "POST",
-                    f"{self.base_url}/chat/completions",
-                    headers=headers,
-                    json=payload,
-                ) as response:
-                    response.raise_for_status()
-                    async for line in response.aiter_lines():
-                        if not line.startswith("data:"):
-                            continue
-                        raw = line[5:].strip()
-                        if not raw or raw == "[DONE]":
-                            continue
+            async with self._client().stream(
+                "POST",
+                f"{self.base_url}/chat/completions",
+                headers=headers,
+                json=payload,
+            ) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if not line.startswith("data:"):
+                        continue
+                    raw = line[5:].strip()
+                    if not raw or raw == "[DONE]":
+                        continue
+                    try:
+                        chunk = json.loads(raw)
+                    except json.JSONDecodeError:
+                        continue
+                    if chunk.get("error"):
+                        raise ProviderError("The AI provider rejected the request.")
+                    response_id = chunk.get("id") or response_id
+                    resolved_model_id = chunk.get("model") or resolved_model_id
+                    resolved_provider = chunk.get("provider") or resolved_provider
+                    if isinstance(chunk.get("usage"), dict):
+                        usage = chunk["usage"]
+                        usage_signature = json.dumps(usage, sort_keys=True, default=str)
+                        if usage and usage_signature != last_usage_signature:
+                            last_usage_signature = usage_signature
+                            yield {"type": "usage", "usage": usage}
+                    choices = chunk.get("choices") or []
+                    if not choices:
+                        continue
+                    choice = choices[0]
+                    finish_reason = choice.get("finish_reason") or finish_reason
+                    delta = choice.get("delta") or {}
+                    content = delta.get("content")
+                    if content:
+                        content_parts.append(content)
+                        yield {"type": "content_delta", "delta": content}
+
+                    for tool_delta in delta.get("tool_calls") or []:
                         try:
-                            chunk = json.loads(raw)
-                        except json.JSONDecodeError:
+                            index = int(tool_delta.get("index", 0))
+                        except (TypeError, ValueError):
+                            index = 0
+                        current = tool_calls.setdefault(
+                            index,
+                            {"id": None, "name": "", "arguments": ""},
+                        )
+                        current["id"] = tool_delta.get("id") or current["id"]
+                        function_delta = tool_delta.get("function") or {}
+                        current["name"] = function_delta.get("name") or current["name"]
+                        arguments = function_delta.get("arguments")
+                        if arguments:
+                            current["arguments"] += str(arguments)
+
+                    delta_reasoning_details = delta.get("reasoning_details") or []
+                    direct_reasoning = delta.get("reasoning")
+                    if direct_reasoning and not delta_reasoning_details:
+                        reasoning_parts.append(direct_reasoning)
+                        yield {"type": "reasoning_delta", "delta": direct_reasoning}
+
+                    for detail in delta_reasoning_details:
+                        if not isinstance(detail, dict):
                             continue
-                        if chunk.get("error"):
-                            raise ProviderError("The AI provider rejected the request.")
-                        response_id = chunk.get("id") or response_id
-                        resolved_model_id = chunk.get("model") or resolved_model_id
-                        resolved_provider = chunk.get("provider") or resolved_provider
-                        if isinstance(chunk.get("usage"), dict):
-                            usage = chunk["usage"]
-                            usage_signature = json.dumps(usage, sort_keys=True, default=str)
-                            if usage and usage_signature != last_usage_signature:
-                                last_usage_signature = usage_signature
-                                yield {"type": "usage", "usage": usage}
-                        choices = chunk.get("choices") or []
-                        if not choices:
+                        detail_type = detail.get("type")
+                        # Encrypted reasoning is retained by the provider for
+                        # continuity and must not be exposed to the browser.
+                        if detail_type == "reasoning.encrypted":
                             continue
-                        choice = choices[0]
-                        finish_reason = choice.get("finish_reason") or finish_reason
-                        delta = choice.get("delta") or {}
-                        content = delta.get("content")
-                        if content:
-                            content_parts.append(content)
-                            yield {"type": "content_delta", "delta": content}
-
-                        for tool_delta in delta.get("tool_calls") or []:
-                            try:
-                                index = int(tool_delta.get("index", 0))
-                            except (TypeError, ValueError):
-                                index = 0
-                            current = tool_calls.setdefault(
-                                index,
-                                {"id": None, "name": "", "arguments": ""},
-                            )
-                            current["id"] = tool_delta.get("id") or current["id"]
-                            function_delta = tool_delta.get("function") or {}
-                            current["name"] = function_delta.get("name") or current["name"]
-                            arguments = function_delta.get("arguments")
-                            if arguments:
-                                current["arguments"] += str(arguments)
-
-                        delta_reasoning_details = delta.get("reasoning_details") or []
-                        direct_reasoning = delta.get("reasoning")
-                        if direct_reasoning and not delta_reasoning_details:
-                            reasoning_parts.append(direct_reasoning)
-                            yield {"type": "reasoning_delta", "delta": direct_reasoning}
-
-                        for detail in delta_reasoning_details:
-                            if not isinstance(detail, dict):
-                                continue
-                            detail_type = detail.get("type")
-                            # Encrypted reasoning is retained by the provider for
-                            # continuity and must not be exposed to the browser.
-                            if detail_type == "reasoning.encrypted":
-                                continue
-                            safe_detail = {
-                                key: value
-                                for key, value in detail.items()
-                                if key in {"type", "text", "summary", "format", "index", "id"}
-                            }
-                            if safe_detail:
-                                reasoning_details.append(safe_detail)
-                            detail_text = detail.get("text") or detail.get("summary")
-                            if detail_text:
-                                reasoning_parts.append(str(detail_text))
-                            yield {
-                                "type": "reasoning_detail",
-                                "detail": safe_detail,
-                                "delta": str(detail_text or ""),
-                            }
+                        safe_detail = {
+                            key: value
+                            for key, value in detail.items()
+                            if key in {"type", "text", "summary", "format", "index", "id"}
+                        }
+                        if safe_detail:
+                            reasoning_details.append(safe_detail)
+                        detail_text = detail.get("text") or detail.get("summary")
+                        if detail_text:
+                            reasoning_parts.append(str(detail_text))
+                        yield {
+                            "type": "reasoning_detail",
+                            "detail": safe_detail,
+                            "delta": str(detail_text or ""),
+                        }
         except ProviderError:
             raise
         except (httpx.HTTPError, OSError, ValueError) as exc:
@@ -464,8 +476,8 @@ class OpenRouterClient:
             "finish_reason": finish_reason or "stop",
             "latency_ms": int((time.perf_counter() - started) * 1000),
             "requested_model_id": requested_model_id,
-            "model_id": TEST_EXECUTION_MODEL,
-            "resolved_model_id": resolved_model_id or TEST_EXECUTION_MODEL,
+            "model_id": execution_model_id,
+            "resolved_model_id": resolved_model_id or execution_model_id,
             "resolved_provider": resolved_provider,
             "response_id": response_id,
             "reasoning_effort": reasoning_effort,
@@ -511,7 +523,7 @@ class OpenRouterClient:
             output_tokens=int(usage.get("completion_tokens") or 0),
             latency_ms=int(final.get("latency_ms") or 0),
             estimated_cost_usd=float(usage.get("cost") or 0),
-            model_id=TEST_EXECUTION_MODEL,
+            model_id=self.execution_model_id(model_id),
             requested_model_id=model_id,
             finish_reason=final.get("finish_reason"),
         )

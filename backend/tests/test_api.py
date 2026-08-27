@@ -243,6 +243,35 @@ async def test_run_acceptance_and_terminal_stream_do_not_wait_for_conversation_w
 
 
 @pytest.mark.asyncio
+async def test_agent_run_can_be_created_and_streamed_in_one_request():
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post("/api/v1/agent-runs/stream", json={
+            "question": "List customers for review",
+            "connection_id": "sqlite_demo",
+            "thinking_effort": "minimal",
+        })
+
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/event-stream")
+        assert response.text.index("event: run.created") < response.text.index("event: run.accepted")
+        assert response.text.count("event: run.created") == 1
+        assert response.text.count("event: run.completed") == 1
+
+        first_delta_block = next(
+            block
+            for block in response.text.split("\n\n")
+            if "event: provider.first_delta" in block
+        )
+        first_delta = json.loads(next(
+            line.removeprefix("data: ")
+            for line in first_delta_block.splitlines()
+            if line.startswith("data: ")
+        ))
+        assert first_delta["payload"]["phase"] == "sql"
+        assert first_delta["payload"]["duration_ms"] >= 0
+
+
+@pytest.mark.asyncio
 async def test_agent_stream_is_replayable_and_persists_assistant_thread():
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
         create_resp = await client.post("/api/v1/agent-runs", json={
