@@ -863,7 +863,7 @@ async def drop_table(connection_id: str, table_name: str, request: Request):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-def _persist_run_start(
+async def _persist_run_start(
     *,
     conversation_id: str,
     owner_id: str,
@@ -871,9 +871,14 @@ def _persist_run_start(
     model_id: Optional[str],
     question: str,
     occurred_at: str,
-    history_item: Dict[str, Any],
+    prior_persistence_task: Optional[asyncio.Task] = None,
 ) -> None:
-    message = conversation_store.persist_user_message(
+    # A rapid follow-up can arrive while the prior assistant message is still
+    # being written. Preserve ordering without holding up the POST response.
+    if prior_persistence_task is not None:
+        await asyncio.shield(prior_persistence_task)
+    message = await asyncio.to_thread(
+        conversation_store.persist_user_message,
         conversation_id=conversation_id,
         owner_id=owner_id,
         connection_id=connection_id,
@@ -884,7 +889,6 @@ def _persist_run_start(
     )
     if not message:
         raise RuntimeError("The user message could not be saved.")
-    history_store.add(**history_item)
 
 
 def _schedule_history_persistence(history_item: Dict[str, Any]) -> asyncio.Task:
@@ -921,18 +925,28 @@ async def create_agent_run(req: CreateRunRequest, request: Request):
     conversation_id = req.conversation_id or f"conv_{uuid.uuid4().hex[:12]}"
     conversation_messages: List[Dict[str, str]] = []
     if req.conversation_id:
-        existing_conversation = await asyncio.to_thread(
-            conversation_store.get_metadata if is_fast_greeting else conversation_store.get,
+        existing_conversation = SlayQLPipeline.recent_conversation_context(
             req.conversation_id,
             owner_id,
         )
+        if existing_conversation is None:
+            await SlayQLPipeline.await_conversation_persistence(req.conversation_id)
+            existing_conversation = await asyncio.to_thread(
+                conversation_store.get_metadata if is_fast_greeting else conversation_store.get,
+                req.conversation_id,
+                owner_id,
+            )
         if not existing_conversation:
             raise HTTPException(status_code=404, detail="Conversation not found.")
         if existing_conversation.get("connection_id") != connection_id:
             raise HTTPException(status_code=400, detail="A conversation must continue on its original data source.")
         if not is_fast_greeting:
-            # ``conversation_store.context`` would load the same thread again.
-            conversation_messages = conversation_store.context_from_thread(existing_conversation, limit=8)
+            if "messages" in existing_conversation:
+                conversation_messages = (
+                    existing_conversation["messages"]
+                    if existing_conversation.get("id") is None
+                    else conversation_store.context_from_thread(existing_conversation, limit=8)
+                )
     credits_remaining = None
     if session and not is_fast_greeting:
         profile = await asyncio.to_thread(account_store.consume_credit, session["user"]["id"], 1, "AI query")
@@ -974,33 +988,19 @@ async def create_agent_run(req: CreateRunRequest, request: Request):
         created_at=history_item["created_at"],
         owner_id=owner_id,
     )
-    if is_fast_greeting:
-        persistence_task = asyncio.create_task(asyncio.to_thread(
-            _persist_run_start,
-            conversation_id=conversation_id,
-            owner_id=owner_id,
-            connection_id=connection_id,
-            model_id=req.model_id or settings.DEFAULT_MODEL,
-            question=req.question.strip(),
-            occurred_at=occurred_at,
-            history_item=history_values,
-        ))
-        SlayQLPipeline.attach_start_persistence(run_response["run_id"], persistence_task)
-    else:
-        message = await asyncio.to_thread(
-            conversation_store.persist_user_message,
-            conversation_id=conversation_id,
-            owner_id=owner_id,
-            connection_id=connection_id,
-            selected_model_id=req.model_id or settings.DEFAULT_MODEL,
-            title=req.question.strip(),
-            content=req.question.strip(),
-            created_at=occurred_at,
-        )
-        if not message:
-            raise HTTPException(status_code=404, detail="Conversation not found.")
-        history_task = _schedule_history_persistence(history_values)
-        SlayQLPipeline.attach_history_persistence(run_response["run_id"], history_task)
+    prior_persistence_task = SlayQLPipeline.conversation_persistence_task(conversation_id)
+    persistence_task = asyncio.create_task(_persist_run_start(
+        conversation_id=conversation_id,
+        owner_id=owner_id,
+        connection_id=connection_id,
+        model_id=req.model_id or settings.DEFAULT_MODEL,
+        question=req.question.strip(),
+        occurred_at=occurred_at,
+        prior_persistence_task=prior_persistence_task,
+    ))
+    SlayQLPipeline.attach_start_persistence(run_response["run_id"], persistence_task)
+    history_task = _schedule_history_persistence(history_values)
+    SlayQLPipeline.attach_history_persistence(run_response["run_id"], history_task)
 
     # Begin processing before the client opens SSE. Events are retained and
     # replayed, so a late stream connection remains complete and ordered.
@@ -1019,7 +1019,8 @@ async def get_run_events_stream(run_id: str, request: Request):
     """
     Server-Sent Events endpoint streaming the live SlayQL query lifecycle.
     """
-    if not SlayQLPipeline.owns_run(run_id, _owner_id(request)):
+    owner_id = await asyncio.to_thread(_owner_id, request)
+    if not SlayQLPipeline.owns_run(run_id, owner_id):
         raise HTTPException(status_code=404, detail="Agent run not found.")
     event_stream = SlayQLPipeline.stream_run_events(run_id)
     return StreamingResponse(
@@ -1103,12 +1104,15 @@ async def get_history(request: Request):
 
 @app.get("/api/v1/conversations")
 async def get_conversations(request: Request):
-    return conversation_store.list(owner_id=_owner_id(request), limit=50)
+    owner_id = await asyncio.to_thread(_owner_id, request)
+    return await asyncio.to_thread(conversation_store.list, owner_id=owner_id, limit=50)
 
 
 @app.get("/api/v1/conversations/{conversation_id}")
 async def get_conversation(conversation_id: str, request: Request):
-    conversation = conversation_store.get(conversation_id, _owner_id(request))
+    owner_id = await asyncio.to_thread(_owner_id, request)
+    await SlayQLPipeline.await_conversation_persistence(conversation_id)
+    conversation = await asyncio.to_thread(conversation_store.get, conversation_id, owner_id)
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found.")
     return conversation
@@ -1116,16 +1120,23 @@ async def get_conversation(conversation_id: str, request: Request):
 
 @app.delete("/api/v1/conversations/{conversation_id}")
 async def delete_conversation(conversation_id: str, request: Request):
-    if not conversation_store.delete(conversation_id, _owner_id(request)):
+    owner_id = await asyncio.to_thread(_owner_id, request)
+    await SlayQLPipeline.await_conversation_persistence(conversation_id)
+    if not await asyncio.to_thread(conversation_store.delete, conversation_id, owner_id):
         raise HTTPException(status_code=404, detail="Conversation not found.")
+    SlayQLPipeline.invalidate_conversation_context(conversation_id)
     return {"status": "deleted", "id": conversation_id}
 
 
 @app.post("/api/v1/chat-reports")
 async def report_chat_response(req: ChatReportRequest, request: Request):
+    if req.message_id.startswith("msg_run_"):
+        await SlayQLPipeline.await_run_persistence(req.message_id.removeprefix("msg_"))
     try:
-        report = chat_report_store.create(
-            owner_id=_owner_id(request),
+        owner_id = await asyncio.to_thread(_owner_id, request)
+        report = await asyncio.to_thread(
+            chat_report_store.create,
+            owner_id=owner_id,
             message_id=req.message_id,
             category=req.category,
             note=req.note,
@@ -1170,7 +1181,9 @@ async def update_chat_report(report_id: str, req: AdminReportUpdateRequest, requ
 
 @app.delete("/api/v1/history/{history_id}")
 async def delete_history(history_id: str, request: Request):
-    if not history_store.delete(history_id, _owner_id(request)):
+    await SlayQLPipeline.await_history_persistence(history_id)
+    owner_id = await asyncio.to_thread(_owner_id, request)
+    if not await asyncio.to_thread(history_store.delete, history_id, owner_id):
         raise HTTPException(status_code=404, detail="Chat history entry not found.")
     QUERY_HISTORY[:] = [item for item in QUERY_HISTORY if item.get("id") != history_id]
     return {"status": "deleted", "id": history_id}

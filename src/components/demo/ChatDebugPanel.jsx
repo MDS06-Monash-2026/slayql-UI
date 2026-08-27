@@ -1,6 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Bug, ChevronDown, Clock3, Radio, Route, Wrench } from 'lucide-react';
-import { normalizeStreamEvent } from './AgentStreamPanel';
 
 const EVENT_LABELS = {
   'run.accepted': 'Run accepted',
@@ -8,6 +7,10 @@ const EVENT_LABELS = {
   'intent.validator_started': 'Intent validation started',
   'intent.validator_completed': 'Intent validation completed',
   'orchestrator.decision': 'Orchestrator route selected',
+  'orchestrator.provider.completed': 'Orchestrator completed',
+  'orchestrator.usage': 'Orchestrator token usage',
+  'orchestrator.reasoning_delta': 'Orchestrator reasoning streamed',
+  'orchestrator.response_delta': 'Orchestrator response streamed',
   'orchestrator.tool_call.started': 'Tool call started',
   'orchestrator.tool_call.completed': 'Tool call completed',
   'stage.started': 'Stage started',
@@ -45,10 +48,7 @@ export default function ChatDebugPanel({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
-  const normalizedEvents = useMemo(
-    () => events.map((event) => normalizeStreamEvent(event, event?.type)),
-    [events],
-  );
+  const normalizedEvents = Array.isArray(events) ? events : [];
 
   useEffect(() => {
     if (!isRunning || !startedAt) return undefined;

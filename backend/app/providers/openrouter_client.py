@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import re
 import time
-from typing import Any, AsyncGenerator, Dict, List, Optional
+from typing import Any, AsyncGenerator, Awaitable, Callable, Dict, List, Optional
 
 import httpx
 from pydantic import BaseModel, Field
@@ -204,6 +204,93 @@ class OpenRouterClient:
         ):
             yield event
 
+    async def stream_tool_agent(
+        self,
+        *,
+        model_id: str,
+        messages: List[Dict[str, Any]],
+        tools: List[Dict[str, Any]],
+        tool_executor: Callable[[Dict[str, Any]], Awaitable[Dict[str, Any]]],
+        session_id: Optional[str] = None,
+        reasoning_effort: str = "minimal",
+        max_tokens: int = 900,
+        max_tool_rounds: int = 2,
+    ) -> AsyncGenerator[Dict[str, Any], None]:
+        """Run a bounded client-side tool-calling loop over OpenRouter SSE.
+
+        OpenRouter standardizes the OpenAI-compatible ``tools`` and
+        ``tool_calls`` message shapes. Tool execution remains local so the
+        model can inspect only the verified catalog and can never access
+        credentials or issue SQL directly.
+        """
+        working_messages = list(messages)
+        round_number = 0
+        while round_number <= max(0, max_tool_rounds):
+            round_number += 1
+            completed: Optional[Dict[str, Any]] = None
+            async for event in self._stream_completion(
+                requested_model_id=model_id,
+                messages=working_messages,
+                session_id=session_id,
+                max_tokens=max_tokens,
+                reasoning_effort=reasoning_effort,
+                fallback_text="",
+                tools=tools,
+                parallel_tool_calls=False,
+            ):
+                if event.get("type") == "completed":
+                    completed = event
+                    break
+                yield event
+
+            if completed is None:
+                return
+            tool_calls = completed.get("tool_calls") or []
+            if not tool_calls or round_number > max(0, max_tool_rounds):
+                yield completed
+                return
+
+            assistant_message: Dict[str, Any] = {
+                "role": "assistant",
+                "content": completed.get("content") or None,
+                "tool_calls": [
+                    {
+                        "id": call.get("id"),
+                        "type": "function",
+                        "function": {
+                            "name": call.get("name"),
+                            "arguments": call.get("arguments") or "{}",
+                        },
+                    }
+                    for call in tool_calls
+                ],
+            }
+            # Providers that expose structured reasoning may require the
+            # non-encrypted details to be echoed on the next tool round.
+            if completed.get("reasoning_details"):
+                assistant_message["reasoning_details"] = completed["reasoning_details"]
+            working_messages.append(assistant_message)
+            for call in tool_calls:
+                yield {"type": "tool_call_started", "tool_call": call, "round": round_number}
+                try:
+                    result = await tool_executor(call)
+                except Exception as exc:
+                    result = {"ok": False, "error": str(exc)[:500]}
+                working_messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": call.get("id"),
+                        "name": call.get("name"),
+                        "content": json.dumps(result, ensure_ascii=True, default=str)[:12000],
+                    }
+                )
+                yield {
+                    "type": "tool_call_completed",
+                    "tool_call": call,
+                    "result": result,
+                    "round": round_number,
+                }
+
     async def _stream_completion(
         self,
         *,
@@ -213,6 +300,8 @@ class OpenRouterClient:
         max_tokens: int,
         reasoning_effort: str,
         fallback_text: str,
+        tools: Optional[List[Dict[str, Any]]] = None,
+        parallel_tool_calls: bool = False,
     ) -> AsyncGenerator[Dict[str, Any], None]:
         started = time.perf_counter()
         if not self.api_key:
@@ -257,6 +346,9 @@ class OpenRouterClient:
                 "exclude": wire_reasoning_effort == "none",
             },
         }
+        if tools:
+            payload["tools"] = tools
+            payload["parallel_tool_calls"] = parallel_tool_calls
         if session_id:
             payload["session_id"] = session_id
 
@@ -269,6 +361,7 @@ class OpenRouterClient:
         resolved_model_id: Optional[str] = None
         resolved_provider: Optional[str] = None
         last_usage_signature = ""
+        tool_calls: Dict[int, Dict[str, Any]] = {}
 
         timeout = httpx.Timeout(connect=10.0, read=120.0, write=20.0, pool=10.0)
         try:
@@ -311,6 +404,22 @@ class OpenRouterClient:
                         if content:
                             content_parts.append(content)
                             yield {"type": "content_delta", "delta": content}
+
+                        for tool_delta in delta.get("tool_calls") or []:
+                            try:
+                                index = int(tool_delta.get("index", 0))
+                            except (TypeError, ValueError):
+                                index = 0
+                            current = tool_calls.setdefault(
+                                index,
+                                {"id": None, "name": "", "arguments": ""},
+                            )
+                            current["id"] = tool_delta.get("id") or current["id"]
+                            function_delta = tool_delta.get("function") or {}
+                            current["name"] = function_delta.get("name") or current["name"]
+                            arguments = function_delta.get("arguments")
+                            if arguments:
+                                current["arguments"] += str(arguments)
 
                         delta_reasoning_details = delta.get("reasoning_details") or []
                         direct_reasoning = delta.get("reasoning")
@@ -360,6 +469,7 @@ class OpenRouterClient:
             "resolved_provider": resolved_provider,
             "response_id": response_id,
             "reasoning_effort": reasoning_effort,
+            "tool_calls": [tool_calls[index] for index in sorted(tool_calls)],
         }
 
     @staticmethod

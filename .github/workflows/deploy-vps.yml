@@ -1,0 +1,126 @@
+name: Deploy SlayQL to VPS
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - "src/**"
+      - "public/**"
+      - "deploy/**"
+      - "package.json"
+      - "package-lock.json"
+      - "index.html"
+      - "vite.config.js"
+      - ".github/workflows/deploy-vps.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: slayql-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy production
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Configure SSH
+        env:
+          VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          test -n "$VPS_SSH_PRIVATE_KEY"
+          test -n "$VPS_KNOWN_HOSTS"
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$VPS_SSH_PRIVATE_KEY" > "$HOME/.ssh/id_ed25519"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+      - name: Pull, build, and restart SlayQL
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+        run: |
+          set -euo pipefail
+          test -n "$VPS_HOST"
+          test -n "$VPS_USER"
+          test -n "$VPS_PORT"
+
+          ssh \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o ConnectTimeout=15 \
+            -p "$VPS_PORT" \
+            "$VPS_USER@$VPS_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          cd /opt/slayql
+
+          if ! git diff --quiet || ! git diff --cached --quiet; then
+            echo "Tracked VPS files contain uncommitted changes; deployment stopped."
+            git status --short
+            exit 1
+          fi
+
+          test -f .env.production
+          test -f docker-compose.vps.yml
+
+          git fetch origin main
+          git switch main
+          git merge --ff-only origin/main
+
+          docker compose \
+            --env-file .env.production \
+            -f deploy/docker-compose.yml \
+            -f docker-compose.vps.yml \
+            config --quiet
+
+          docker compose \
+            --env-file .env.production \
+            -f deploy/docker-compose.yml \
+            -f docker-compose.vps.yml \
+            build --pull api web
+
+          docker compose \
+            --env-file .env.production \
+            -f deploy/docker-compose.yml \
+            -f docker-compose.vps.yml \
+            up -d --remove-orphans
+
+          docker compose \
+            --env-file .env.production \
+            -f deploy/docker-compose.yml \
+            -f docker-compose.vps.yml \
+            ps
+
+          for attempt in $(seq 1 10); do
+            if docker exec slayql_api curl --fail --silent --show-error \
+              http://127.0.0.1:8000/api/v1/health; then
+              exit 0
+            fi
+            echo "API health check attempt $attempt failed; retrying..."
+            sleep 3
+          done
+
+          docker logs --tail=100 slayql_api
+          exit 1
+          REMOTE
+
+      - name: Verify public endpoint
+        run: |
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --retry 10 \
+            --retry-delay 3 \
+            --retry-all-errors \
+            https://fyp.kianlok.top/api/v1/health

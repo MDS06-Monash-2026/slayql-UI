@@ -63,7 +63,7 @@ import {
 } from '../services/api';
 import { connectRunEventStream } from '../services/sse';
 
-function ConversationAssistantMessage({ message, isDark = false }) {
+const ConversationAssistantMessage = React.memo(function ConversationAssistantMessage({ message, isDark = false }) {
   const payload = message.payload || {};
   const isSqlQuery = payload.is_sql_query !== false;
   const rows = Array.isArray(payload.rows) ? payload.rows : [];
@@ -151,7 +151,7 @@ function ConversationAssistantMessage({ message, isDark = false }) {
       )}
     </div>
   );
-}
+});
 
 const DEFAULT_EXPLORE_SUGGESTIONS = [
   { label: 'Top revenue drivers', prompt: 'Show top 10 customers ranked by total spend this year with order counts.' },
@@ -242,6 +242,8 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
   const [composerFocused, setComposerFocused] = useState(false);
 
   const activeStreamRef = useRef(null);
+  const activeStreamEventsRef = useRef([]);
+  const historyRefreshTimeoutRef = useRef(null);
   const chatBottomRef = useRef(null);
   const composerRef = useRef(null);
   const exploreButtonRef = useRef(null);
@@ -300,6 +302,13 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  useEffect(() => () => {
+    activeStreamRef.current?.close();
+    if (historyRefreshTimeoutRef.current) {
+      window.clearTimeout(historyRefreshTimeoutRef.current);
+    }
   }, []);
 
   // --- Data Fetching ---
@@ -443,6 +452,8 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
 
   const handleNewThread = () => {
     if (activeStreamRef.current) activeStreamRef.current.close();
+    activeStreamRef.current = null;
+    activeStreamEventsRef.current = [];
     setMessages([]);
     setConversationId(null);
     setInputPrompt('');
@@ -456,11 +467,15 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
     setActiveColumns([]);
     setActiveColumnTypes([]);
     setActiveRows([]);
+    setActiveIsTruncated(false);
+    setActiveExecutionTimeMs(0);
     setActiveChartRecommendation(null);
+    setActiveTokenUsage(null);
     setActiveReasoning('');
     setActiveAnswer('');
     setActiveIsSqlQuery(null);
     setActiveStreamEvents([]);
+    setActiveThinkingLabel('');
     setActiveStartedAt(null);
     if (composerRef.current) composerRef.current.style.height = '';
   };
@@ -491,6 +506,8 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
     try {
       const thread = await fetchConversation(id);
       if (activeStreamRef.current) activeStreamRef.current.close();
+      activeStreamRef.current = null;
+      activeStreamEventsRef.current = [];
       setConversationId(thread.id);
       setMessages((thread.messages || []).map((message) => ({
         ...message,
@@ -510,11 +527,15 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
       setActiveColumns([]);
       setActiveColumnTypes([]);
       setActiveRows([]);
+      setActiveIsTruncated(false);
+      setActiveExecutionTimeMs(0);
       setActiveChartRecommendation(null);
+      setActiveTokenUsage(null);
       setActiveReasoning('');
       setActiveAnswer('');
       setActiveIsSqlQuery(null);
       setActiveStreamEvents([]);
+      setActiveThinkingLabel('');
       setActiveStartedAt(null);
     } catch (err) {
       setErrorMessage(err.message || 'Failed to load conversation.');
@@ -552,6 +573,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
     // Wait for the orchestrator to delegate to the SQL agent before showing
     // the detailed SQL/reasoning workspace.
     setActiveIsSqlQuery(null);
+    activeStreamEventsRef.current = [];
     setActiveStreamEvents([]);
     setActiveStartedAt(Date.now());
     setActiveResultTab('chart');
@@ -604,10 +626,12 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
           const stage = evt.stage;
           const type = evt.type || eventType || (typeof event === 'string' ? event : '');
           const payload = evt.payload || {};
-          setActiveStreamEvents((current) => [
-            ...current,
+          const nextStreamEvents = [
+            ...activeStreamEventsRef.current,
             normalizeStreamEvent(evt, type),
-          ].slice(-240));
+          ].slice(-240);
+          activeStreamEventsRef.current = nextStreamEvents;
+          setActiveStreamEvents(nextStreamEvents);
 
           if (stage) {
             setActiveStageKey(stage);
@@ -653,9 +677,13 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
 
           if (type === 'provider.usage_finalized' && payload?.usage) {
             setActiveTokenUsage(payload.usage);
-          } else if (type === 'provider.completed' && payload?.token_usage) {
+          } else if ((type === 'provider.completed' || type === 'orchestrator.provider.completed') && payload?.token_usage) {
             setActiveTokenUsage(payload.token_usage);
-          } else if (type === 'provider.reasoning_delta' || type === 'provider.reasoning_detail') {
+          } else if (
+            type === 'provider.reasoning_delta' ||
+            type === 'provider.reasoning_detail' ||
+            type === 'orchestrator.reasoning_delta'
+          ) {
             setActiveReasoning((current) => `${current}${payload.delta || ''}`.slice(-12000));
           } else if (type === 'intent.validator_started') {
             setActiveThinkingLabel('Classifying your question\u2026');
@@ -678,7 +706,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
             }
           } else if (type === 'provider.request_started') {
             setActiveThinkingLabel('Generating response\u2026');
-          } else if (type === 'assistant.delta') {
+          } else if (type === 'assistant.delta' || type === 'orchestrator.response_delta') {
             setActiveThinkingLabel('');
             setActiveAnswer((current) => {
               const delta = payload.delta || '';
@@ -723,15 +751,72 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
             setIsRunning(false);
           }
         },
-        onComplete: async (_type, event) => {
-          setIsRunning(false);
-          setActiveStageKey(null);
-          await loadHistory();
+        onComplete: (_type, event) => {
+          const terminalPayload = event?.payload && typeof event.payload === 'object'
+            ? event.payload
+            : {};
           const completedConversationId = event?.conversation_id || runData.conversation_id;
-          await loadConversationThread(completedConversationId);
-          if (selectedConnectionRef.current === selectedConnectionId) {
-            loadExploreSuggestions(selectedConnectionId);
+          const terminalStatus = terminalPayload.status
+            || (_type === 'run.completed' ? 'success' : _type === 'run.cancelled' ? 'cancelled' : 'failed');
+          const content = terminalPayload.answer
+            || terminalPayload.error
+            || (_type === 'run.cancelled'
+              ? 'This run was cancelled before it completed.'
+              : 'The agent run failed before it produced a response.');
+          const finalPayload = {
+            ...terminalPayload,
+            status: terminalStatus,
+            is_sql_query: terminalPayload.is_sql_query ?? false,
+            stream_events: activeStreamEventsRef.current,
+          };
+
+          setMessages((current) => {
+            const assistantMessage = {
+              id: `msg_${runId}`,
+              conversation_id: completedConversationId,
+              role: 'assistant',
+              sender: 'assistant',
+              content,
+              sql: terminalPayload.sql || null,
+              payload: finalPayload,
+              created_at: new Date().toISOString(),
+              createdAt: new Date(),
+            };
+            return [
+              ...current.filter((message) => message.id !== assistantMessage.id),
+              assistantMessage,
+            ];
+          });
+
+          setIsRunning(false);
+          setCurrentRunId(null);
+          setActiveStageKey(null);
+          setActiveStages({});
+          setActiveSql('');
+          setActiveChecks([]);
+          setActiveColumns([]);
+          setActiveColumnTypes([]);
+          setActiveRows([]);
+          setActiveIsTruncated(false);
+          setActiveExecutionTimeMs(0);
+          setActiveChartRecommendation(null);
+          setActiveTokenUsage(null);
+          setActiveReasoning('');
+          setActiveAnswer('');
+          setActiveIsSqlQuery(null);
+          setActiveThinkingLabel('');
+          setActiveStartedAt(null);
+          setActiveStreamEvents([]);
+          activeStreamEventsRef.current = [];
+          activeStreamRef.current = null;
+
+          if (historyRefreshTimeoutRef.current) {
+            window.clearTimeout(historyRefreshTimeoutRef.current);
           }
+          historyRefreshTimeoutRef.current = window.setTimeout(() => {
+            historyRefreshTimeoutRef.current = null;
+            loadHistory();
+          }, 1000);
         },
         onError: (err) => {
           console.warn('Stream error:', err);
@@ -742,7 +827,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
       setErrorMessage(err.message || 'Failed to initialize agent run.');
       setIsRunning(false);
     }
-  }, [inputPrompt, isRunning, selectedModelId, selectedConnectionId, conversationId, thinkingEffort, loadConversationThread, loadExploreSuggestions, loadHistory, onSessionUpdate, session]);
+  }, [inputPrompt, isRunning, selectedModelId, selectedConnectionId, conversationId, thinkingEffort, loadHistory, onSessionUpdate, session]);
 
   const handleCancelRun = async () => {
     if (currentRunId) {

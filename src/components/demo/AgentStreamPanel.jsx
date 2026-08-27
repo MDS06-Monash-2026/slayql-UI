@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { AlertCircle, Check, ChevronDown, Radio, Activity, Terminal } from 'lucide-react';
 
 const SAFE_PAYLOAD_KEYS = new Set([
@@ -34,6 +34,10 @@ const EVENT_TYPE_LABELS = {
   'run.completed': 'Agent Run Completed',
   'run.failed': 'Agent Run Failed',
   'orchestrator.decision': 'Orchestrator Route Selected',
+  'orchestrator.provider.completed': 'Orchestrator Decision Completed',
+  'orchestrator.usage': 'Orchestrator Token Usage',
+  'orchestrator.reasoning_delta': 'Orchestrator Reasoning Streamed',
+  'orchestrator.response_delta': 'Orchestrator Response Streamed',
   'orchestrator.tool_call.started': 'Agent Tool Call Started',
   'orchestrator.tool_call.completed': 'Agent Tool Call Completed',
 };
@@ -91,10 +95,7 @@ function eventSummary(event) {
 export default function AgentStreamPanel({ events = [], isRunning = false }) {
   const [isOpen, setIsOpen] = useState(false);
 
-  const normalizedEvents = useMemo(
-    () => events.map((event) => normalizeStreamEvent(event, event?.type)),
-    [events]
-  );
+  const normalizedEvents = Array.isArray(events) ? events : [];
   if (normalizedEvents.length === 0) return null;
 
   return (

@@ -112,6 +112,10 @@ def _fallback_chat_intent(question: str, recent_messages: List[Dict[str, str]]) 
         "dashboard", "important query", "important queries", "key metric", "kpi",
         "what should i ask", "what questions can i ask", "what can i analyze",
         "business insight", "business question", "recommend a query", "recommend queries",
+        "what tables are good", "what tables are useful", "tables useful", "tables good",
+        "improve sales", "improving sales", "increase sales", "sales strategy",
+        "sales dashboard", "dashboard for sales", "useful for a dashboard",
+        "useful in improving", "useful for improving", "which tables should i use",
     )
     unsupported_markers = {
         "hi", "hello", "hey", "thanks", "thank you", "who are you", "help",
@@ -124,12 +128,12 @@ def _fallback_chat_intent(question: str, recent_messages: List[Dict[str, str]]) 
     elif any(marker in normalized for marker in row_count_markers):
         intent = "row_count_overview"
         reason = "The request asks for row counts across the selected database."
-    elif any(marker in normalized for marker in schema_markers):
-        intent = "schema_overview"
-        reason = "The request asks for database catalog metadata rather than generated SQL."
     elif any(marker in normalized for marker in business_markers):
         intent = "business_guidance"
         reason = "The request asks for analytical or dashboard guidance rather than a database result."
+    elif any(marker in normalized for marker in schema_markers):
+        intent = "schema_overview"
+        reason = "The request asks for database catalog metadata rather than generated SQL."
     elif len(normalized.split()) < 2 and not is_follow_up:
         intent = "clarification"
         reason = "The request is too short to identify a reliable data operation."

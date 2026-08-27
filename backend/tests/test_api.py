@@ -1,3 +1,7 @@
+import asyncio
+import json
+import threading
+
 import pytest
 import httpx
 from backend.app.main import ACTIVE_SESSIONS, app
@@ -207,6 +211,38 @@ async def test_api_create_agent_run_and_execute():
 
 
 @pytest.mark.asyncio
+async def test_run_acceptance_and_terminal_stream_do_not_wait_for_conversation_write(monkeypatch):
+    from backend.app.main import conversation_store
+
+    original_persist = conversation_store.persist_user_message
+    write_started = threading.Event()
+    release_write = threading.Event()
+
+    def delayed_persist(**kwargs):
+        write_started.set()
+        release_write.wait(timeout=10)
+        return original_persist(**kwargs)
+
+    monkeypatch.setattr(conversation_store, "persist_user_message", delayed_persist)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        response = await asyncio.wait_for(client.post("/api/v1/agent-runs", json={
+            "question": "Hello",
+            "connection_id": "sqlite_demo",
+        }), timeout=2)
+        run = response.json()
+        assert response.status_code == 200
+        assert await asyncio.to_thread(write_started.wait, 2)
+
+        stream = await asyncio.wait_for(client.get(run["events_url"]), timeout=2)
+        assert stream.status_code == 200
+        assert "event: run.completed" in stream.text
+
+        release_write.set()
+        thread = await client.get(f"/api/v1/conversations/{run['conversation_id']}")
+        assert [message["role"] for message in thread.json()["messages"]] == ["user", "assistant"]
+
+
+@pytest.mark.asyncio
 async def test_agent_stream_is_replayable_and_persists_assistant_thread():
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
         create_resp = await client.post("/api/v1/agent-runs", json={
@@ -230,6 +266,17 @@ async def test_agent_stream_is_replayable_and_persists_assistant_thread():
         assert stream_resp.text.count("event: provider.completed") >= 2
         assert '"phase": "answer"' in stream_resp.text
         assert stream_resp.text.count("event: run.completed") == 1
+        completed_block = next(
+            block
+            for block in stream_resp.text.split("\n\n")
+            if "event: run.completed" in block
+        )
+        completed_event = json.loads(next(
+            line.removeprefix("data: ")
+            for line in completed_block.splitlines()
+            if line.startswith("data: ")
+        ))
+        assert "stream_events" not in completed_event["payload"]
 
         replay_resp = await client.get(run["events_url"])
         assert replay_resp.status_code == 200

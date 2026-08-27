@@ -17,6 +17,7 @@ from backend.app.agent.effort import (
     get_thinking_profile,
 )
 from backend.app.agent.rbp import RBPGraphEngine
+from backend.app.agent.orchestrator import deepseek_orchestrator
 from backend.app.catalog.discovery import CatalogService
 from backend.app.config import settings
 from backend.app.connections.registry import get_connection, get_credentials, get_sqlite_path, require_sqlite_path
@@ -64,6 +65,9 @@ RUN_CANCEL_FLAGS: Dict[str, bool] = {}
 RUN_METADATA_STORE: Dict[str, Dict[str, Any]] = {}
 RUN_TASKS: Dict[str, asyncio.Task] = {}
 RUN_NOTIFIERS: Dict[str, asyncio.Event] = {}
+RUN_ASSISTANT_PERSISTENCE_TASKS: Dict[str, asyncio.Task] = {}
+CONVERSATION_PERSISTENCE_TASKS: Dict[str, asyncio.Task] = {}
+INVALIDATED_CONVERSATION_CONTEXTS: set[str] = set()
 TERMINAL_STATUSES = {"completed", "failed", "cancelled"}
 
 
@@ -96,6 +100,7 @@ class SlayQLPipeline:
             "status": "pending",
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
+        INVALIDATED_CONVERSATION_CONTEXTS.discard(conv_id)
         return {
             "run_id": run_id,
             "conversation_id": conv_id,
@@ -124,7 +129,16 @@ class SlayQLPipeline:
 
     @staticmethod
     def attach_start_persistence(run_id: str, task: asyncio.Task) -> None:
-        RUN_METADATA_STORE[run_id]["start_persistence_task"] = task
+        metadata = RUN_METADATA_STORE[run_id]
+        metadata["start_persistence_task"] = task
+        conversation_id = metadata["conversation_id"]
+        CONVERSATION_PERSISTENCE_TASKS[conversation_id] = task
+
+        def cleanup(completed: asyncio.Task) -> None:
+            if CONVERSATION_PERSISTENCE_TASKS.get(conversation_id) is completed:
+                CONVERSATION_PERSISTENCE_TASKS.pop(conversation_id, None)
+
+        task.add_done_callback(cleanup)
 
     @staticmethod
     def attach_history_persistence(run_id: str, task: asyncio.Task) -> None:
@@ -147,6 +161,85 @@ class SlayQLPipeline:
             # History is a compatibility index and is intentionally outside
             # the POST critical path. The conversation remains authoritative.
             logger.exception("Background query-history persistence failed for %s", run_id)
+
+    @staticmethod
+    async def await_history_persistence(run_id: str) -> None:
+        if run_id in RUN_METADATA_STORE:
+            await SlayQLPipeline._await_history_persistence(run_id)
+
+    @staticmethod
+    async def await_conversation_persistence(conversation_id: str) -> None:
+        """Wait only when a caller explicitly needs the persisted thread."""
+        task = CONVERSATION_PERSISTENCE_TASKS.get(conversation_id)
+        if task is not None and not task.done():
+            await asyncio.shield(task)
+
+    @staticmethod
+    def conversation_persistence_task(conversation_id: str) -> Optional[asyncio.Task]:
+        task = CONVERSATION_PERSISTENCE_TASKS.get(conversation_id)
+        return task if task is not None and not task.done() else None
+
+    @staticmethod
+    async def await_run_persistence(run_id: str) -> None:
+        """Wait when a dependent action needs the assistant message row."""
+        task = RUN_ASSISTANT_PERSISTENCE_TASKS.get(run_id)
+        if task is not None and not task.done():
+            await asyncio.shield(task)
+
+    @staticmethod
+    def recent_conversation_context(
+        conversation_id: str,
+        owner_id: str,
+        limit: int = 8,
+    ) -> Optional[Dict[str, Any]]:
+        """Return recent context without a remote round trip when this worker owns it."""
+        if conversation_id in INVALIDATED_CONVERSATION_CONTEXTS:
+            return None
+        runs = [
+            metadata
+            for metadata in RUN_METADATA_STORE.values()
+            if metadata.get("conversation_id") == conversation_id
+            and metadata.get("owner_id") == owner_id
+            and metadata.get("status") in TERMINAL_STATUSES
+        ]
+        if not runs:
+            return None
+        runs.sort(key=lambda metadata: metadata.get("created_at") or "")
+
+        start_index = 0
+        messages: List[Dict[str, str]] = []
+        for index in range(len(runs) - 1, -1, -1):
+            stored_context = runs[index].get("conversation_messages") or []
+            if stored_context:
+                messages = [
+                    {"role": item["role"], "content": item["content"]}
+                    for item in stored_context
+                    if item.get("role") in {"user", "assistant"} and item.get("content")
+                ]
+                start_index = index
+                break
+
+        for metadata in runs[start_index:]:
+            question = str(metadata.get("question") or "").strip()
+            result = metadata.get("result") or {}
+            answer = str(result.get("answer") or "").strip()
+            if question:
+                messages.append({"role": "user", "content": question})
+            if answer:
+                if result.get("sql"):
+                    answer = f"{answer}\n\nSQL used for that answer:\n{result['sql']}"
+                messages.append({"role": "assistant", "content": answer})
+
+        latest = runs[-1]
+        return {
+            "connection_id": latest.get("connection_id"),
+            "selected_model_id": latest.get("requested_model_id"),
+            "messages": messages[-max(1, min(limit, 20)):],
+        }
+
+    @staticmethod
+    def invalidate_conversation_context(conversation_id: str) -> None:
+        INVALIDATED_CONVERSATION_CONTEXTS.add(conversation_id)
 
     @staticmethod
     def cancel_run(run_id: str, owner_id: Optional[str] = None) -> bool:
@@ -178,7 +271,6 @@ class SlayQLPipeline:
                 yield events[cursor].to_sse_format()
                 cursor += 1
             if RUN_METADATA_STORE[run_id]["status"] in TERMINAL_STATUSES:
-                await SlayQLPipeline._await_history_persistence(run_id)
                 break
             try:
                 await asyncio.wait_for(notifier.wait(), timeout=15.0)
@@ -259,11 +351,18 @@ class SlayQLPipeline:
             return False
         metadata = RUN_METADATA_STORE[run_id]
         metadata["status"] = "cancelled"
-        SlayQLPipeline._emit(run_id, "cancelled", "run.cancelled", {"reason": "User cancelled"})
-        SlayQLPipeline._persist_assistant(
+        terminal_payload = {
+            "status": "cancelled",
+            "answer": "This run was cancelled before it completed.",
+            "reason": "User cancelled",
+            "reportable": False,
+        }
+        metadata["result"] = terminal_payload
+        SlayQLPipeline._emit(run_id, "cancelled", "run.cancelled", terminal_payload)
+        SlayQLPipeline._schedule_assistant_persistence(
             run_id,
-            "This run was cancelled before it completed.",
-            {"status": "cancelled", "stream_events": SlayQLPipeline._event_trace(run_id)},
+            terminal_payload["answer"],
+            {**terminal_payload, "stream_events": SlayQLPipeline._event_trace(run_id)},
         )
         return True
 
@@ -271,14 +370,19 @@ class SlayQLPipeline:
     def _fail(run_id: str, stage: str, message: str) -> None:
         metadata = RUN_METADATA_STORE[run_id]
         metadata["status"] = "failed"
-        SlayQLPipeline._emit(run_id, stage, "run.failed", {"error": message})
-        SlayQLPipeline._persist_assistant(
+        terminal_payload = {
+            "status": "failed",
+            "answer": message,
+            "error": message,
+            "reportable": True,
+        }
+        metadata["result"] = terminal_payload
+        SlayQLPipeline._emit(run_id, stage, "run.failed", terminal_payload)
+        SlayQLPipeline._schedule_assistant_persistence(
             run_id,
             message,
             {
-                "status": "failed",
-                "error": message,
-                "reportable": True,
+                **terminal_payload,
                 "stream_events": SlayQLPipeline._event_trace(run_id),
             },
         )
@@ -286,7 +390,7 @@ class SlayQLPipeline:
     @staticmethod
     def _persist_assistant(run_id: str, content: str, payload: Dict[str, Any], sql: Optional[str] = None) -> None:
         metadata = RUN_METADATA_STORE[run_id]
-        conversation_store.add_message(
+        message = conversation_store.add_message(
             conversation_id=metadata["conversation_id"],
             owner_id=metadata["owner_id"],
             role="assistant",
@@ -296,6 +400,43 @@ class SlayQLPipeline:
             message_id=f"msg_{run_id}",
             created_at=datetime.now(timezone.utc).isoformat(),
         )
+        if not message:
+            raise RuntimeError("The assistant response could not be saved.")
+
+    @staticmethod
+    def _schedule_assistant_persistence(
+        run_id: str,
+        content: str,
+        payload: Dict[str, Any],
+        sql: Optional[str] = None,
+    ) -> None:
+        """Persist a terminal response without delaying its SSE event."""
+        metadata = RUN_METADATA_STORE[run_id]
+        conversation_id = metadata["conversation_id"]
+
+        async def persist() -> None:
+            try:
+                await SlayQLPipeline._await_start_persistence(run_id)
+                await asyncio.to_thread(
+                    SlayQLPipeline._persist_assistant,
+                    run_id,
+                    content,
+                    payload,
+                    sql,
+                )
+            except Exception:
+                logger.exception("Background assistant persistence failed for %s", run_id)
+
+        task = asyncio.create_task(persist())
+        RUN_ASSISTANT_PERSISTENCE_TASKS[run_id] = task
+        CONVERSATION_PERSISTENCE_TASKS[conversation_id] = task
+
+        def cleanup(completed: asyncio.Task) -> None:
+            RUN_ASSISTANT_PERSISTENCE_TASKS.pop(run_id, None)
+            if CONVERSATION_PERSISTENCE_TASKS.get(conversation_id) is completed:
+                CONVERSATION_PERSISTENCE_TASKS.pop(conversation_id, None)
+
+        task.add_done_callback(cleanup)
 
     @staticmethod
     def _dialect(engine: str) -> str:
@@ -516,6 +657,9 @@ class SlayQLPipeline:
         column_types: Optional[List[str]] = None,
         rows: Optional[List[List[Any]]] = None,
         is_truncated: bool = False,
+        reasoning: str = "",
+        token_usage: Optional[Dict[str, Any]] = None,
+        response_model: Optional[str] = None,
     ) -> None:
         metadata = RUN_METADATA_STORE[run_id]
         result_rows = rows or []
@@ -534,30 +678,26 @@ class SlayQLPipeline:
             "execution_model_id": TEST_EXECUTION_MODEL,
             "thinking_effort": metadata["thinking_effort"],
             "attempt_count": 0,
-            "token_usage": {},
-            "reasoning": "",
+            "token_usage": token_usage or {},
+            "reasoning": reasoning,
             "intent_validation": intent_decision,
             "is_sql_query": bool(intent_decision.get("is_sql_query")),
             "orchestrator_route": intent_decision.get("orchestrator_route", "direct_response"),
             "tool_name": intent_decision.get("tool_name"),
-            "response_model": intent_decision.get("response_model"),
+            "response_model": response_model or intent_decision.get("response_model"),
             "resolution_code": resolution_code,
             "reportable": True,
             "total_duration_ms": int((time.perf_counter() - started) * 1000),
         }
-        result_payload["stream_events"] = SlayQLPipeline._event_trace(run_id) + [{
-            "event_id": f"{run_id}:terminal",
-            "sequence": len(RUN_EVENTS_STORE.get(run_id, [])) + 1,
-            "occurred_at": datetime.now(timezone.utc).isoformat(),
-            "stage": "completion",
-            "type": "run.completed",
-            "payload": {"status": status, "resolution_code": resolution_code},
-        }]
-        result_payload["stream_events_truncated"] = len(RUN_EVENTS_STORE.get(run_id, [])) > 240
-        SlayQLPipeline._persist_assistant(run_id, answer, result_payload)
         metadata["status"] = "completed"
         metadata["result"] = result_payload
         SlayQLPipeline._emit(run_id, "completion", "run.completed", result_payload)
+        persisted_payload = {
+            **result_payload,
+            "stream_events": SlayQLPipeline._event_trace(run_id),
+            "stream_events_truncated": len(RUN_EVENTS_STORE.get(run_id, [])) > 240,
+        }
+        SlayQLPipeline._schedule_assistant_persistence(run_id, answer, persisted_payload)
 
     @staticmethod
     async def _complete_general_turn(
@@ -568,10 +708,18 @@ class SlayQLPipeline:
         intent_decision: Dict[str, Any],
         catalog_summary: Optional[Dict[str, Any]] = None,
         catalog: Any = None,
+        orchestrator_answer: Optional[str] = None,
+        orchestrator_reasoning: str = "",
+        orchestrator_model: Optional[str] = None,
     ) -> None:
-        """Generate and stream a Gemini answer for turns that do not require SQL."""
+        """Complete a direct turn, using the orchestrator answer when available."""
         metadata = RUN_METADATA_STORE[run_id]
-        response_start_model = "slayql/local-response" if intent_decision.get("fast_path") else GEMINI_WORKBENCH_MODEL
+        has_orchestrator_answer = bool(orchestrator_answer and orchestrator_answer.strip())
+        response_start_model = (
+            "slayql/local-response"
+            if intent_decision.get("fast_path")
+            else orchestrator_model or TEST_EXECUTION_MODEL
+        )
         SlayQLPipeline._emit(
             run_id,
             "answer_generation",
@@ -581,33 +729,36 @@ class SlayQLPipeline:
                 "summary": (
                     "Local conversational response is ready to stream."
                     if response_start_model == "slayql/local-response"
-                    else "Gemini is preparing a conversational response."
+                    else "DeepSeek orchestrator is preparing a grounded response."
                 ),
             },
         )
-        response = await gemini_workbench_agent.answer_general_question(
-            question,
-            catalog_summary or (SlayQLPipeline._intent_catalog_summary(catalog) if catalog is not None else {}),
-            metadata["conversation_messages"],
-        )
-        answer = response["answer"]
-        SlayQLPipeline._emit(
-            run_id,
-            "answer_generation",
-            "assistant.delta",
-            {"delta": answer, "model": response.get("model", GEMINI_WORKBENCH_MODEL), "mode": response.get("mode", "gemini")},
-        )
+        if has_orchestrator_answer:
+            answer = orchestrator_answer.strip()
+            response = {
+                "answer": answer,
+                "model": orchestrator_model or TEST_EXECUTION_MODEL,
+                "mode": intent_decision.get("mode", "openrouter_tool_calling"),
+            }
+        else:
+            response = await gemini_workbench_agent.answer_general_question(
+                question,
+                catalog_summary or (SlayQLPipeline._intent_catalog_summary(catalog) if catalog is not None else {}),
+                metadata["conversation_messages"],
+            )
+            answer = response["answer"]
+            SlayQLPipeline._emit(
+                run_id,
+                "answer_generation",
+                "assistant.delta",
+                {"delta": answer, "model": response.get("model", GEMINI_WORKBENCH_MODEL), "mode": response.get("mode", "gemini")},
+            )
         SlayQLPipeline._emit(
             run_id,
             "answer_generation",
             "general_response.completed",
             {"model": response.get("model", GEMINI_WORKBENCH_MODEL), "mode": response.get("mode", "gemini"), "summary": "Conversational response ready."},
         )
-        try:
-            await SlayQLPipeline._await_start_persistence(run_id)
-        except Exception:
-            SlayQLPipeline._fail(run_id, "persistence", "The response was ready, but this conversation could not be saved.")
-            return
         intent_decision = {**intent_decision, "response_model": response.get("model", GEMINI_WORKBENCH_MODEL)}
         SlayQLPipeline._complete_without_generated_sql(
             run_id,
@@ -616,6 +767,9 @@ class SlayQLPipeline:
             intent_decision=intent_decision,
             status="success" if intent_decision["intent"] in {"business_guidance", "general_question"} else "no_query",
             resolution_code=intent_decision["intent"],
+            reasoning=orchestrator_reasoning,
+            token_usage=intent_decision.get("token_usage"),
+            response_model=response.get("model"),
         )
 
     @staticmethod
@@ -700,9 +854,11 @@ class SlayQLPipeline:
             # source. This keeps greetings fast even when the source is remote,
             # unavailable, or still being indexed.
             preflight = _fallback_chat_intent(question, metadata["conversation_messages"])
-            fast_non_sql = preflight["intent"] in {"unsupported", "clarification"}
-            local_non_sql = preflight["intent"] in {"business_guidance", "general_question"} and not thinking_profile.use_model_intent
-            if fast_non_sql or local_non_sql:
+            fast_non_sql = (
+                preflight["intent"] in {"unsupported", "clarification"}
+                or bool(preflight.get("fast_path"))
+            )
+            if fast_non_sql:
                 SlayQLPipeline._emit(
                     run_id,
                     "intent_validation",
@@ -780,26 +936,39 @@ class SlayQLPipeline:
                 "intent.validator_started",
                 {
                     "model": (
-                        GEMINI_WORKBENCH_MODEL
+                        TEST_EXECUTION_MODEL
                         if thinking_profile.use_model_intent
                         else "slayql/local-intent"
                     ),
                     "summary": "Checking whether this turn requires SQL or database metadata.",
                 },
             )
-            intent_decision = await gemini_workbench_agent.classify_chat_intent(
-                question,
-                SlayQLPipeline._intent_catalog_summary(catalog),
-                metadata["conversation_messages"],
-                use_model=thinking_profile.use_model_intent,
-            )
+
+            async def emit_orchestrator_event(event_type: str, payload: Dict[str, Any]) -> None:
+                SlayQLPipeline._emit(run_id, "orchestration", event_type, payload)
+
+            if thinking_profile.use_model_intent:
+                intent_decision = await deepseek_orchestrator.orchestrate(
+                    question=question,
+                    catalog=catalog,
+                    recent_messages=metadata["conversation_messages"],
+                    reasoning_effort=thinking_profile.provider_sql_effort,
+                    emit=emit_orchestrator_event,
+                )
+            else:
+                intent_decision = await gemini_workbench_agent.classify_chat_intent(
+                    question,
+                    SlayQLPipeline._intent_catalog_summary(catalog),
+                    metadata["conversation_messages"],
+                    use_model=False,
+                )
             SlayQLPipeline._emit(
                 run_id,
                 "intent_validation",
                 "intent.validator_completed",
                 {
-                    "model": intent_decision.get("model", GEMINI_WORKBENCH_MODEL),
-                    "mode": intent_decision.get("mode", "gemini"),
+                    "model": intent_decision.get("model", TEST_EXECUTION_MODEL),
+                    "mode": intent_decision.get("mode", "openrouter_tool_calling"),
                     "intent": intent_decision["intent"],
                     "is_sql_query": intent_decision["is_sql_query"],
                     "requires_sql": intent_decision["requires_sql"],
@@ -824,9 +993,10 @@ class SlayQLPipeline:
                 **intent_decision,
                 "orchestrator_route": orchestrator_route,
                 "tool_name": (
-                    "sql_agent" if orchestrator_route == "sql_agent"
+                    intent_decision.get("tool_name")
+                    or ("sql_agent" if orchestrator_route == "sql_agent"
                     else "catalog_agent" if orchestrator_route == "catalog_agent"
-                    else None
+                    else None)
                 ),
             }
             SlayQLPipeline._emit(
@@ -840,7 +1010,7 @@ class SlayQLPipeline:
                     "summary": f"Orchestrator selected the {orchestrator_route.replace('_', ' ')} path.",
                 },
             )
-            if orchestrator_route == "sql_agent":
+            if orchestrator_route == "sql_agent" and not intent_decision.get("tool_call_emitted"):
                 SlayQLPipeline._emit(
                     run_id,
                     "orchestration",
@@ -852,7 +1022,7 @@ class SlayQLPipeline:
                         "summary": "Orchestrator delegated the database operation to the SQL agent.",
                     },
                 )
-            elif orchestrator_route == "catalog_agent":
+            elif orchestrator_route == "catalog_agent" and not intent_decision.get("tool_call_emitted"):
                 SlayQLPipeline._emit(
                     run_id,
                     "orchestration",
@@ -891,17 +1061,18 @@ class SlayQLPipeline:
                         if intent_decision.get("catalog_operation") == "related_tables"
                         else SlayQLPipeline._schema_overview(catalog)
                     )
-                    SlayQLPipeline._emit(
-                        run_id,
-                        "orchestration",
-                        "orchestrator.tool_call.completed",
-                        {
-                            "tool": "catalog_agent",
-                            "agent": "slayql/catalog-agent",
-                            "operation": intent_decision.get("catalog_operation") or "overview",
-                            "summary": "Verified catalog metadata was used to answer the request.",
-                        },
-                    )
+                    if not intent_decision.get("tool_call_emitted"):
+                        SlayQLPipeline._emit(
+                            run_id,
+                            "orchestration",
+                            "orchestrator.tool_call.completed",
+                            {
+                                "tool": "catalog_agent",
+                                "agent": "slayql/catalog-agent",
+                                "operation": intent_decision.get("catalog_operation") or "overview",
+                                "summary": "Verified catalog metadata was used to answer the request.",
+                            },
+                        )
                     SlayQLPipeline._complete_without_generated_sql(
                         run_id,
                         answer=overview["answer"],
@@ -914,13 +1085,55 @@ class SlayQLPipeline:
                         rows=overview["rows"],
                         is_truncated=overview["is_truncated"],
                     )
-                elif intent_decision["intent"] in {"business_guidance", "general_question", "unsupported", "clarification"}:
+                elif intent_decision["intent"] == "business_guidance":
+                    catalog_result = intent_decision.get("catalog_result") or {}
+                    result_rows = catalog_result.get("rows") if isinstance(catalog_result, dict) else None
+                    if result_rows is not None:
+                        SlayQLPipeline._complete_without_generated_sql(
+                            run_id,
+                            answer=intent_decision.get("answer") or SlayQLPipeline._business_guidance_answer(catalog),
+                            started=started,
+                            intent_decision=intent_decision,
+                            status="success",
+                            resolution_code="business_guidance",
+                            columns=catalog_result.get("columns") or [],
+                            column_types=catalog_result.get("column_types") or [],
+                            rows=result_rows,
+                            reasoning=intent_decision.get("reasoning") or "",
+                            token_usage=intent_decision.get("token_usage"),
+                            response_model=intent_decision.get("response_model"),
+                        )
+                    elif intent_decision.get("mode") == "local_heuristic":
+                        SlayQLPipeline._complete_without_generated_sql(
+                            run_id,
+                            answer=SlayQLPipeline._business_guidance_answer(catalog),
+                            started=started,
+                            intent_decision=intent_decision,
+                            status="success",
+                            resolution_code="business_guidance",
+                            response_model="slayql/local-response",
+                        )
+                    else:
+                        await SlayQLPipeline._complete_general_turn(
+                            run_id,
+                            question=question,
+                            started=started,
+                            intent_decision=intent_decision,
+                            catalog=catalog,
+                            orchestrator_answer=intent_decision.get("answer"),
+                            orchestrator_reasoning=intent_decision.get("reasoning") or "",
+                            orchestrator_model=intent_decision.get("response_model"),
+                        )
+                elif intent_decision["intent"] in {"general_question", "unsupported", "clarification"}:
                     await SlayQLPipeline._complete_general_turn(
                         run_id,
                         question=question,
                         started=started,
                         intent_decision=intent_decision,
                         catalog=catalog,
+                        orchestrator_answer=intent_decision.get("answer"),
+                        orchestrator_reasoning=intent_decision.get("reasoning") or "",
+                        orchestrator_model=intent_decision.get("response_model"),
                     )
                 else:
                     SlayQLPipeline._complete_without_generated_sql(
@@ -1672,34 +1885,42 @@ class SlayQLPipeline:
                 "reportable": True,
                 "total_duration_ms": int((time.perf_counter() - started) * 1000),
             }
-            result_payload["stream_events"] = SlayQLPipeline._event_trace(run_id) + [{
-                "event_id": f"{run_id}:terminal",
-                "sequence": len(RUN_EVENTS_STORE.get(run_id, [])) + 1,
-                "occurred_at": datetime.now(timezone.utc).isoformat(),
-                "stage": "completion",
-                "type": "run.completed",
-                "payload": {"status": "success"},
-            }]
-            result_payload["stream_events_truncated"] = len(RUN_EVENTS_STORE.get(run_id, [])) > 240
-            SlayQLPipeline._persist_assistant(run_id, answer, result_payload, sql=final_sql)
             metadata["status"] = "completed"
             metadata["result"] = result_payload
             SlayQLPipeline._emit(run_id, "completion", "run.completed", result_payload)
+            persisted_payload = {
+                **result_payload,
+                "stream_events": SlayQLPipeline._event_trace(run_id),
+                "stream_events_truncated": len(RUN_EVENTS_STORE.get(run_id, [])) > 240,
+            }
+            SlayQLPipeline._schedule_assistant_persistence(
+                run_id,
+                answer,
+                persisted_payload,
+                sql=final_sql,
+            )
         except ProviderError as exc:
             SlayQLPipeline._fail(run_id, "model_generation", str(exc))
         except asyncio.CancelledError:
             if metadata["status"] not in TERMINAL_STATUSES:
                 metadata["status"] = "cancelled"
+                terminal_payload = {
+                    "status": "cancelled",
+                    "answer": "This run was cancelled before it completed.",
+                    "reason": "User cancelled",
+                    "reportable": False,
+                }
+                metadata["result"] = terminal_payload
                 SlayQLPipeline._emit(
                     run_id,
                     "cancelled",
                     "run.cancelled",
-                    {"reason": "User cancelled"},
+                    terminal_payload,
                 )
-                SlayQLPipeline._persist_assistant(
+                SlayQLPipeline._schedule_assistant_persistence(
                     run_id,
-                    "This run was cancelled before it completed.",
-                    {"status": "cancelled", "stream_events": SlayQLPipeline._event_trace(run_id)},
+                    terminal_payload["answer"],
+                    {**terminal_payload, "stream_events": SlayQLPipeline._event_trace(run_id)},
                 )
         except Exception:
             SlayQLPipeline._fail(run_id, "completion", "The agent run failed unexpectedly.")

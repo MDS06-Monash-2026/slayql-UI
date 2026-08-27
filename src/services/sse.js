@@ -8,6 +8,29 @@ export function connectRunEventStream(runId, { onEvent, onError, onComplete }) {
   const controller = new AbortController();
   let closed = false;
   let completed = false;
+  let flushTimer = null;
+  let pendingEvents = [];
+
+  const flushEvents = () => {
+    if (flushTimer !== null) {
+      clearTimeout(flushTimer);
+      flushTimer = null;
+    }
+    const batch = pendingEvents;
+    pendingEvents = [];
+    batch.forEach(({ data, eventType }) => onEvent?.(data, eventType));
+    batch.forEach(({ data, eventType }) => {
+      if (['run.completed', 'run.failed', 'run.cancelled'].includes(eventType)) {
+        completed = true;
+        onComplete?.(eventType, data);
+      }
+    });
+  };
+
+  const scheduleFlush = () => {
+    if (flushTimer !== null) return;
+    flushTimer = setTimeout(flushEvents, 50);
+  };
 
   const dispatchBlock = (block) => {
     if (!block || block.startsWith(':')) return;
@@ -20,10 +43,11 @@ export function connectRunEventStream(runId, { onEvent, onError, onComplete }) {
     if (dataLines.length === 0) return;
     try {
       const data = JSON.parse(dataLines.join('\n'));
-      onEvent?.(data, eventType);
+      pendingEvents.push({ data, eventType });
       if (['run.completed', 'run.failed', 'run.cancelled'].includes(eventType)) {
-        completed = true;
-        onComplete?.(eventType, data);
+        flushEvents();
+      } else {
+        scheduleFlush();
       }
     } catch (error) {
       onError?.(new Error('The event stream returned an invalid payload.'));
@@ -52,6 +76,7 @@ export function connectRunEventStream(runId, { onEvent, onError, onComplete }) {
         blocks.forEach(dispatchBlock);
       }
       if (buffer.trim()) dispatchBlock(buffer.trim());
+      if (pendingEvents.length > 0) flushEvents();
       if (!closed && !completed) throw new Error('The event stream ended before the run completed.');
     } catch (error) {
       if (!closed && error?.name !== 'AbortError') onError?.(error);
@@ -61,6 +86,9 @@ export function connectRunEventStream(runId, { onEvent, onError, onComplete }) {
   return {
     close: () => {
       closed = true;
+      if (flushTimer !== null) clearTimeout(flushTimer);
+      flushTimer = null;
+      pendingEvents = [];
       controller.abort();
     },
   };
