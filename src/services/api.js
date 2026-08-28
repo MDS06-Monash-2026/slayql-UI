@@ -159,7 +159,7 @@ export async function fetchConnections({ force = false } = {}) {
     });
     if (!res.ok) throw new Error('Failed to load database connections');
     return res.json();
-  }, 15 * 1000, { force });
+  }, 30 * 60 * 1000, { force });
 }
 
 export async function createConnection({ name, provider, engine = 'sqlite', mode = 'direct', connection_string = '', credentials = {}, description = '' }) {
@@ -224,6 +224,45 @@ export async function deleteConnection(connectionId) {
   return data;
 }
 
+export async function updateConnection(connectionId, { name, description, connection_string = '', credentials = {} }) {
+  const res = await fetch(`${API_BASE}/connections/${connectionId}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeaders(),
+    },
+    body: JSON.stringify({ name, description, connection_string, credentials }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to update database connection' }));
+    throw new Error(err.detail || 'Connection update failed');
+  }
+  const data = await res.json();
+  invalidateClientCache('connections');
+  invalidateClientCache(`catalog:${connectionId}`);
+  invalidateClientCache(`explore:${connectionId}`);
+  return data;
+}
+
+export async function replaceConnectionFile(connectionId, file) {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(`${API_BASE}/connections/${connectionId}/file`, {
+    method: 'PUT',
+    headers: { ...getAuthHeaders() },
+    body: form,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to replace database file' }));
+    throw new Error(err.detail || 'Database replacement failed');
+  }
+  const data = await res.json();
+  invalidateClientCache('connections');
+  invalidateClientCache(`catalog:${connectionId}`);
+  invalidateClientCache(`explore:${connectionId}`);
+  return data;
+}
+
 export async function fetchCatalog(connectionId, { force = false } = {}) {
   if (!connectionId) throw new Error('A database connection must be selected');
   return cachedRequest(`catalog:${connectionId}`, async () => {
@@ -232,7 +271,24 @@ export async function fetchCatalog(connectionId, { force = false } = {}) {
     });
     if (!res.ok) throw new Error('Failed to load schema catalog');
     return res.json();
-  }, 5 * 60 * 1000, { force });
+  }, 30 * 60 * 1000, { force });
+}
+
+export async function refreshConnectionCatalog(connectionId) {
+  if (!connectionId) throw new Error('A database connection must be selected');
+  const res = await fetch(`${API_BASE}/connections/${connectionId}/catalog/refresh`, {
+    method: 'POST',
+    headers: { ...getAuthHeaders() },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to refresh schema catalog' }));
+    throw new Error(err.detail || 'Schema refresh failed');
+  }
+  const data = await res.json();
+  invalidateClientCache(`catalog:${connectionId}`);
+  invalidateClientCache(`explore:${connectionId}`);
+  invalidateClientCache('connections');
+  return data;
 }
 
 export async function fetchExploreSuggestions(connectionId, { force = false } = {}) {
@@ -243,7 +299,7 @@ export async function fetchExploreSuggestions(connectionId, { force = false } = 
     });
     if (!res.ok) throw new Error('Failed to generate exploration suggestions');
     return res.json();
-  }, 10 * 60 * 1000, { force });
+  }, 30 * 60 * 1000, { force });
 }
 
 export async function createCustomTable(connectionId, { table_name, description = '', columns, foreign_keys = [], initial_rows = [] }) {
@@ -392,12 +448,14 @@ export async function deleteHistory(historyId) {
   return res.json();
 }
 
-export async function fetchConversations() {
-  const res = await fetch(`${API_BASE}/conversations`, {
-    headers: { ...getAuthHeaders() },
-  });
-  if (!res.ok) return [];
-  return res.json();
+export async function fetchConversations({ force = false } = {}) {
+  return cachedRequest('conversations', async () => {
+    const res = await fetch(`${API_BASE}/conversations`, {
+      headers: { ...getAuthHeaders() },
+    });
+    if (!res.ok) return [];
+    return res.json();
+  }, 5 * 60 * 1000, { force });
 }
 
 export async function fetchConversation(conversationId) {
@@ -420,6 +478,7 @@ export async function deleteConversation(conversationId) {
     const err = await res.json().catch(() => ({ detail: 'Failed to delete conversation' }));
     throw new Error(err.detail || 'Failed to delete conversation');
   }
+  invalidateClientCache('conversations');
   return res.json();
 }
 
