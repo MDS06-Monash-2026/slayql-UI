@@ -985,8 +985,8 @@ async def generate_workbench_report(connection_id: str, req: ReportGenerateReque
         result_rows = list(req.result.rows or [])
 
         # If no query result was provided from workbench, sample the first table from the catalog
-        if (not result_cols or not result_rows) and catalog.get("tables"):
-            tables = list(catalog["tables"].keys())
+        if (not result_cols or not result_rows) and catalog.tables:
+            tables = list(catalog.tables.keys())
             if tables:
                 first_table = tables[0]
                 dialect = "sqlite" if conn["engine"] == "sqlite" else "postgres" if conn["engine"] in {"postgresql", "supabase"} else conn["engine"]
