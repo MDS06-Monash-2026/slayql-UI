@@ -34,7 +34,6 @@ import ModelSelector from '../components/demo/ModelSelector';
 import ThinkingEffortSelector, { THINKING_EFFORT_LEVELS } from '../components/demo/ThinkingEffortSelector';
 import SlayQLTraceTimeline from '../components/demo/SlayQLTraceTimeline';
 import AgentStreamPanel, { normalizeStreamEvent } from '../components/demo/AgentStreamPanel';
-import ChatDebugPanel from '../components/demo/ChatDebugPanel';
 import SqlEditorPanel from '../components/demo/SqlEditorPanel';
 import VisualizationStudio from '../components/demo/VisualizationStudio';
 import DataTablePanel from '../components/demo/DataTablePanel';
@@ -44,6 +43,7 @@ import AddConnectionModal from '../components/demo/AddConnectionModal';
 import AddTableModal from '../components/demo/AddTableModal';
 import ConfirmationModal from '../components/demo/ConfirmationModal';
 import SignOutModal from '../components/demo/SignOutModal';
+import ReportModal from '../components/demo/ReportModal';
 import EmptyChatState from '../components/demo/EmptyChatState';
 
 import {
@@ -74,30 +74,28 @@ const ConversationAssistantMessage = React.memo(function ConversationAssistantMe
   const rows = Array.isArray(payload.rows) ? payload.rows : [];
   const columns = Array.isArray(payload.columns) ? payload.columns : [];
   const [reportState, setReportState] = useState('idle');
+  const [reportModalOpen, setReportModalOpen] = useState(false);
 
-  const handleReport = async () => {
-    if (!message.id || reportState === 'sending' || reportState === 'reported') return;
+  const handleSubmitReport = async ({ category, note }) => {
+    if (!message.id) return;
     setReportState('sending');
     try {
-      await reportChatMessage(message.id);
+      await reportChatMessage(message.id, { category, note });
       setReportState('reported');
     } catch (error) {
       setReportState('error');
+      throw error;
     }
   };
 
   return (
     <div className="py-4 space-y-3">
-      <div className={isSqlQuery ? '' : 'ai-bubble'}>
+      <div className={isSqlQuery ? 'ai-response-text' : 'ai-bubble'}>
         <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
       </div>
-      <ChatDebugPanel
-        events={payload.stream_events || []}
-        durationMs={payload.total_duration_ms}
-      />
       {isSqlQuery && payload.reasoning && (
-        <details className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
-          <summary className="cursor-pointer font-semibold text-slate-600">Reasoning output</summary>
+        <details className="rounded-xl border border-indigo-100/80 bg-gradient-to-br from-indigo-50/60 to-purple-50/40 px-3 py-2 text-xs">
+          <summary className="cursor-pointer font-semibold text-indigo-600">Reasoning output</summary>
           <p className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap leading-relaxed text-slate-500">{payload.reasoning}</p>
         </details>
       )}
@@ -137,21 +135,41 @@ const ConversationAssistantMessage = React.memo(function ConversationAssistantMe
         <div className="flex items-center gap-2 pt-1">
           <button
             type="button"
-            onClick={handleReport}
+            onClick={() => {
+              if (reportState !== 'reported' && reportState !== 'sending') {
+                setReportModalOpen(true);
+              }
+            }}
             disabled={reportState === 'sending' || reportState === 'reported'}
-            title="Report this response"
-            className={`inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-[11px] font-medium transition-colors disabled:cursor-default ${
+            title={reportState === 'reported' ? 'Response reported' : 'Report this response'}
+            className={`inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[11px] font-medium transition-colors disabled:cursor-default ${
               reportState === 'reported'
-                ? 'bg-emerald-50 text-emerald-700'
-                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-900/60 font-semibold'
+                : reportState === 'sending'
+                ? 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500'
+                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800/80 dark:hover:text-slate-200'
             }`}
           >
-            {reportState === 'reported' ? <Check className="h-3.5 w-3.5" /> : <Flag className="h-3.5 w-3.5" />}
+            {reportState === 'reported' ? (
+              <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+            ) : reportState === 'sending' ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Flag className="h-3.5 w-3.5" />
+            )}
             {reportState === 'sending' ? 'Reporting...' : reportState === 'reported' ? 'Reported' : 'Report'}
           </button>
           {reportState === 'error' && (
-            <span className="text-[11px] text-red-600">Could not send report. Try again.</span>
+            <span className="text-[11px] text-red-600 dark:text-red-400">Could not send report. Try again.</span>
           )}
+
+          <ReportModal
+            isOpen={reportModalOpen}
+            onClose={() => setReportModalOpen(false)}
+            message={message}
+            onSubmit={handleSubmitReport}
+            isDark={isDark}
+          />
         </div>
       )}
     </div>
@@ -1284,7 +1302,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
               <div key={msg.id} className="w-full">
                 {msg.sender === 'user' ? (
                   <div className="flex justify-end py-2">
-                    <div className="user-chat-bubble text-left bg-slate-900 text-white dark:bg-[#20242d] dark:text-slate-100 dark:border dark:border-[#323844] px-4 py-3 rounded-2xl rounded-tr-xs text-sm leading-relaxed shadow-xs max-w-xl">
+                    <div className="user-chat-bubble px-4 py-3 rounded-2xl rounded-tr-sm text-sm leading-relaxed shadow-sm max-w-xl text-left">
                       {msg.content}
                     </div>
                   </div>
@@ -1341,15 +1359,9 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
                       </div>
                     )}
 
-                    <ChatDebugPanel
-                      events={activeStreamEvents}
-                      isRunning={isRunning}
-                      startedAt={activeStartedAt}
-                    />
-
                     {activeAnswer && (
                       <div className="space-y-2">
-                        <div className={activeIsSqlQuery === false ? 'ai-bubble' : ''}>
+                        <div className={activeIsSqlQuery === false ? 'ai-bubble' : 'ai-response-text'}>
                           <p className="text-sm leading-relaxed whitespace-pre-wrap">{activeAnswer}</p>
                         </div>
                         {activeIsSqlQuery === false && activeReasoning && (

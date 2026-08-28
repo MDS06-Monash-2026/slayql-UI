@@ -11,9 +11,13 @@ from backend.app.control_database import ControlDatabase, control_database
 
 REPORT_CATEGORIES = {
     "incorrect_or_unhelpful",
+    "incorrect_answer",
+    "inappropriate_content",
+    "unsafe_output",
+    "slow_response",
+    "low_response_time",
     "invalid_sql",
     "missing_context",
-    "unsafe_output",
     "other",
 }
 REPORT_STATUSES = {"new", "reviewed", "resolved", "dismissed"}
