@@ -1,5 +1,6 @@
-﻿@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,900&family=Cinzel:wght@800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,900&family=Cinzel:wght@800;900&display=swap');
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *, .theme-dark, .theme-dark *));
 
 /* ── SlayQL Premium Typography Logo ─────────────────────────── */
 .slayql-logo {
@@ -251,17 +252,18 @@ button:disabled,
     50% { opacity: 0; }
   }
 
-  /* ─── SQL Highlights ──────────────────────────────────────────── */
+  /* ─── SQL Highlights (Light mode defaults: deep, rich, high contrast) ────────── */
   .sql-highlight {
-    color: #a5f3fc;
+    color: #0369a1;
   }
-  .sql-kw { color: #c084fc; font-weight: 600; }
-  .sql-fn { color: #67e8f9; }
-  .sql-str { color: #86efac; }
-  .sql-num { color: #fcd34d; }
-  .sql-cmt { color: #64748b; font-style: italic; }
-  .sql-tbl { color: #fb923c; }
-  .sql-col { color: #a5f3fc; }
+  .sql-kw { color: #3730a3 !important; font-weight: 700; }
+  .sql-fn { color: #0284c7 !important; font-weight: 700; }
+  .sql-str { color: #15803d !important; font-weight: 600; }
+  .sql-num { color: #b45309 !important; font-weight: 700; }
+  .sql-cmt, .sql-comment { color: #64748b !important; font-style: italic; }
+  .sql-tbl { color: #c2410c !important; font-weight: 600; }
+  .sql-col { color: #0f172a !important; font-weight: 500; }
+  .sql-op { color: #475569 !important; }
 
   /* ─── SVG Chart Grow ──────────────────────────────────────────── */
   @keyframes bar-grow-svg {
@@ -662,51 +664,32 @@ button:disabled,
   transition: background-color 180ms ease, color 180ms ease;
 }
 
-/* ── AI response bubble (non-SQL: conversational text reply) ────── */
+/* ── AI response unboxed text ────── */
 .ai-bubble {
-  position: relative;
-  background: linear-gradient(140deg, #f5f7ff 0%, #eef1fb 100%);
   color: #1e293b;
-  border: 1px solid rgba(99, 102, 241, 0.14);
-  border-radius: 1rem;
-  padding: 1rem 1.125rem;
-  box-shadow:
-    0 1px 3px rgba(99, 102, 241, 0.07),
-    0 4px 16px rgba(99, 102, 241, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.85);
   line-height: 1.75;
   font-size: 0.875rem;
 }
-.ai-bubble::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  border-radius: inherit;
-  background: linear-gradient(140deg, rgba(99,102,241,0.03) 0%, transparent 55%);
-  pointer-events: none;
-}
 .live-demo-shell.theme-dark .ai-bubble {
-  background: linear-gradient(140deg, #1c2033 0%, #181b2c 100%) !important;
   color: #e2e8f0 !important;
-  border-color: rgba(99, 102, 241, 0.2) !important;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.35), 0 4px 16px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.03) !important;
-}
-.live-demo-shell.theme-dark .ai-bubble::before {
-  background: linear-gradient(140deg, rgba(99,102,241,0.07) 0%, transparent 55%) !important;
 }
 
 /* User message bubble */
 .user-chat-bubble {
-  background: linear-gradient(140deg, #1e293b 0%, #0f172a 100%);
-  color: #f8fafc;
-  border: 1px solid rgba(255,255,255,0.06);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2), 0 4px 12px rgba(0,0,0,0.1);
+  background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+  color: #0f172a;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  box-shadow:
+    0 1px 3px rgba(99, 102, 241, 0.08),
+    0 4px 12px rgba(99, 102, 241, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  font-weight: 500;
 }
 .live-demo-shell.theme-dark .user-chat-bubble {
-  background: linear-gradient(140deg, #2d3154 0%, #252847 100%) !important;
-  color: #e2e8f0 !important;
-  border: 1px solid rgba(99,102,241,0.3) !important;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.4), 0 4px 16px rgba(99,102,241,0.12) !important;
+  background: linear-gradient(140deg, #272d39 0%, #1f242e 100%) !important;
+  color: #f8fafc !important;
+  border: 1px solid #384152 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.2) !important;
 }
 
 /* AI response plain text (SQL mode) */
@@ -838,22 +821,30 @@ button:disabled,
   overflow-y: auto;
 }
 .live-demo-shell.theme-dark .reasoning-stream-panel {
-  background: linear-gradient(135deg, #15192a 0%, #121629 100%) !important;
-  border-color: rgba(99, 102, 241, 0.18) !important;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3) !important;
+  background: linear-gradient(135deg, #161a29 0%, #121524 100%) !important;
+  border-color: rgba(99, 102, 241, 0.25) !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4) !important;
 }
 .live-demo-shell.theme-dark .reasoning-stream-header {
-  background: linear-gradient(90deg, rgba(99, 102, 241, 0.12) 0%, rgba(139, 92, 246, 0.06) 100%) !important;
-  border-color: rgba(99, 102, 241, 0.15) !important;
-  color: #818cf8 !important;
+  background: linear-gradient(90deg, rgba(99, 102, 241, 0.16) 0%, rgba(139, 92, 246, 0.08) 100%) !important;
+  border-color: rgba(99, 102, 241, 0.22) !important;
+  color: #a5b4fc !important;
 }
-.live-demo-shell.theme-dark .reasoning-stream-body { color: #64748b !important; }
-.live-demo-shell.theme-dark .reasoning-collapsed-summary { color: #6366f1 !important; }
-.live-demo-shell.theme-dark .reasoning-collapsed-summary:hover { color: #818cf8 !important; }
+.live-demo-shell.theme-dark .reasoning-stream-body {
+  color: #e2e8f0 !important;
+  background: transparent !important;
+}
+.live-demo-shell.theme-dark .reasoning-collapsed-summary {
+  color: #a5b4fc !important;
+  font-weight: 600;
+}
+.live-demo-shell.theme-dark .reasoning-collapsed-summary:hover {
+  color: #c7d2fe !important;
+}
 .live-demo-shell.theme-dark .reasoning-collapsed-body {
-  background: linear-gradient(135deg, #15192a 0%, #121629 100%) !important;
-  border-color: rgba(99, 102, 241, 0.15) !important;
-  color: #64748b !important;
+  background: linear-gradient(135deg, #161a29 0%, #121524 100%) !important;
+  border-color: rgba(99, 102, 241, 0.25) !important;
+  color: #e2e8f0 !important;
 }
 
 /* ── Trace timeline expanded panel (dark mode) ───────────────── */
@@ -1120,15 +1111,28 @@ button:disabled,
 
 /* SQL Syntax Highlighting in dark theme */
 .live-demo-shell.theme-dark .sql-kw {
-  color: #818cf8 !important;
+  color: #a5b4fc !important;
+}
+.live-demo-shell.theme-dark .sql-fn {
+  color: #7dd3fc !important;
 }
 .live-demo-shell.theme-dark .sql-str {
-  color: #34d399 !important;
+  color: #6ee7b7 !important;
 }
 .live-demo-shell.theme-dark .sql-num {
-  color: #fbbf24 !important;
+  color: #fcd34d !important;
 }
-.live-demo-shell.theme-dark .sql-comment {
+.live-demo-shell.theme-dark .sql-comment,
+.live-demo-shell.theme-dark .sql-cmt {
+  color: #94a3b8 !important;
+}
+.live-demo-shell.theme-dark .sql-tbl {
+  color: #fdba74 !important;
+}
+.live-demo-shell.theme-dark .sql-col {
+  color: #e2e8f0 !important;
+}
+.live-demo-shell.theme-dark .sql-op {
   color: #94a3b8 !important;
 }
 
@@ -1788,3 +1792,58 @@ button:disabled,
   display: inline-block;
   animation: profile-name-shimmer 4.5s ease-in-out infinite;
 }
+
+/* ── ER Diagram Animated Relationship Lines ────────────────── */
+@keyframes erFlowPulse {
+  0% {
+    stroke-dashoffset: 32;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.er-animated-edge path.react-flow__edge-path {
+  stroke-dasharray: 8 5;
+  animation: erFlowPulse 1.2s linear infinite;
+  transition: stroke 0.2s ease, stroke-width 0.2s ease, opacity 0.2s ease, filter 0.2s ease;
+}
+
+.er-active-edge path.react-flow__edge-path {
+  filter: drop-shadow(0 0 6px currentColor);
+  stroke-dasharray: 10 4;
+  animation: erFlowPulse 0.8s linear infinite;
+}
+
+.er-dimmed-edge path.react-flow__edge-path {
+  opacity: 0.12 !important;
+  animation: none !important;
+}
+
+.react-flow__edge {
+  cursor: pointer;
+}
+
+/* Ensure ER Diagram table nodes are always on top of connection lines */
+.react-flow__edges {
+  z-index: 1 !important;
+}
+
+.react-flow__edge-labels {
+  z-index: 2 !important;
+}
+
+.react-flow__nodes {
+  z-index: 10 !important;
+}
+
+.react-flow__node {
+  z-index: 10 !important;
+}
+
+.react-flow__node.selected {
+  z-index: 30 !important;
+}
+
+
+
