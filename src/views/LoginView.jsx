@@ -14,13 +14,22 @@ import {
   Loader2,
   ArrowLeft,
 } from 'lucide-react';
-import { loginOrganization } from '../services/api';
+import {
+  loginOrganization,
+  fetchConversations,
+  fetchConnections,
+  fetchModels,
+  fetchCatalog,
+  fetchExploreSuggestions,
+  fetchCredits,
+} from '../services/api';
 
 export default function LoginView({ setView, onLoginSuccess }) {
   const [email, setEmail] = useState('');
   const [orgName, setOrgName] = useState('');
   const [role, setRole] = useState('Data Architect');
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingStage, setLoadingStage] = useState('');
   const [error, setError] = useState(null);
 
   // Auto-detect organization domain from email
@@ -38,6 +47,31 @@ export default function LoginView({ setView, onLoginSuccess }) {
 
   const detectedOrg = getDetectedOrg();
 
+  const performWarmup = async (session) => {
+    setLoadingStage('Authenticating session credentials...');
+    await new Promise((r) => setTimeout(r, 200));
+
+    setLoadingStage('Loading recent chats & workspace state...');
+    const [conversations, connections] = await Promise.all([
+      fetchConversations({ force: true }).catch(() => []),
+      fetchConnections({ force: true }).catch(() => []),
+      fetchModels().catch(() => ({ models: [] })),
+      fetchCredits().catch(() => ({ credits: 0 })),
+    ]);
+
+    setLoadingStage('Connecting database schema catalogs...');
+    const defaultConn = connections.find((c) => c.is_default) || connections[0];
+    if (defaultConn?.id) {
+      await Promise.all([
+        fetchCatalog(defaultConn.id, { force: true }).catch(() => null),
+        fetchExploreSuggestions(defaultConn.id, { force: true }).catch(() => ({ suggestions: [] })),
+      ]);
+    }
+
+    setLoadingStage('Launching AI workspace...');
+    await new Promise((r) => setTimeout(r, 250));
+  };
+
   const handleEmailSignIn = async (e) => {
     e.preventDefault();
     if (!email.trim() || !email.includes('@')) {
@@ -46,6 +80,7 @@ export default function LoginView({ setView, onLoginSuccess }) {
     }
     setIsLoading(true);
     setError(null);
+    setLoadingStage('Connecting to SlayQL engine...');
 
     try {
       const session = await loginOrganization({
@@ -54,29 +89,34 @@ export default function LoginView({ setView, onLoginSuccess }) {
         role,
         is_reviewer: false,
       });
+      await performWarmup(session);
       if (onLoginSuccess) onLoginSuccess(session);
       setView('demo');
     } catch (err) {
       setError(err.message || 'Sign in failed.');
     } finally {
       setIsLoading(false);
+      setLoadingStage('');
     }
   };
 
   const handleReviewerSignIn = async () => {
     setIsLoading(true);
     setError(null);
+    setLoadingStage('Authenticating reviewer access...');
 
     try {
       const session = await loginOrganization({
         is_reviewer: true,
       });
+      await performWarmup(session);
       if (onLoginSuccess) onLoginSuccess(session);
       setView('demo');
     } catch (err) {
       setError(err.message || 'Reviewer sign in failed.');
     } finally {
       setIsLoading(false);
+      setLoadingStage('');
     }
   };
 
@@ -120,6 +160,21 @@ export default function LoginView({ setView, onLoginSuccess }) {
 
           {/* Login Card */}
           <div className="bg-white border border-slate-200/90 rounded-3xl shadow-xl shadow-slate-200/50 p-6 sm:p-8 space-y-6">
+            {isLoading && (
+              <div className="p-4 rounded-2xl bg-indigo-50/90 border border-indigo-200/80 space-y-2.5 animate-fade-in">
+                <div className="flex items-center gap-3">
+                  <Loader2 className="w-4 h-4 animate-spin text-indigo-600 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-indigo-950">Initializing AI Workspace</p>
+                    <p className="text-[11px] text-indigo-700 font-medium truncate mt-0.5">{loadingStage || 'Preparing cognitive environment...'}</p>
+                  </div>
+                </div>
+                <div className="w-full bg-indigo-200/50 rounded-full h-1.5 overflow-hidden">
+                  <div className="bg-indigo-600 h-1.5 rounded-full animate-pulse w-full" />
+                </div>
+              </div>
+            )}
+
             {error && (
               <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center justify-between">
                 <span>{error}</span>
