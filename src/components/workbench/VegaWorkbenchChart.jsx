@@ -61,13 +61,13 @@ function buildSpec(idiom, result, recommendation, colors) {
   return { ...base, mark: { type: 'bar', color: colors.palette[0] }, encoding };
 }
 
-export default function VegaWorkbenchChart({ idiom = 'bar', result, recommendation, palette = 'indigo', font = 'Inter' }) {
+export default function VegaWorkbenchChart({ idiom = 'bar', result, recommendation, palette = 'indigo', font = 'Inter', isDark = false }) {
   const containerRef = useRef(null);
   const [error, setError] = useState('');
   const colors = useMemo(() => ({
-    background: '#ffffff', text: '#334155', muted: '#64748b', grid: '#e2e8f0', font,
+    background: isDark ? '#161c27' : '#ffffff', text: isDark ? '#e2e8f0' : '#334155', muted: isDark ? '#94a3b8' : '#64748b', grid: isDark ? '#334155' : '#e2e8f0', font,
     palette: palette === 'emerald' ? ['#059669', '#0ea5e9', '#f59e0b', '#e11d48', '#7c3aed'] : palette === 'sunset' ? ['#e11d48', '#f59e0b', '#7c3aed', '#0ea5e9', '#059669'] : ['#4f46e5', '#0ea5e9', '#059669', '#f59e0b', '#e11d48'],
-  }), [palette, font]);
+  }), [palette, font, isDark]);
   const spec = useMemo(() => buildSpec(idiom, result, recommendation, colors), [idiom, result, recommendation, colors]);
 
   useEffect(() => {

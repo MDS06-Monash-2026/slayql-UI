@@ -48,6 +48,7 @@ from backend.app.workbench.gemini_agent import (
     summarize_result,
 )
 from backend.app.workbench.health import inspect_sqlite_health
+from backend.app.workbench.report_agent import edit_report, generate_report
 
 logger = logging.getLogger(__name__)
 
@@ -189,6 +190,17 @@ class DashboardAssistRequest(BaseModel):
     result: WorkbenchResultPayload
 
 
+class ReportGenerateRequest(BaseModel):
+    preference: Dict[str, Any] = Field(default_factory=dict)
+    result: WorkbenchResultPayload
+
+
+class ReportEditRequest(BaseModel):
+    report: Dict[str, Any]
+    instruction: str = Field(min_length=1, max_length=2000)
+    selected_widget_id: Optional[str] = Field(default=None, max_length=128)
+
+
 def _session_from_request(request: Request, required: bool = False) -> Optional[Dict[str, Any]]:
     auth_header = request.headers.get("Authorization", "")
     token = auth_header.replace("Bearer ", "").strip()
@@ -272,6 +284,30 @@ def _ensure_workbench_credit(request: Request) -> None:
     profile = account_store.get(session["user"]["id"])
     if not profile or profile["credits"] < 1:
         raise HTTPException(status_code=402, detail="Not enough credits for this AI operation.")
+
+
+def _openrouter_configured() -> bool:
+    return bool(settings.OPENROUTER_KEY or settings.OPENROUTER_API_KEY)
+
+
+def _ensure_openrouter_credit(request: Request) -> None:
+    if not _openrouter_configured():
+        return
+    session = _session_from_request(request, required=True)
+    profile = account_store.get(session["user"]["id"])
+    if not profile or profile["credits"] < 1:
+        raise HTTPException(status_code=402, detail="Not enough credits for this AI operation.")
+
+
+def _consume_openrouter_credit(request: Request, reason: str) -> Optional[int]:
+    session = _session_from_request(request)
+    if not session or not _openrouter_configured():
+        return session.get("user", {}).get("credits") if session else None
+    profile = account_store.consume_credit(session["user"]["id"], 1, reason)
+    if not profile:
+        raise HTTPException(status_code=402, detail="Not enough credits for this AI operation.")
+    _refresh_session_profile(profile["id"], profile)
+    return profile["credits"]
 
 # --- Authentication & Session Endpoints ---
 
@@ -933,6 +969,43 @@ async def build_workbench_dashboard(connection_id: str, req: DashboardAssistRequ
         raise
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Gemini dashboard agent failed: {exc}") from exc
+
+
+@app.post("/api/v1/connections/{connection_id}/workbench/ai/report")
+async def generate_workbench_report(connection_id: str, req: ReportGenerateRequest, request: Request):
+    conn = _connection_metadata(connection_id, _owner_id(request))
+    if not conn:
+        raise HTTPException(status_code=404, detail="Database connection not found.")
+    try:
+        _ensure_openrouter_credit(request)
+        catalog = _catalog_for_connection(conn, connection_id)
+        profile = summarize_result(req.result.columns, req.result.column_types, req.result.rows)
+        response = await generate_report(req.preference, profile, _compact_catalog(catalog))
+        response["credits_remaining"] = _consume_openrouter_credit(request, "DeepSeek Power BI report generation")
+        return response
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"DeepSeek report agent failed: {exc}") from exc
+
+
+@app.post("/api/v1/connections/{connection_id}/workbench/ai/report/edit")
+async def edit_workbench_report(connection_id: str, req: ReportEditRequest, request: Request):
+    conn = _connection_metadata(connection_id, _owner_id(request))
+    if not conn:
+        raise HTTPException(status_code=404, detail="Database connection not found.")
+    try:
+        _ensure_openrouter_credit(request)
+        report_profile = req.report.get("data_profile") if isinstance(req.report.get("data_profile"), dict) else {}
+        if not report_profile.get("columns"):
+            raise HTTPException(status_code=400, detail="The report is missing its bounded data profile.")
+        response = await edit_report(req.report, req.instruction, req.selected_widget_id, report_profile)
+        response["credits_remaining"] = _consume_openrouter_credit(request, "DeepSeek Power BI report edit")
+        return response
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"DeepSeek report editor failed: {exc}") from exc
 
 
 @app.post("/api/v1/connections/{connection_id}/workbench/ai/health")
