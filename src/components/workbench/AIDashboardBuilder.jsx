@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Download,
   LayoutDashboard,
@@ -6,6 +6,7 @@ import {
   MessageCircle,
   Presentation,
   RotateCcw,
+  Save,
   Send,
   Sparkles,
   Undo2,
@@ -28,11 +29,19 @@ const initialPreferences = {
   density: 'comfortable',
 };
 
+const REPORT_PALETTE_TOKENS = {
+  indigo: { accent: '#4f46e5', soft: '#eef2ff', border: '#c7d2fe' },
+  emerald: { accent: '#059669', soft: '#ecfdf5', border: '#a7f3d0' },
+  sunset: { accent: '#e11d48', soft: '#fff1f2', border: '#fecdd3' },
+};
+
 export default function AIDashboardBuilder({
   connectionId,
   result = null,
   sql = '',
   isDark = false,
+  onDirtyChange,
+  onRegisterSave,
 }) {
   const [preferences, setPreferences] = useState(initialPreferences);
   const [report, setReport] = useState(null);
@@ -44,6 +53,58 @@ export default function AIDashboardBuilder({
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [localResult, setLocalResult] = useState(null);
+  const [savedSnapshot, setSavedSnapshot] = useState('');
+
+  const storageKey = connectionId ? `slayql:report-studio:${connectionId}` : null;
+  const saveDashboard = useCallback(() => {
+    if (!storageKey || !report) return false;
+    const payload = { report, history, preferences, result: localResult };
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(payload));
+      setSavedSnapshot(JSON.stringify(report));
+      setMessage('Dashboard saved locally for this connection.');
+      return true;
+    } catch {
+      setError('Unable to save this dashboard in browser storage.');
+      return false;
+    }
+  }, [storageKey, report, history, preferences, localResult]);
+
+  useEffect(() => {
+    if (!storageKey) return undefined;
+    try {
+      const saved = JSON.parse(localStorage.getItem(storageKey) || 'null');
+      if (saved?.report) {
+        setReport(saved.report);
+        setHistory(Array.isArray(saved.history) ? saved.history : []);
+        setPreferences({ ...initialPreferences, ...(saved.preferences || {}) });
+        setLocalResult(saved.result || null);
+        setSavedSnapshot(JSON.stringify(saved.report));
+        setMessage('Restored the saved dashboard for this connection.');
+      }
+    } catch {
+      localStorage.removeItem(storageKey);
+    }
+    return undefined;
+  }, [storageKey]);
+
+  const isDirty = Boolean(report && JSON.stringify(report) !== savedSnapshot);
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+    onRegisterSave?.(saveDashboard);
+    return () => onRegisterSave?.(null);
+  }, [isDirty, onDirtyChange, onRegisterSave, saveDashboard]);
+
+  useEffect(() => {
+    if (!isDirty) return undefined;
+    const handleBeforeUnload = (event) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isDirty]);
 
   // Safe active result guaranteeing non-null arrays
   const activeResult = useMemo(() => {
@@ -154,6 +215,14 @@ export default function AIDashboardBuilder({
 
   const palette = report?.theme?.palette || preferences.palette;
   const layout = report?.layout || preferences.layout;
+  const reportFont = report?.theme?.font || preferences.font;
+  const paletteTokens = REPORT_PALETTE_TOKENS[palette] || REPORT_PALETTE_TOKENS.indigo;
+  const reportStyle = {
+    fontFamily: reportFont,
+    '--report-accent': paletteTokens.accent,
+    '--report-soft': paletteTokens.soft,
+    '--report-border': paletteTokens.border,
+  };
 
   return (
     <div className="space-y-6">
@@ -200,6 +269,17 @@ export default function AIDashboardBuilder({
           {report && (
             <button
               type="button"
+              onClick={saveDashboard}
+              disabled={!isDirty}
+              title="Save dashboard locally"
+              className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 transition-colors"
+            >
+              <Save className="w-4 h-4" />
+            </button>
+          )}
+          {report && (
+            <button
+              type="button"
               onClick={exportReport}
               title="Export report JSON"
               className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
@@ -229,7 +309,7 @@ export default function AIDashboardBuilder({
       </section>
 
       {/* Preferences & Layout Configuration Grid */}
-      <section className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-[#121622]/50">
+      <section className="grid sm:grid-cols-2 lg:grid-cols-6 gap-3 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-[#121622]/50">
         <label className="lg:col-span-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
           Report Title
           <input
@@ -273,6 +353,19 @@ export default function AIDashboardBuilder({
             <option value="compact">Compact</option>
           </select>
         </label>
+        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+          Typography
+          <select
+            value={preferences.font}
+            onChange={(e) => setPreferences({ ...preferences, font: e.target.value })}
+            className="mt-1.5 w-full h-9 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs normal-case text-slate-800 dark:text-slate-100 focus:border-indigo-500 outline-none"
+          >
+            <option value="Inter">Inter</option>
+            <option value="IBM Plex Sans">IBM Plex Sans</option>
+            <option value="Source Sans 3">Source Sans 3</option>
+            <option value="system-ui">System UI</option>
+          </select>
+        </label>
       </section>
 
       {/* Error Alert Box */}
@@ -311,12 +404,12 @@ export default function AIDashboardBuilder({
       {report && (
         <section
           className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#121622] overflow-hidden shadow-sm"
-          style={{ fontFamily: report.theme?.font || preferences.font }}
+          style={reportStyle}
         >
           {/* Executive Header Banner */}
-          <header className="px-6 py-6 border-b border-slate-200 dark:border-slate-800 bg-gradient-to-r from-indigo-50/80 via-white to-slate-50 dark:from-slate-900/90 dark:via-[#151922] dark:to-slate-900/80">
+          <header className="px-6 py-6 border-b dark:border-slate-800" style={{ backgroundColor: isDark ? '#151922' : paletteTokens.soft, borderColor: isDark ? undefined : paletteTokens.border }}>
             <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded text-[9.5px] uppercase font-extrabold tracking-wider bg-indigo-600 text-white">
+              <span className="px-2 py-0.5 rounded text-[9.5px] uppercase font-extrabold tracking-wider text-white" style={{ backgroundColor: paletteTokens.accent }}>
                 Executive Briefing
               </span>
               <span className="text-[11px] text-slate-400 font-mono">
@@ -361,6 +454,7 @@ export default function AIDashboardBuilder({
                       ? 'border-indigo-500 ring-2 ring-indigo-500/20 shadow-md'
                       : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
                   } ${spanClasses}`}
+                  style={{ borderColor: isSelected ? paletteTokens.accent : undefined }}
                 >
                   <div className="flex items-center justify-between gap-2 mb-2">
                     <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
@@ -385,7 +479,7 @@ export default function AIDashboardBuilder({
                   {/* KPI Card */}
                   {widget.type === 'kpi' && (
                     <div className="mt-4">
-                      <div className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">
+                      <div className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100" style={{ color: isDark ? undefined : paletteTokens.accent }}>
                         {typeof profileValue(widget.field) === 'number'
                           ? Number(profileValue(widget.field)).toLocaleString(undefined, {
                               maximumFractionDigits: 2,

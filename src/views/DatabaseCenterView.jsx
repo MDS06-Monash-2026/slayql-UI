@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity,
   CheckCircle2,
@@ -100,6 +100,22 @@ export default function DatabaseCenterView({ setView, session, theme: propTheme,
   const [previewTable, setPreviewTable] = useState(labMemoryState.previewTable);
   const [latestResult, setLatestResult] = useState(labMemoryState.latestResult);
   const [latestSql, setLatestSql] = useState(labMemoryState.latestSql);
+  const [dashboardDirty, setDashboardDirty] = useState(false);
+  const dashboardSaveRef = useRef(null);
+
+  const confirmDashboardLeave = () => {
+    if (activeSection === 'dashboard' && dashboardDirty) {
+      const save = window.confirm('This dashboard has unsaved changes. Save it locally before leaving?');
+      if (save) dashboardSaveRef.current?.();
+    }
+    return true;
+  };
+
+  const changeSection = (nextSection) => {
+    if (nextSection === activeSection) return;
+    confirmDashboardLeave();
+    setActiveSection(nextSection);
+  };
 
   // Synchronize with module-level memory cache
   useEffect(() => {
@@ -153,6 +169,7 @@ export default function DatabaseCenterView({ setView, session, theme: propTheme,
   const totalRows = useMemo(() => Object.values(catalog?.tables || {}).reduce((sum, table) => sum + Number(table.row_count_estimate || 0), 0), [catalog]);
 
   const selectSource = (connection) => {
+    if (connection.id !== selectedId) confirmDashboardLeave();
     setExpandedId((current) => current === connection.id ? null : connection.id);
     setSelectedId(connection.id);
   };
@@ -328,7 +345,7 @@ export default function DatabaseCenterView({ setView, session, theme: propTheme,
                           return (
                             <button
                               key={item.id}
-                              onClick={() => setActiveSection(item.id)}
+                              onClick={() => changeSection(item.id)}
                               className={`w-full h-8 px-2 rounded-lg flex items-center gap-2 text-[11px] font-semibold transition ${
                                 isSectionActive
                                   ? 'bg-indigo-600 text-white shadow-xs'
@@ -381,6 +398,7 @@ export default function DatabaseCenterView({ setView, session, theme: propTheme,
                   <select
                     value={selectedId}
                     onChange={(event) => {
+                      if (event.target.value !== selectedId) confirmDashboardLeave();
                       setSelectedId(event.target.value);
                       setExpandedId(event.target.value);
                     }}
@@ -398,7 +416,7 @@ export default function DatabaseCenterView({ setView, session, theme: propTheme,
                     return (
                       <button
                         key={item.id}
-                        onClick={() => setActiveSection(item.id)}
+                        onClick={() => changeSection(item.id)}
                         className={`h-8 px-2.5 rounded-md inline-flex items-center gap-1.5 text-[10px] font-semibold whitespace-nowrap ${
                           isSectionActive
                             ? 'bg-indigo-600 text-white'
@@ -566,7 +584,14 @@ export default function DatabaseCenterView({ setView, session, theme: propTheme,
                     )}
 
                     {activeSection === 'dashboard' && (
-                      <AIDashboardBuilder connectionId={selectedId} result={latestResult} sql={latestSql} isDark={isDark} />
+                      <AIDashboardBuilder
+                        connectionId={selectedId}
+                        result={latestResult}
+                        sql={latestSql}
+                        isDark={isDark}
+                        onDirtyChange={setDashboardDirty}
+                        onRegisterSave={(save) => { dashboardSaveRef.current = save; }}
+                      />
                     )}
 
                     {activeSection === 'health' && (

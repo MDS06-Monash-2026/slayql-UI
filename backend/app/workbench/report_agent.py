@@ -16,7 +16,11 @@ ALLOWED_LAYOUTS = {"executive", "analytical", "story"}
 ALLOWED_WIDGET_TYPES = {"kpi", "chart", "table", "text"}
 ALLOWED_PALETTES = {"indigo", "emerald", "sunset"}
 ALLOWED_DENSITIES = {"comfortable", "compact"}
+ALLOWED_FONTS = {"Inter", "IBM Plex Sans", "Source Sans 3", "system-ui"}
 ALLOWED_IDIOMS = {item[0] for item in CHART_IDIOMS}
+# A compact, deliberately diverse set used when the model omits visuals or
+# repeats one idiom. Each idiom maps cleanly to the Vega renderer.
+VARIETY_IDIOMS = ("bar", "line", "area", "scatter", "donut")
 
 
 def _slug(value: str, fallback: str) -> str:
@@ -44,6 +48,57 @@ def _safe_span(value: Any) -> int:
         return 1
 
 
+def _chart_widget(index: int, idiom: str, metric: Optional[str], dimension: Optional[str]) -> Dict[str, Any]:
+    field = metric or dimension or "row_count"
+    x_field = dimension or metric or "row_count"
+    label_field = metric or dimension or "result"
+    return {
+        "id": "chart-primary" if index == 0 else f"chart-{index + 1}",
+        "type": "chart",
+        "title": f"{label_field.replace('_', ' ').title()} {('by ' + dimension.replace('_', ' ').title()) if dimension and metric else 'overview'}",
+        "field": field,
+        "chart_type": idiom,
+        "span": 2 if idiom in {"bar", "line", "area"} else 1,
+        "config": {"x_field": x_field, "y_fields": [metric] if metric else []},
+    }
+
+
+def _ensure_chart_variety(report: Dict[str, Any], profile: Dict[str, Any]) -> None:
+    """Ensure a report has five distinct chart idioms without trusting model output."""
+    sections = report.get("sections") or []
+    if not sections:
+        return
+    charts = [widget for section in sections for widget in section.get("widgets", []) if widget.get("type") == "chart"]
+    used = set()
+    replacement_index = 0
+    all_idioms = VARIETY_IDIOMS + tuple(item[0] for item in CHART_IDIOMS)
+    for widget in charts:
+        idiom = widget.get("chart_type")
+        if idiom not in ALLOWED_IDIOMS or idiom in used:
+            while replacement_index < len(all_idioms) and all_idioms[replacement_index] in used:
+                replacement_index += 1
+            if replacement_index < len(all_idioms):
+                widget["chart_type"] = all_idioms[replacement_index]
+                idiom = widget["chart_type"]
+        used.add(idiom)
+    columns = _columns(profile)
+    numeric = _numeric_fields(profile)
+    dimensions = _dimension_fields(profile)
+    metric, dimension = (numeric[0] if numeric else None), (dimensions[0] if dimensions else None)
+    next_id = len(charts) + 1
+    for idiom in VARIETY_IDIOMS:
+        if idiom not in used:
+            widget = _chart_widget(next_id, idiom, metric, dimension)
+            while any(item.get("id") == widget["id"] for section in sections for item in section.get("widgets", [])):
+                next_id += 1
+                widget["id"] = f"chart-{next_id}"
+            sections[0].setdefault("widgets", []).append(widget)
+            used.add(idiom)
+            next_id += 1
+        if len(used.intersection(VARIETY_IDIOMS)) >= len(VARIETY_IDIOMS):
+            break
+
+
 def fallback_report(preference: Dict[str, Any], profile: Dict[str, Any]) -> Dict[str, Any]:
     numeric = _numeric_fields(profile)
     dimensions = _dimension_fields(profile)
@@ -54,9 +109,7 @@ def fallback_report(preference: Dict[str, Any], profile: Dict[str, Any]) -> Dict
     ]
     if metric:
         widgets.append({"id": f"kpi-{_slug(metric, 'metric')}", "type": "kpi", "title": metric.replace("_", " ").title(), "field": metric, "chart_type": "kpi", "span": 1, "config": {"format": "number"}})
-        widgets.append({"id": "chart-primary", "type": "chart", "title": f"{metric.replace('_', ' ').title()} by {dimension.replace('_', ' ').title() if dimension else 'result'}", "field": metric, "chart_type": "bar" if dimension else "line", "span": 2, "config": {"x_field": dimension or metric, "y_fields": [metric]}})
-    elif dimension:
-        widgets.append({"id": "chart-primary", "type": "chart", "title": f"{dimension.replace('_', ' ').title()} distribution", "field": dimension, "chart_type": "bar", "span": 2, "config": {"x_field": dimension, "y_fields": []}})
+    widgets.extend(_chart_widget(index, idiom, metric, dimension) for index, idiom in enumerate(VARIETY_IDIOMS))
     widgets.append({"id": "table-detail", "type": "table", "title": "Detail view", "field": dimension or "row_count", "chart_type": "table", "span": 3, "config": {"page_size": 10}})
     return {
         "version": 1,
@@ -67,7 +120,7 @@ def fallback_report(preference: Dict[str, Any], profile: Dict[str, Any]) -> Dict
         "layout": preference.get("layout") if preference.get("layout") in ALLOWED_LAYOUTS else "executive",
         "theme": {
             "palette": preference.get("palette") if preference.get("palette") in ALLOWED_PALETTES else "indigo",
-            "font": preference.get("font") or "Inter",
+            "font": preference.get("font") if preference.get("font") in ALLOWED_FONTS else "Inter",
             "density": preference.get("density") if preference.get("density") in ALLOWED_DENSITIES else "comfortable",
         },
         "sections": [{"id": "overview", "title": "Overview", "layout": "grid", "widgets": widgets}],
@@ -137,6 +190,8 @@ def normalize_report(candidate: Dict[str, Any], preference: Dict[str, Any], prof
         report["theme"]["palette"] = fallback["theme"]["palette"]
     if report["theme"]["density"] not in ALLOWED_DENSITIES:
         report["theme"]["density"] = fallback["theme"]["density"]
+    if report["theme"]["font"] not in ALLOWED_FONTS:
+        report["theme"]["font"] = fallback["theme"]["font"]
     sections = []
     raw_sections = candidate.get("sections") if isinstance(candidate.get("sections"), list) else []
     for section_index, raw_section in enumerate(raw_sections[:4]):
@@ -152,6 +207,7 @@ def normalize_report(candidate: Dict[str, Any], preference: Dict[str, Any], prof
             sections.append({"id": _slug(raw_section.get("id"), f"section-{section_index + 1}"), "title": str(raw_section.get("title") or "Analysis")[:100], "layout": "full" if raw_section.get("layout") == "full" else "grid", "widgets": widgets})
     if sections:
         report["sections"] = sections
+    _ensure_chart_variety(report, profile)
     report["data_profile"] = profile
     return report
 
