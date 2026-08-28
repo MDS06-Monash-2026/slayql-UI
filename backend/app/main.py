@@ -22,7 +22,11 @@ from backend.app.agent.pipeline import SlayQLPipeline, RUN_METADATA_STORE
 from backend.app.queries.validator import SqlValidator
 from backend.app.queries.executor import QueryExecutor
 from backend.app.connections.store import connection_store
-from backend.app.connections.runtime import test_external_connection, get_external_catalog
+from backend.app.connections.runtime import (
+    get_external_catalog,
+    invalidate_external_catalog,
+    test_external_connection,
+)
 from backend.app.connections.registry import (
     default_connection_id,
     get_connection,
@@ -469,6 +473,13 @@ class CreateConnectionRequest(BaseModel):
     credentials: Dict[str, Any] = Field(default_factory=dict)
 
 
+class UpdateConnectionRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    connection_string: Optional[str] = None
+    credentials: Dict[str, Any] = Field(default_factory=dict)
+
+
 def _connection_metadata(connection_id: str, owner_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
     dynamic = DYNAMIC_CONNECTIONS.get(connection_id)
     if dynamic and (connection_id in ENVIRONMENT_CONNECTION_IDS or owner_id is None or dynamic.get("owner_id") == owner_id):
@@ -498,6 +509,42 @@ def _provider_credentials(req: CreateConnectionRequest) -> Dict[str, Any]:
     # Keep the API flexible for provider-specific auth while making it explicit
     # that this payload is encrypted and never echoed back to the client.
     return {str(key): value for key, value in credentials.items() if value not in (None, "")}
+
+
+def _updated_credentials(connection_id: str, req: UpdateConnectionRequest) -> Dict[str, Any]:
+    credentials = dict(get_credentials(connection_id))
+    credentials.update({str(key): value for key, value in req.credentials.items() if value not in (None, "")})
+    if req.connection_string not in (None, ""):
+        credentials["connection_string"] = req.connection_string
+    return credentials
+
+
+async def _store_validated_sqlite_upload(file: UploadFile, destination: Path) -> None:
+    staged = destination.with_name(f".{destination.name}.{uuid.uuid4().hex}.upload")
+    total = 0
+    try:
+        with staged.open("wb") as output:
+            while chunk := await file.read(1024 * 1024):
+                total += len(chunk)
+                if total > settings.MAX_CONNECTION_UPLOAD_BYTES:
+                    raise HTTPException(status_code=413, detail="Database upload exceeds the size limit.")
+                output.write(chunk)
+        sqlite_conn = sqlite3.connect(staged)
+        try:
+            integrity = sqlite_conn.execute("PRAGMA integrity_check").fetchone()[0]
+        finally:
+            sqlite_conn.close()
+        if integrity != "ok":
+            raise HTTPException(status_code=400, detail="The uploaded SQLite database failed integrity checks.")
+        staged.replace(destination)
+    except HTTPException:
+        staged.unlink(missing_ok=True)
+        raise
+    except Exception as exc:
+        staged.unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail=f"Could not read the uploaded database: {exc}") from exc
+    finally:
+        await file.close()
 
 # --- Connection & Catalog Endpoints ---
 
@@ -588,31 +635,13 @@ async def upload_connection(
         raise HTTPException(status_code=400, detail="Database name is required.")
     suffix = Path(file.filename or "").suffix.lower()
     if suffix not in {".sqlite", ".sqlite3", ".db"}:
+        await file.close()
         raise HTTPException(status_code=400, detail="Upload a SQLite .db, .sqlite, or .sqlite3 file.")
 
     conn_id = f"conn_{uuid.uuid4().hex[:8]}"
     owner_id = _owner_id(request)
     destination = connection_store.data_dir / f"{conn_id}.sqlite3"
-    total = 0
-    try:
-        with destination.open("wb") as output:
-            while chunk := await file.read(1024 * 1024):
-                total += len(chunk)
-                if total > settings.MAX_CONNECTION_UPLOAD_BYTES:
-                    raise HTTPException(status_code=413, detail="Database upload exceeds the size limit.")
-                output.write(chunk)
-        with sqlite3.connect(destination) as sqlite_conn:
-            integrity = sqlite_conn.execute("PRAGMA integrity_check").fetchone()[0]
-        if integrity != "ok":
-            raise HTTPException(status_code=400, detail="The uploaded SQLite database failed integrity checks.")
-    except HTTPException:
-        destination.unlink(missing_ok=True)
-        raise
-    except Exception as exc:
-        destination.unlink(missing_ok=True)
-        raise HTTPException(status_code=400, detail=f"Could not read the uploaded database: {exc}") from exc
-    finally:
-        await file.close()
+    await _store_validated_sqlite_upload(file, destination)
 
     metadata = connection_store.save(
         connection_id=conn_id,
@@ -632,6 +661,98 @@ async def upload_connection(
     DYNAMIC_CONNECTIONS[conn_id] = metadata
     return metadata
 
+
+@app.patch("/api/v1/connections/{connection_id}")
+async def update_connection(connection_id: str, req: UpdateConnectionRequest, request: Request):
+    owner_id = _owner_id(request)
+    conn = _connection_metadata(connection_id, owner_id)
+    if not conn:
+        raise HTTPException(status_code=404, detail="Database connection not found.")
+    if connection_id in ENVIRONMENT_CONNECTION_IDS:
+        raise HTTPException(status_code=400, detail="Environment-managed database connections cannot be edited.")
+    if conn.get("engine") == "sqlite":
+        raise HTTPException(status_code=400, detail="Use the replace-file action for managed SQLite sources.")
+
+    name = req.name.strip() if req.name is not None else conn["name"]
+    if not name:
+        raise HTTPException(status_code=400, detail="Database name is required.")
+    description = req.description.strip() if req.description is not None else conn.get("description", "")
+    old_credentials = get_credentials(connection_id)
+    credentials = _updated_credentials(connection_id, req)
+    if not credentials:
+        raise HTTPException(status_code=400, detail="Connection details are required.")
+
+    try:
+        test_result = test_external_connection(conn["engine"], credentials)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Updated connection could not be verified: {exc}") from exc
+
+    invalidate_external_catalog(conn["engine"], old_credentials)
+    invalidate_external_catalog(conn["engine"], credentials)
+    try:
+        catalog = get_external_catalog(conn["engine"], credentials)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Updated schema could not be inspected: {exc}") from exc
+
+    metadata = connection_store.save(
+        connection_id=connection_id,
+        name=name,
+        provider=conn["engine"],
+        mode=conn.get("mode", "direct"),
+        description=description,
+        status="connected",
+        credentials=credentials,
+        data_path=conn.get("path"),
+        owner_id=owner_id,
+    )
+    _invalidate_connection_metadata(connection_id)
+    DYNAMIC_CONNECTIONS[connection_id] = dict(metadata)
+    return {
+        "connection": metadata,
+        "catalog": catalog,
+        "message": test_result.get("message", "Connection updated and verified."),
+    }
+
+
+@app.put("/api/v1/connections/{connection_id}/file")
+async def replace_connection_file(connection_id: str, request: Request, file: UploadFile = File(...)):
+    owner_id = _owner_id(request)
+    conn = _connection_metadata(connection_id, owner_id)
+    if not conn:
+        raise HTTPException(status_code=404, detail="Database connection not found.")
+    if connection_id in ENVIRONMENT_CONNECTION_IDS or conn.get("engine") != "sqlite" or conn.get("mode") != "upload":
+        raise HTTPException(status_code=400, detail="Only managed SQLite uploads can be replaced.")
+    suffix = Path(file.filename or "").suffix.lower()
+    if suffix not in {".sqlite", ".sqlite3", ".db"}:
+        await file.close()
+        raise HTTPException(status_code=400, detail="Upload a SQLite .db, .sqlite, or .sqlite3 file.")
+
+    destination = connection_store.data_dir / f"{connection_id}.sqlite3"
+    await _store_validated_sqlite_upload(file, destination)
+    credentials = {
+        **get_credentials(connection_id),
+        "original_filename": file.filename or "database.sqlite3",
+    }
+    metadata = connection_store.save(
+        connection_id=connection_id,
+        name=conn["name"],
+        provider="sqlite",
+        mode="upload",
+        description=conn.get("description", ""),
+        status="connected",
+        credentials=credentials,
+        data_path=f"connections/{connection_id}.sqlite3",
+        owner_id=owner_id,
+    )
+    _invalidate_connection_metadata(connection_id)
+    DYNAMIC_CONNECTIONS[connection_id] = dict(metadata)
+    catalog = CatalogService.get_sqlite_catalog(str(destination))
+    return {
+        "connection": metadata,
+        "catalog": catalog,
+        "message": "Database file replaced and schema refreshed.",
+    }
+
 @app.post("/api/v1/connections/{connection_id}/test")
 async def test_connection(connection_id: str, request: Request):
     conn = _connection_metadata(connection_id, _owner_id(request))
@@ -640,7 +761,7 @@ async def test_connection(connection_id: str, request: Request):
     started = time.perf_counter()
     try:
         if conn["engine"] == "sqlite":
-            path = conn.get("path") or settings.SQLITE_DEMO_PATH
+            path = require_sqlite_path(connection_id)
             with sqlite3.connect(path) as db:
                 db.execute("SELECT 1").fetchone()
             result = {"status": "healthy", "message": "SQLite file is readable."}
@@ -688,6 +809,20 @@ async def get_connection_catalog(connection_id: str, request: Request):
         raise HTTPException(status_code=409, detail="The SQLite file is unavailable on this deployment. Re-upload this database file.")
     catalog = CatalogService.get_sqlite_catalog(db_path)
     return catalog
+
+
+@app.post("/api/v1/connections/{connection_id}/catalog/refresh")
+async def refresh_connection_catalog(connection_id: str, request: Request):
+    conn = _connection_metadata(connection_id, _owner_id(request))
+    if not conn:
+        raise HTTPException(status_code=404, detail="Database connection not found.")
+    if conn.get("engine") != "sqlite":
+        credentials = get_credentials(connection_id)
+        invalidate_external_catalog(conn["engine"], credentials)
+    try:
+        return _catalog_for_connection(conn, connection_id)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Could not refresh this data source: {exc}") from exc
 
 
 def _catalog_for_connection(conn: Dict[str, Any], connection_id: str):
@@ -833,7 +968,7 @@ async def create_table(connection_id: str, req: CreateTableRequest, request: Req
         raise HTTPException(status_code=404, detail="Database connection not found.")
     if conn and conn.get("engine") != "sqlite":
         raise HTTPException(status_code=400, detail="Table management is available for managed SQLite sources only.")
-    db_path = conn.get("path", settings.SQLITE_DEMO_PATH) if conn else settings.SQLITE_DEMO_PATH
+    db_path = require_sqlite_path(connection_id)
     
     try:
         cols = [c.model_dump() for c in req.columns]
@@ -860,7 +995,7 @@ async def drop_table(connection_id: str, table_name: str, request: Request):
         raise HTTPException(status_code=404, detail="Database connection not found.")
     if conn and conn.get("engine") != "sqlite":
         raise HTTPException(status_code=400, detail="Table management is available for managed SQLite sources only.")
-    db_path = conn.get("path", settings.SQLITE_DEMO_PATH) if conn else settings.SQLITE_DEMO_PATH
+    db_path = require_sqlite_path(connection_id)
     
     try:
         updated_catalog = CatalogService.drop_table(db_path, table_name)
