@@ -27,6 +27,12 @@ def _catalog_cache_key(provider: str, credentials: Dict[str, Any]) -> str:
     return hashlib.sha256(f"{provider.lower()}:{credential_fingerprint}".encode()).hexdigest()
 
 
+def invalidate_external_catalog(provider: str, credentials: Dict[str, Any]) -> None:
+    cache_key = _catalog_cache_key(provider, credentials)
+    with _CATALOG_CACHE_LOCK:
+        _CATALOG_CACHE.pop(cache_key, None)
+
+
 def connection_url(provider: str, credentials: Dict[str, Any]) -> str:
     provider = provider.lower()
     credentials = normalized_credentials(credentials)
