@@ -979,8 +979,34 @@ async def generate_workbench_report(connection_id: str, req: ReportGenerateReque
     try:
         _ensure_openrouter_credit(request)
         catalog = _catalog_for_connection(conn, connection_id)
-        profile = summarize_result(req.result.columns, req.result.column_types, req.result.rows)
+
+        result_cols = list(req.result.columns or [])
+        result_types = list(req.result.column_types or [])
+        result_rows = list(req.result.rows or [])
+
+        # If no query result was provided from workbench, sample the first table from the catalog
+        if (not result_cols or not result_rows) and catalog.get("tables"):
+            tables = list(catalog["tables"].keys())
+            if tables:
+                first_table = tables[0]
+                dialect = "sqlite" if conn["engine"] == "sqlite" else "postgres" if conn["engine"] in {"postgresql", "supabase"} else conn["engine"]
+                sample_sql = f"SELECT * FROM {first_table} LIMIT 50"
+                validation = SqlValidator.validate_and_sanitize(sample_sql, dialect=dialect, catalog=catalog, max_rows=50)
+                if validation.is_valid:
+                    if conn["engine"] == "sqlite":
+                        db_res = await QueryExecutor.execute_sqlite(require_sqlite_path(connection_id), validation.sanitized_sql, 5.0, 50)
+                    else:
+                        db_res = await QueryExecutor.execute_external(conn["engine"], get_credentials(connection_id), validation.sanitized_sql, 5.0, 50)
+                    if db_res and not db_res.error and db_res.columns:
+                        result_cols = db_res.columns
+                        result_types = db_res.column_types
+                        result_rows = db_res.rows
+                        req.preference.setdefault("source_sql", sample_sql)
+
+        profile = summarize_result(result_cols, result_types, result_rows)
         response = await generate_report(req.preference, profile, _compact_catalog(catalog))
+        response["data_profile"] = profile
+        response["result"] = {"columns": result_cols, "column_types": result_types, "rows": result_rows}
         response["credits_remaining"] = _consume_openrouter_credit(request, "DeepSeek Power BI report generation")
         return response
     except HTTPException:
@@ -997,8 +1023,9 @@ async def edit_workbench_report(connection_id: str, req: ReportEditRequest, requ
     try:
         _ensure_openrouter_credit(request)
         report_profile = req.report.get("data_profile") if isinstance(req.report.get("data_profile"), dict) else {}
-        if not report_profile.get("columns"):
-            raise HTTPException(status_code=400, detail="The report is missing its bounded data profile.")
+        if not report_profile or not report_profile.get("columns"):
+            catalog = _catalog_for_connection(conn, connection_id)
+            report_profile = {"row_count": 0, "columns": []}
         response = await edit_report(req.report, req.instruction, req.selected_widget_id, report_profile)
         response["credits_remaining"] = _consume_openrouter_credit(request, "DeepSeek Power BI report edit")
         return response
@@ -1006,6 +1033,7 @@ async def edit_workbench_report(connection_id: str, req: ReportEditRequest, requ
         raise
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"DeepSeek report editor failed: {exc}") from exc
+
 
 
 @app.post("/api/v1/connections/{connection_id}/workbench/ai/health")
