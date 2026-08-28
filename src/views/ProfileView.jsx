@@ -89,7 +89,7 @@ export default function ProfileView({ setView, session, onSessionUpdate, onLogou
 
   return (
     <div className={`live-demo-shell theme-${theme} min-h-screen flex bg-[#f7f9fc] text-slate-900`}>
-      <aside className="hidden md:flex w-64 shrink-0 flex-col border-r border-slate-200 bg-[#f1f4f9]/95">
+      <aside className={`hidden md:flex w-64 shrink-0 flex-col border-r ${theme === 'dark' ? 'bg-[#151924] border-slate-800' : 'bg-white border-slate-200'}`}>
         <button onClick={() => setView('demo')} className="h-20 px-4 border-b border-slate-200/60 flex items-center gap-3 text-left">
           <div className="w-12 h-12 rounded-xl overflow-hidden bg-white p-1 shadow-sm"><img src="/SlayQLlogo.png" alt="SlayQL" className="w-full h-full object-contain" /></div>
           <span className="text-base font-bold text-slate-900">SlayQL</span>
