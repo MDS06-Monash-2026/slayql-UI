@@ -173,7 +173,7 @@ async def _complete_json(system: str, prompt: str, fallback: Dict[str, Any]) -> 
             if event.get("type") == "content_delta":
                 content.append(event.get("delta", ""))
         return _extract_json("".join(content))
-    except (ProviderError, ValueError, json.JSONDecodeError, TypeError):
+    except Exception:
         return fallback
 
 
