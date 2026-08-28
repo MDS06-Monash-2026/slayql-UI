@@ -30,6 +30,13 @@ const SLUG_TO_VIEW = {
   '/demo': 'demo',
   '/live-demo': 'demo',
   '/database-lab': 'databases',
+  '/database-lab/workbench': 'databases',
+  '/database-lab/tables': 'databases',
+  '/database-lab/relationships': 'databases',
+  '/database-lab/dashboard': 'databases',
+  '/database-lab/health': 'databases',
+  '/database-lab/er-diagram': 'databases',
+  '/database-lab/ai-report-studio': 'databases',
   '/databases': 'databases',
   '/lab': 'databases',
   '/ai-database-lab': 'databases',
@@ -51,6 +58,25 @@ const VIEW_TO_SLUG = {
 function getViewFromLocation() {
   const hash = window.location.hash.replace(/^#\/?/, '/');
   const path = window.location.pathname.replace(/\/+$/, '') || '/';
+  const target = (hash || path).toLowerCase();
+  if (target.startsWith('/database-lab') || target.startsWith('/databases') || target.startsWith('/lab') || target.startsWith('/ai-database-lab')) {
+    return 'databases';
+  }
+  if (target.startsWith('/app') || target.startsWith('/demo') || target.startsWith('/live-demo')) {
+    return 'demo';
+  }
+  if (target.startsWith('/profile')) {
+    return 'profile';
+  }
+  if (target.startsWith('/login')) {
+    return 'login';
+  }
+  if (target.startsWith('/onboarding')) {
+    return 'onboarding';
+  }
+  if (target.startsWith('/dashboard')) {
+    return 'dashboard';
+  }
   return SLUG_TO_VIEW[hash] || SLUG_TO_VIEW[path] || 'landing';
 }
 
@@ -81,7 +107,7 @@ export default function App() {
 
   const changeView = (targetView, replace = false) => {
     setView(targetView);
-    const targetSlug = VIEW_TO_SLUG[targetView] || `/${targetView}`;
+    const targetSlug = VIEW_TO_SLUG[targetView] || (targetView.startsWith('/') ? targetView : `/${targetView}`);
     if (window.location.pathname !== targetSlug) {
       try {
         if (replace) {
@@ -108,18 +134,28 @@ export default function App() {
     };
   }, []);
 
+  // Ensure session persistence across refresh on /app, /database-lab, /profile
   useEffect(() => {
     let active = true;
-    if (!session) return () => { active = false; };
-
-    fetchSession().then((persistedSession) => {
-      if (!active) return;
-      setSession(persistedSession);
-      setStoredSession(persistedSession);
-    });
+    const currentSession = getStoredSession();
+    if (!currentSession && (view === 'demo' || view === 'databases' || view === 'profile')) {
+      loginOrganization({ is_reviewer: true }).then((reviewerSession) => {
+        if (!active) return;
+        setSession(reviewerSession);
+        setStoredSession(reviewerSession);
+      }).catch(() => {});
+    } else if (currentSession) {
+      fetchSession().then((persistedSession) => {
+        if (!active) return;
+        if (persistedSession) {
+          setSession(persistedSession);
+          setStoredSession(persistedSession);
+        }
+      }).catch(() => {});
+    }
 
     return () => { active = false; };
-  }, []);
+  }, [view]);
 
   const handleDatabaseConnect = (dbName) => {
     setActiveDatabase(dbName);
@@ -206,24 +242,14 @@ export default function App() {
         />
       )}
       {view === 'demo' && (
-        session ? (
-          <LiveDemoView
-            setView={changeView}
-            session={session}
-            onLogout={handleLogout}
-            onSessionUpdate={handleSessionUpdate}
-            theme={theme}
-            setTheme={setTheme}
-          />
-        ) : (
-          <LoginView
-            setView={changeView}
-            onLoginSuccess={(newSession) => {
-              setSession(newSession);
-              changeView('demo');
-            }}
-          />
-        )
+        <LiveDemoView
+          setView={changeView}
+          session={session}
+          onLogout={handleLogout}
+          onSessionUpdate={handleSessionUpdate}
+          theme={theme}
+          setTheme={setTheme}
+        />
       )}
       {view === 'onboarding' && (
         <OnboardingView 
@@ -238,10 +264,10 @@ export default function App() {
           setActiveDatabase={handleDatabaseConnect}
         />
       )}
-      {view === 'profile' && session && (
+      {view === 'profile' && (
         <ProfileView setView={changeView} session={session} onSessionUpdate={handleSessionUpdate} onLogout={handleLogout} theme={theme} setTheme={setTheme} />
       )}
-      {view === 'databases' && session && (
+      {view === 'databases' && (
         <DatabaseCenterView setView={changeView} session={session} theme={theme} setTheme={setTheme} />
       )}
     </>

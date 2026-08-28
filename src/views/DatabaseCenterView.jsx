@@ -54,6 +54,25 @@ const labMemoryState = {
   previewTable: null,
 };
 
+const VALID_SECTIONS = ['workbench', 'tables', 'relationships', 'dashboard', 'health'];
+
+function getInitialLabSection() {
+  const path = (window.location.pathname || '').toLowerCase().replace(/\/+$/, '');
+  const hash = (window.location.hash || '').replace(/^#\/?/, '').toLowerCase();
+  const searchParams = new URLSearchParams(window.location.search);
+  const queryTab = searchParams.get('tab') || searchParams.get('section');
+  if (queryTab && VALID_SECTIONS.includes(queryTab)) {
+    return queryTab;
+  }
+  const combined = `${path}/${hash}`;
+  if (combined.includes('/tables') || combined.includes('tables')) return 'tables';
+  if (combined.includes('/relationships') || combined.includes('relationships') || combined.includes('/er-diagram') || combined.includes('er-diagram')) return 'relationships';
+  if (combined.includes('/dashboard') || combined.includes('dashboard') || combined.includes('/ai-report-studio') || combined.includes('report-studio')) return 'dashboard';
+  if (combined.includes('/health') || combined.includes('health')) return 'health';
+  if (combined.includes('/workbench') || combined.includes('workbench')) return 'workbench';
+  return labMemoryState.activeSection || 'workbench';
+}
+
 export default function DatabaseCenterView({ setView, session, theme: propTheme, setTheme: propSetTheme }) {
   const [localTheme, setLocalTheme] = useState(() => {
     try {
@@ -87,7 +106,7 @@ export default function DatabaseCenterView({ setView, session, theme: propTheme,
   const [selectedId, setSelectedId] = useState(initialSelectedId);
   const [expandedId, setExpandedId] = useState(labMemoryState.expandedId || initialSelectedId);
   const [catalog, setCatalog] = useState(initialCatalog);
-  const [activeSection, setActiveSection] = useState(labMemoryState.activeSection || 'workbench');
+  const [activeSection, setActiveSection] = useState(() => getInitialLabSection());
   const [loading, setLoading] = useState(initialCachedConnections.length === 0);
   const [testingId, setTestingId] = useState(null);
   const [notice, setNotice] = useState('');
@@ -115,7 +134,23 @@ export default function DatabaseCenterView({ setView, session, theme: propTheme,
     if (nextSection === activeSection) return;
     confirmDashboardLeave();
     setActiveSection(nextSection);
+    const targetSlug = `/database-lab/${nextSection}`;
+    if (window.location.pathname !== targetSlug) {
+      try {
+        window.history.pushState({ section: nextSection }, '', targetSlug);
+      } catch {}
+    }
   };
+
+  // Synchronize on browser back/forward buttons
+  useEffect(() => {
+    const handlePopState = () => {
+      const section = getInitialLabSection();
+      setActiveSection(section);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // Synchronize with module-level memory cache
   useEffect(() => {
