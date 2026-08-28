@@ -47,17 +47,17 @@ export function highlightSQLTokens(sql) {
     const [, comment, str, kw, fn, num, op] = match;
 
     if (comment) {
-      parts.push(<span key={parts.length} className="sql-comment text-slate-400 italic">{comment}</span>);
+      parts.push(<span key={parts.length} className="sql-comment text-slate-500 dark:text-slate-400 italic">{comment}</span>);
     } else if (str) {
-      parts.push(<span key={parts.length} className="sql-str text-emerald-600 dark:text-emerald-400 font-mono font-medium">{str}</span>);
+      parts.push(<span key={parts.length} className="sql-str text-emerald-800 dark:text-emerald-300 font-mono font-semibold">{str}</span>);
     } else if (kw) {
-      parts.push(<span key={parts.length} className="sql-kw text-indigo-600 dark:text-indigo-400 font-bold font-mono">{kw}</span>);
+      parts.push(<span key={parts.length} className="sql-kw text-indigo-800 dark:text-indigo-300 font-bold font-mono">{kw}</span>);
     } else if (fn) {
-      parts.push(<span key={parts.length} className="sql-fn text-sky-600 dark:text-sky-400 font-bold font-mono">{fn}</span>);
+      parts.push(<span key={parts.length} className="sql-fn text-sky-800 dark:text-sky-300 font-bold font-mono">{fn}</span>);
     } else if (num) {
-      parts.push(<span key={parts.length} className="sql-num text-amber-600 dark:text-amber-400 font-mono font-semibold">{num}</span>);
+      parts.push(<span key={parts.length} className="sql-num text-amber-800 dark:text-amber-300 font-mono font-bold">{num}</span>);
     } else if (op) {
-      parts.push(<span key={parts.length} className="sql-op text-slate-400 dark:text-slate-500 font-mono">{op}</span>);
+      parts.push(<span key={parts.length} className="sql-op text-slate-600 dark:text-slate-400 font-mono font-medium">{op}</span>);
     }
     lastIndex = tokenRe.lastIndex;
   }

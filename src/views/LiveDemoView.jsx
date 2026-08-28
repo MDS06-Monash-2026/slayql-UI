@@ -37,6 +37,7 @@ import AgentStreamPanel, { normalizeStreamEvent } from '../components/demo/Agent
 import SqlEditorPanel from '../components/demo/SqlEditorPanel';
 import VisualizationStudio from '../components/demo/VisualizationStudio';
 import DataTablePanel from '../components/demo/DataTablePanel';
+import MarkdownContent from '../components/common/MarkdownContent';
 import CatalogDrawer from '../components/demo/CatalogDrawer';
 import SavedQueriesDrawer from '../components/demo/SavedQueriesDrawer';
 import AddConnectionModal from '../components/demo/AddConnectionModal';
@@ -44,6 +45,7 @@ import AddTableModal from '../components/demo/AddTableModal';
 import ConfirmationModal from '../components/demo/ConfirmationModal';
 import SignOutModal from '../components/demo/SignOutModal';
 import ReportModal from '../components/demo/ReportModal';
+import AssistantTablePreview from '../components/demo/AssistantTablePreview';
 import EmptyChatState from '../components/demo/EmptyChatState';
 
 import {
@@ -90,18 +92,36 @@ const ConversationAssistantMessage = React.memo(function ConversationAssistantMe
 
   return (
     <div className="py-4 space-y-3">
-      <div className={isSqlQuery ? 'ai-response-text' : 'ai-bubble'}>
-        <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+      <div className="ai-response-text">
+        <MarkdownContent content={message.content} isDark={isDark} />
       </div>
       {isSqlQuery && payload.reasoning && (
-        <details className="rounded-xl border border-indigo-100/80 bg-gradient-to-br from-indigo-50/60 to-purple-50/40 px-3 py-2 text-xs">
-          <summary className="cursor-pointer font-semibold text-indigo-600">Reasoning output</summary>
-          <p className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap leading-relaxed text-slate-500">{payload.reasoning}</p>
+        <details
+          className={`rounded-xl border px-3.5 py-2 text-xs transition-all ${
+            isDark
+              ? 'border-indigo-900/60 bg-[#161a29] text-slate-200'
+              : 'border-indigo-100/80 bg-gradient-to-br from-indigo-50/60 to-purple-50/40 text-slate-700'
+          }`}
+        >
+          <summary
+            className={`cursor-pointer font-semibold ${
+              isDark ? 'text-indigo-400 hover:text-indigo-300' : 'text-indigo-600 hover:text-indigo-700'
+            }`}
+          >
+            Reasoning output
+          </summary>
+          <p
+            className={`mt-2 whitespace-pre-wrap leading-relaxed font-mono text-[11px] ${
+              isDark ? 'text-slate-300' : 'text-slate-600'
+            }`}
+          >
+            {payload.reasoning}
+          </p>
         </details>
       )}
-      {isSqlQuery && <AgentStreamPanel events={payload.stream_events || []} />}
+      {isSqlQuery && <AgentStreamPanel events={payload.stream_events || []} sql={message.sql} isDark={isDark} />}
       {message.sql && (
-        <SqlEditorPanel sql={message.sql} isExecuting={false} />
+        <SqlEditorPanel sql={message.sql} isExecuting={false} isDark={isDark} />
       )}
       {payload.chart && rows.length > 0 && (
         <VisualizationStudio
@@ -115,21 +135,13 @@ const ConversationAssistantMessage = React.memo(function ConversationAssistantMe
         />
       )}
       {columns.length > 0 && (
-        <div className="overflow-auto rounded-lg border border-slate-200 bg-white">
-          <table className="min-w-full text-xs">
-            <thead className="bg-slate-50 text-slate-500">
-              <tr>{columns.map((column) => <th key={column} className="px-3 py-2 text-left font-semibold whitespace-nowrap">{column}</th>)}</tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-700">
-              {rows.slice(0, 8).map((row, rowIndex) => (
-                <tr key={rowIndex}>{columns.map((column, columnIndex) => <td key={`${column}-${columnIndex}`} className="px-3 py-2 whitespace-nowrap">{String(row[columnIndex] ?? '')}</td>)}</tr>
-              ))}
-            </tbody>
-          </table>
-          <div className="border-t border-slate-100 px-3 py-1.5 text-[10px] text-slate-400">
-            {payload.row_count ?? rows.length} rows{payload.is_truncated ? ' (limited)' : ''}
-          </div>
-        </div>
+        <AssistantTablePreview
+          columns={columns}
+          rows={rows}
+          rowCount={payload.row_count}
+          isTruncated={payload.is_truncated}
+          isDark={isDark}
+        />
       )}
       {payload.reportable !== false && (
         <div className="flex items-center gap-2 pt-1">
@@ -189,7 +201,7 @@ function isLikelySqlTurn(text) {
     || /^(and|also|now|then|what about|how about|only|same|those|them|it|that)\b/.test(normalized.trim());
 }
 
-export default function LiveDemoView({ setView, session, onLogout, onSessionUpdate }) {
+export default function LiveDemoView({ setView, session, onLogout, onSessionUpdate, theme: propTheme, setTheme: propSetTheme }) {
   // --- Infrastructure & Metadata State ---
   const [models, setModels] = useState([]);
   const [selectedModelId, setSelectedModelId] = useState('deepseek/deepseek-v4-flash');
@@ -223,25 +235,29 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
   const [addConnectionOpen, setAddConnectionOpen] = useState(false);
   const [addTableOpen, setAddTableOpen] = useState(false);
   const [dbDropdownOpen, setDbDropdownOpen] = useState(false);
-  const [theme, setTheme] = useState(() => {
+  const [localTheme, setLocalTheme] = useState(() => {
     try {
       return localStorage.getItem('slayql_theme') || 'light';
     } catch {
       return 'light';
     }
   });
+  const theme = propTheme || localTheme;
+  const setTheme = propSetTheme || setLocalTheme;
 
   const userName = session?.user?.name || 'Enterprise Reviewer';
   const userRole = session?.user?.role || 'Lead Architect';
   const avatarInitials = session?.user?.avatar_initials || 'ER';
 
-  // --- Conversational Turns State ---
   const [messages, setMessages] = useState([]);
   const [conversationId, setConversationId] = useState(null);
+  const [loadingThreadId, setLoadingThreadId] = useState(null);
   const [inputPrompt, setInputPrompt] = useState('');
   const [isRunning, setIsRunning] = useState(false);
   const [currentRunId, setCurrentRunId] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
+
+  const threadCacheRef = useRef(new Map());
 
   // Active turn stream outputs
   const [activeStages, setActiveStages] = useState({});
@@ -525,45 +541,82 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
 
   const loadConversationThread = useCallback(async (id) => {
     if (!id) return;
+    if (id === conversationId && !loadingThreadId) return;
     setErrorMessage(null);
+
+    // 1. Instant optimistic selection (0ms latency visual feedback)
+    setConversationId(id);
+    setLoadingThreadId(id);
+
+    // 2. Immediately terminate any active stream & clear ephemeral state
+    if (activeStreamRef.current) activeStreamRef.current.close();
+    activeStreamRef.current = null;
+    activeStreamEventsRef.current = [];
+
+    setCurrentRunId(null);
+    setActiveStages({});
+    setActiveStageKey(null);
+    setActiveSql('');
+    setActiveChecks([]);
+    setActiveColumns([]);
+    setActiveColumnTypes([]);
+    setActiveRows([]);
+    setActiveIsTruncated(false);
+    setActiveExecutionTimeMs(0);
+    setActiveChartRecommendation(null);
+    setActiveTokenUsage(null);
+    setActiveReasoning('');
+    setActiveAnswer('');
+    setActiveIsSqlQuery(null);
+    setActiveStreamEvents([]);
+    setActiveThinkingLabel('');
+    setActiveStartedAt(null);
+
+    // 3. Instant Cache Hit (SWR pattern)
+    const cached = threadCacheRef.current.get(id);
+    if (cached) {
+      setMessages(cached.messages);
+      if (cached.selected_model_id) setSelectedModelId(cached.selected_model_id);
+      if (cached.connection_id && cached.connection_id !== selectedConnectionRef.current) {
+        setSelectedConnectionId(cached.connection_id);
+        loadCatalog(cached.connection_id).catch(() => {});
+        loadExploreSuggestions(cached.connection_id).catch(() => {});
+      }
+      setLoadingThreadId(null);
+    } else {
+      // Clear previous messages so user doesn't see old thread contents during fetch
+      setMessages([]);
+    }
+
     try {
       const thread = await fetchConversation(id);
-      if (activeStreamRef.current) activeStreamRef.current.close();
-      activeStreamRef.current = null;
-      activeStreamEventsRef.current = [];
-      setConversationId(thread.id);
-      setMessages((thread.messages || []).map((message) => ({
+      const formattedMessages = (thread.messages || []).map((message) => ({
         ...message,
         sender: message.role,
         createdAt: new Date(message.created_at),
-      })));
+      }));
+
+      // Cache thread in memory for instantaneous subsequent clicks
+      threadCacheRef.current.set(id, {
+        ...thread,
+        messages: formattedMessages,
+      });
+
+      setMessages(formattedMessages);
       if (thread.selected_model_id) setSelectedModelId(thread.selected_model_id);
       if (thread.connection_id && thread.connection_id !== selectedConnectionRef.current) {
         setSelectedConnectionId(thread.connection_id);
-        await Promise.all([loadCatalog(thread.connection_id), loadExploreSuggestions(thread.connection_id)]);
+        loadCatalog(thread.connection_id).catch(() => {});
+        loadExploreSuggestions(thread.connection_id).catch(() => {});
       }
-      setCurrentRunId(null);
-      setActiveStages({});
-      setActiveStageKey(null);
-      setActiveSql('');
-      setActiveChecks([]);
-      setActiveColumns([]);
-      setActiveColumnTypes([]);
-      setActiveRows([]);
-      setActiveIsTruncated(false);
-      setActiveExecutionTimeMs(0);
-      setActiveChartRecommendation(null);
-      setActiveTokenUsage(null);
-      setActiveReasoning('');
-      setActiveAnswer('');
-      setActiveIsSqlQuery(null);
-      setActiveStreamEvents([]);
-      setActiveThinkingLabel('');
-      setActiveStartedAt(null);
     } catch (err) {
-      setErrorMessage(err.message || 'Failed to load conversation.');
+      if (!cached) {
+        setErrorMessage(err.message || 'Failed to load conversation.');
+      }
+    } finally {
+      setLoadingThreadId(null);
     }
-  }, [loadCatalog, loadExploreSuggestions]);
+  }, [conversationId, loadingThreadId, loadCatalog, loadExploreSuggestions]);
 
   // --- Send Query ---
   const handleSendQuery = useCallback(async (promptToRun) => {
@@ -921,7 +974,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
       {sidebarOpen && <button type="button" onClick={() => setSidebarOpen(false)} className="md:hidden fixed inset-0 z-20 bg-slate-950/30" aria-label="Close sidebar overlay" />}
       {/* ─── Minimalist Left Sidebar (Claude Desktop / AI Studio Style) ─── */}
       <aside
-        className={`fixed inset-y-0 left-0 md:relative bg-[#f1f4f9]/95 border-r border-slate-200/80 flex flex-col justify-between transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)] z-30 overflow-hidden ${
+        className={`fixed inset-y-0 left-0 md:relative ${theme === 'dark' ? 'bg-[#121622] border-slate-800' : 'bg-white border-slate-200/90'} border-r flex flex-col justify-between transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)] z-30 overflow-hidden ${
           sidebarOpen
             ? 'w-64 min-w-[16rem] max-w-[16rem] opacity-100 translate-x-0'
             : 'w-0 min-w-0 max-w-0 opacity-0 -translate-x-full md:translate-x-0 border-r-0 pointer-events-none'
@@ -960,14 +1013,17 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
           {/* Navigation & History */}
           <div className="flex-1 overflow-y-auto px-3 py-1 space-y-3">
             {/* Quick Tools */}
-            <div className="space-y-0.5">
+            <div className="space-y-1">
               <button
                 onClick={() => setView('databases')}
-                className="db-center-cta w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-bold text-white transition-all shadow-sm"
+                className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs font-semibold transition-all border shadow-2xs ${
+                  theme === 'dark'
+                    ? 'bg-[#181d2e] hover:bg-[#20273d] text-indigo-300 border-indigo-900/50'
+                    : 'bg-indigo-50/90 hover:bg-indigo-100/90 text-indigo-700 border-indigo-200/90'
+                }`}
               >
-                <Database className="w-4 h-4 text-indigo-200" />
-                <span className="flex-1 text-left">AI Database Lab</span>
-                <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-white/15 text-indigo-100">NEW</span>
+                <Database className={`w-4 h-4 ${theme === 'dark' ? 'text-indigo-400' : 'text-indigo-600'}`} />
+                <span className="flex-1 text-left font-bold">AI Database Lab</span>
               </button>
 
               <button
@@ -1025,39 +1081,58 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
                 <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Recent chats</p>
                 {historyList.length > 0 && <span className="text-[10px] text-slate-400">{historyList.length}</span>}
               </div>
-              <div className="max-h-[260px] overflow-y-auto space-y-0.5 pr-0.5">
+              <div className="max-h-[185px] overflow-y-auto space-y-0.5 pr-0.5">
               {historyList.length === 0 ? (
-                <p className="text-[11px] text-slate-400 px-2 py-1">No queries yet</p>
+                <p className="text-[11px] text-slate-400 px-2 py-1.5">No queries yet</p>
               ) : (
-                historyList.map((hist) => (
-                  <div key={hist.id} className="group relative rounded-lg hover:bg-slate-200/60 focus-within:bg-slate-200/60 transition-colors">
-                    <button
-                      type="button"
-                      onClick={() => loadConversationThread(hist.id)}
-                      disabled={isRunning}
-                      className="w-full text-left pl-2.5 pr-8 py-2 rounded-lg text-xs text-slate-600 hover:text-slate-900 transition-all flex items-start gap-2"
+                historyList.map((hist) => {
+                  const isActive = conversationId === hist.id;
+                  return (
+                    <div
+                      key={hist.id}
+                      className={`group relative rounded-lg transition-all ${
+                        isActive
+                          ? theme === 'dark'
+                            ? 'bg-indigo-950/50 text-indigo-300 font-semibold'
+                            : 'bg-indigo-50/90 text-indigo-700 font-semibold shadow-2xs'
+                          : theme === 'dark'
+                          ? 'hover:bg-slate-800/60 text-slate-300'
+                          : 'hover:bg-slate-100/80 text-slate-700'
+                      }`}
                     >
-                    <MessageSquare className="w-3 h-3 text-slate-400 flex-shrink-0 mt-0.5" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate">{hist.prompt}</span>
-                      <span className="flex items-center gap-1.5 mt-0.5 text-[10px] text-slate-400">
-                        <span>{formatHistoryDate(hist.updated_at || hist.created_at)}</span>
-                        {hist.model_id && <><span>·</span><span className="truncate">{hist.model_id.split('/').pop()}</span></>}
-                      </span>
-                    </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setHistoryDeleteTarget(hist)}
-                      disabled={deletingHistoryId === hist.id}
-                      className="absolute right-1.5 top-1.5 w-6 h-6 flex items-center justify-center rounded-md text-slate-400 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 hover:text-red-600 hover:bg-red-50 focus:opacity-100 transition-all disabled:opacity-50"
-                      title="Delete chat"
-                      aria-label={`Delete ${hist.prompt}`}
-                    >
-                      <Trash2 className={`w-3.5 h-3.5 ${deletingHistoryId === hist.id ? 'animate-pulse' : ''}`} />
-                    </button>
-                  </div>
-                ))
+                      <button
+                        type="button"
+                        onClick={() => loadConversationThread(hist.id)}
+                        disabled={isRunning}
+                        className="w-full text-left pl-2.5 pr-7 py-1.5 rounded-lg transition-all flex items-center justify-between gap-1.5"
+                      >
+                        <span className="block truncate text-[11.5px] leading-tight flex-1">
+                          {hist.prompt}
+                        </span>
+                        {loadingThreadId === hist.id && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-ping shrink-0" />
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setHistoryDeleteTarget(hist);
+                        }}
+                        disabled={deletingHistoryId === hist.id}
+                        className={`absolute right-1 top-1/2 -translate-y-1/2 w-5.5 h-5.5 flex items-center justify-center rounded-md transition-all opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 disabled:opacity-50 ${
+                          theme === 'dark'
+                            ? 'text-slate-400 hover:text-rose-400 hover:bg-rose-950/80 active:scale-95'
+                            : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50/90 border border-transparent hover:border-rose-200/80 active:scale-95 shadow-2xs'
+                        }`}
+                        title="Delete chat"
+                        aria-label={`Delete ${hist.prompt}`}
+                      >
+                        <Trash2 className={`w-3.5 h-3.5 ${deletingHistoryId === hist.id ? 'animate-spin' : ''}`} />
+                      </button>
+                    </div>
+                  );
+                })
               )}
               </div>
             </div>
@@ -1292,8 +1367,22 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
         {/* ─── Conversational Thread ─── */}
         <main className={`flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 bg-[#f7f9fc] flex flex-col ${messages.length === 0 && !isRunning ? 'justify-center items-center py-0' : 'py-6'}`}>
           <div className={`max-w-3xl lg:max-w-4xl mx-auto space-y-6 w-full ${messages.length === 0 && !isRunning ? 'flex flex-col justify-center items-center my-auto' : 'pb-8'}`}>
+            {/* Thread Loading Skeleton (Zero-lag transition) */}
+            {loadingThreadId && messages.length === 0 && (
+              <div className="w-full space-y-5 py-4 animate-pulse">
+                <div className="flex justify-end">
+                  <div className={`w-3/5 h-11 rounded-2xl rounded-tr-xs ${theme === 'dark' ? 'bg-slate-800/80' : 'bg-indigo-100/70'}`} />
+                </div>
+                <div className="space-y-3">
+                  <div className={`w-3/4 h-4 rounded-md ${theme === 'dark' ? 'bg-slate-800/60' : 'bg-slate-200/80'}`} />
+                  <div className={`w-full h-28 rounded-xl ${theme === 'dark' ? 'bg-slate-800/40' : 'bg-slate-200/50'}`} />
+                  <div className={`w-1/2 h-4 rounded-md ${theme === 'dark' ? 'bg-slate-800/60' : 'bg-slate-200/80'}`} />
+                </div>
+              </div>
+            )}
+
             {/* Empty Conversation Welcome State */}
-            {messages.length === 0 && !isRunning && (
+            {messages.length === 0 && !isRunning && !loadingThreadId && (
               <EmptyChatState />
             )}
 
@@ -1333,7 +1422,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
                           tokenUsage={activeTokenUsage}
                           reasoning={activeReasoning}
                         />
-                        <AgentStreamPanel events={activeStreamEvents} isRunning={isRunning} />
+                        <AgentStreamPanel events={activeStreamEvents} isRunning={isRunning} sql={activeSql} isDark={theme === 'dark'} />
                       </>
                     )}
 
@@ -1361,8 +1450,8 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
 
                     {activeAnswer && (
                       <div className="space-y-2">
-                        <div className={activeIsSqlQuery === false ? 'ai-bubble' : 'ai-response-text'}>
-                          <p className="text-sm leading-relaxed whitespace-pre-wrap">{activeAnswer}</p>
+                        <div className="ai-response-text">
+                          <MarkdownContent content={activeAnswer} isDark={theme === 'dark'} />
                         </div>
                         {activeIsSqlQuery === false && activeReasoning && (
                           <details className="reasoning-collapsed">
@@ -1395,7 +1484,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
                               onClick={() => setActiveResultTab('chart')}
                               className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
                                 activeResultTab === 'chart'
-                                  ? 'bg-slate-900 text-white'
+                                  ? 'bg-indigo-600 text-white shadow-xs'
                                   : 'text-slate-600 hover:bg-slate-100'
                               }`}
                             >
@@ -1408,7 +1497,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
                               onClick={() => setActiveResultTab('table')}
                               className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
                                 activeResultTab === 'table'
-                                  ? 'bg-slate-900 text-white'
+                                  ? 'bg-indigo-600 text-white shadow-xs'
                                   : 'text-slate-600 hover:bg-slate-100'
                               }`}
                             >
@@ -1520,6 +1609,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
                     value={thinkingEffort}
                     onChange={setThinkingEffort}
                     disabled={isRunning}
+                    isDark={theme === 'dark'}
                   />
                   {isRunning ? (
                     <button

@@ -1,21 +1,38 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import {
   Table2,
   ChevronUp,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Download,
   Search,
-  CheckCircle2,
-  FileSpreadsheet,
 } from 'lucide-react';
 
 const PAGE_SIZE = 10;
 
-export default function DataTablePanel({ columns = [], rows = [], isTruncated, executionTimeMs }) {
+export default function DataTablePanel({
+  columns = [],
+  rows = [],
+  isTruncated,
+  executionTimeMs,
+  isDark = false,
+}) {
   const [sortCol, setSortCol] = useState(null);
   const [sortDir, setSortDir] = useState('asc');
   const [page, setPage] = useState(0);
   const [filterText, setFilterText] = useState('');
+
+  const tableScrollRef = useRef(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const checkScroll = useCallback(() => {
+    const el = tableScrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 4);
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 4);
+  }, []);
 
   // Filter & Sort
   const filteredRows = useMemo(() => {
@@ -39,6 +56,22 @@ export default function DataTablePanel({ columns = [], rows = [], isTruncated, e
   const totalPages = Math.ceil(sortedRows.length / PAGE_SIZE) || 1;
   const pageRows = sortedRows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
+  useEffect(() => {
+    const timer = setTimeout(checkScroll, 50);
+    return () => clearTimeout(timer);
+  }, [checkScroll, columns, pageRows]);
+
+  useEffect(() => {
+    const el = tableScrollRef.current;
+    if (!el) return;
+    el.addEventListener('scroll', checkScroll);
+    window.addEventListener('resize', checkScroll);
+    return () => {
+      el.removeEventListener('scroll', checkScroll);
+      window.removeEventListener('resize', checkScroll);
+    };
+  }, [checkScroll]);
+
   const handleSort = (idx) => {
     if (sortCol === idx) {
       setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -47,6 +80,15 @@ export default function DataTablePanel({ columns = [], rows = [], isTruncated, e
       setSortDir('asc');
     }
     setPage(0);
+  };
+
+  const handleScrollHorizontally = (direction) => {
+    if (!tableScrollRef.current) return;
+    const distance = 260;
+    tableScrollRef.current.scrollBy({
+      left: direction === 'left' ? -distance : distance,
+      behavior: 'smooth',
+    });
   };
 
   const handleExportCsv = () => {
@@ -68,18 +110,36 @@ export default function DataTablePanel({ columns = [], rows = [], isTruncated, e
 
   if (!rows || rows.length === 0) {
     return (
-      <div className="py-16 text-center text-slate-400 bg-white rounded-2xl border border-slate-200">
+      <div
+        className={`py-16 text-center rounded-2xl border ${
+          isDark
+            ? 'bg-[#1f242d] border-slate-800 text-slate-400'
+            : 'bg-white border-slate-200 text-slate-400'
+        }`}
+      >
         <Table2 className="w-8 h-8 mx-auto mb-2 opacity-40 text-slate-500" />
-        <p className="text-sm font-semibold text-slate-700">No result rows returned</p>
+        <p className={`text-sm font-semibold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
+          No result rows returned
+        </p>
         <p className="text-xs text-slate-400 mt-1">Execute the query to inspect returned data.</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-4 space-y-4">
+    <div
+      className={`rounded-2xl border shadow-sm p-4 space-y-4 ${
+        isDark
+          ? 'bg-[#1a1e27] border-slate-800 text-slate-200'
+          : 'bg-white border-slate-200 text-slate-800'
+      }`}
+    >
       {/* Table Toolbar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+      <div
+        className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3 ${
+          isDark ? 'border-slate-800' : 'border-slate-200/80'
+        }`}
+      >
         <div className="flex items-center gap-3">
           <div className="relative">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
@@ -91,74 +151,178 @@ export default function DataTablePanel({ columns = [], rows = [], isTruncated, e
                 setPage(0);
               }}
               placeholder="Filter in results..."
-              className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800"
+              className={`pl-8 pr-3 py-1.5 text-xs rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500/20 ${
+                isDark
+                  ? 'bg-slate-800/60 border-slate-700 text-slate-100 focus:bg-slate-800'
+                  : 'bg-slate-50 border-slate-200 text-slate-800 focus:bg-white'
+              }`}
             />
           </div>
-          <span className="text-xs font-semibold text-slate-500">
+          <span className={`text-xs font-semibold ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
             {sortedRows.length} {sortedRows.length === 1 ? 'row' : 'rows'}
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          {/* Horizontal Scroll Navigation Chevrons */}
+          <div
+            className={`flex items-center gap-1 px-1.5 py-1 rounded-xl border ${
+              isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-100 border-slate-200'
+            }`}
+          >
+            <button
+              type="button"
+              onClick={() => handleScrollHorizontally('left')}
+              disabled={!canScrollLeft}
+              title="Scroll columns left"
+              className={`p-1 rounded-lg transition-all disabled:opacity-25 disabled:cursor-not-allowed ${
+                isDark
+                  ? 'text-slate-300 hover:text-white hover:bg-slate-700'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white'
+              }`}
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+            <span
+              className={`text-[10px] font-bold uppercase tracking-wider px-1.5 select-none ${
+                isDark ? 'text-slate-400' : 'text-slate-500'
+              }`}
+            >
+              Columns
+            </span>
+            <button
+              type="button"
+              onClick={() => handleScrollHorizontally('right')}
+              disabled={!canScrollRight}
+              title="Scroll columns right"
+              className={`p-1 rounded-lg transition-all disabled:opacity-25 disabled:cursor-not-allowed ${
+                isDark
+                  ? 'text-slate-300 hover:text-white hover:bg-slate-700'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white'
+              }`}
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
           {executionTimeMs !== undefined && (
-            <span className="px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-semibold">
-              {executionTimeMs}ms execution
+            <span
+              className={`px-2.5 py-1 rounded-full border text-[11px] font-semibold ${
+                isDark
+                  ? 'bg-emerald-950/40 border-emerald-800/60 text-emerald-300'
+                  : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+              }`}
+            >
+              {executionTimeMs}ms
             </span>
           )}
           {isTruncated && (
-            <span className="px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-[11px] font-semibold">
-              Truncated (200 limit)
+            <span
+              className={`px-2.5 py-1 rounded-full border text-[11px] font-semibold ${
+                isDark
+                  ? 'bg-amber-950/40 border-amber-800/60 text-amber-300'
+                  : 'bg-amber-50 border-amber-200 text-amber-700'
+              }`}
+            >
+              Limit 200
             </span>
           )}
           <button
             onClick={handleExportCsv}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all"
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border transition-all shadow-xs ${
+              isDark
+                ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200/80'
+            }`}
           >
             <Download className="w-3.5 h-3.5" />
-            <span>Export CSV</span>
+            <span>CSV</span>
           </button>
         </div>
       </div>
 
       {/* Data Table */}
-      <div className="rounded-xl border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50/80 border-b border-slate-200">
+      <div
+        className={`relative rounded-2xl border overflow-hidden shadow-xs ${
+          isDark ? 'border-slate-800' : 'border-slate-200'
+        }`}
+      >
+        <div ref={tableScrollRef} className="overflow-x-auto scroll-smooth">
+          <table className="w-full text-xs">
+            {/* Header row */}
+            <thead
+              className={`border-b ${
+                isDark
+                  ? 'bg-[#1a1f2b] text-slate-200 border-slate-800'
+                  : 'bg-sky-50 text-sky-950 border-sky-200/80'
+              }`}
+            >
               <tr>
-                <th className="px-3 py-2.5 font-bold text-slate-400 uppercase tracking-wider w-10">#</th>
+                <th
+                  className={`px-3 py-3 font-bold uppercase tracking-wider text-center w-12 border-r text-[11px] ${
+                    isDark ? 'text-slate-500 border-slate-800' : 'text-sky-700/70 border-sky-200/60'
+                  }`}
+                >
+                  #
+                </th>
                 {columns.map((col, idx) => (
                   <th
                     key={idx}
                     onClick={() => handleSort(idx)}
-                    className="px-3 py-2.5 font-bold text-slate-600 uppercase tracking-wider cursor-pointer hover:bg-slate-100/80 select-none transition-all"
+                    className={`px-4 py-3 font-bold uppercase tracking-wider cursor-pointer select-none transition-all text-center border-r last:border-r-0 text-[11px] ${
+                      isDark
+                        ? 'text-slate-200 hover:bg-slate-800/80 border-slate-800'
+                        : 'text-sky-950 hover:bg-sky-100/70 border-sky-200/60'
+                    }`}
                   >
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center justify-center gap-1.5">
                       <span>{col}</span>
                       {sortCol === idx ? (
                         sortDir === 'asc' ? (
-                          <ChevronUp className="w-3.5 h-3.5 text-indigo-600" />
+                          <ChevronUp className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                         ) : (
-                          <ChevronDown className="w-3.5 h-3.5 text-indigo-600" />
+                          <ChevronDown className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                         )
                       ) : (
-                        <ChevronUp className="w-3.5 h-3.5 text-slate-300 opacity-0 group-hover:opacity-100" />
+                        <ChevronUp className={`w-3.5 h-3.5 opacity-40 hover:opacity-100 ${isDark ? 'text-slate-500' : 'text-sky-600/60'}`} />
                       )}
                     </div>
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody
+              className={`divide-y ${
+                isDark ? 'bg-[#181c25] divide-slate-800/80' : 'bg-white divide-slate-100'
+              }`}
+            >
               {pageRows.map((row, ri) => (
-                <tr key={ri} className="hover:bg-slate-50/70 transition-colors">
-                  <td className="px-3 py-2.5 text-slate-400 font-mono text-[11px]">{page * PAGE_SIZE + ri + 1}</td>
+                <tr
+                  key={ri}
+                  className={`transition-colors ${
+                    isDark
+                      ? 'even:bg-slate-800/30 hover:bg-slate-800/60'
+                      : 'even:bg-slate-50/60 hover:bg-slate-100/60'
+                  }`}
+                >
+                  <td
+                    className={`px-3 py-2.5 font-mono text-[11px] text-center border-r font-semibold ${
+                      isDark ? 'text-slate-500 border-slate-800' : 'text-slate-400 border-slate-100'
+                    }`}
+                  >
+                    {page * PAGE_SIZE + ri + 1}
+                  </td>
                   {row.map((cell, ci) => (
-                    <td key={ci} className="px-3 py-2.5 text-slate-700 font-medium whitespace-nowrap">
+                    <td
+                      key={ci}
+                      className={`px-4 py-2.5 font-medium whitespace-nowrap text-center border-r last:border-r-0 ${
+                        isDark ? 'text-slate-200 border-slate-800' : 'text-slate-800 border-slate-100'
+                      }`}
+                    >
                       {cell === null ? (
-                        <span className="text-slate-300 italic">null</span>
+                        <span className={`italic font-normal ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>null</span>
                       ) : typeof cell === 'number' ? (
-                        <span className="font-mono text-slate-900">{cell.toLocaleString()}</span>
+                        <span className={`font-mono font-semibold ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>{cell.toLocaleString()}</span>
                       ) : (
                         String(cell)
                       )}
@@ -173,24 +337,38 @@ export default function DataTablePanel({ columns = [], rows = [], isTruncated, e
 
       {/* Pagination Footer */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between text-xs text-slate-500 pt-2">
-          <span>
-            Page {page + 1} of {totalPages}
+        <div
+          className={`flex items-center justify-between text-xs pt-1 ${
+            isDark ? 'text-slate-400' : 'text-slate-600'
+          }`}
+        >
+          <span className="font-medium">
+            Page {page + 1} of {totalPages} ({sortedRows.length} items)
           </span>
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => setPage((p) => Math.max(0, p - 1))}
               disabled={page === 0}
-              className="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 font-semibold"
+              className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border font-semibold shadow-xs transition-all disabled:opacity-30 disabled:cursor-not-allowed ${
+                isDark
+                  ? 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700'
+                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+              }`}
             >
-              Previous
+              <ChevronLeft className="w-3.5 h-3.5" />
+              <span>Previous</span>
             </button>
             <button
               onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
               disabled={page === totalPages - 1}
-              className="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 font-semibold"
+              className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border font-semibold shadow-xs transition-all disabled:opacity-30 disabled:cursor-not-allowed ${
+                isDark
+                  ? 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700'
+                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+              }`}
             >
-              Next
+              <span>Next</span>
+              <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
