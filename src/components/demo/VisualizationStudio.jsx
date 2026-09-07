@@ -10,6 +10,9 @@ import {
   ScatterChart,
   BarChart3,
   Flame,
+  ChevronLeft,
+  ChevronRight,
+  Table2,
 } from 'lucide-react';
 
 const COMPARISON = new Set(['bar', 'grouped_bar', 'stacked_bar', 'normalized_bar', 'diverging_bar', 'lollipop', 'dot_plot', 'bullet', 'waterfall', 'funnel', 'radial_bar']);
@@ -74,6 +77,8 @@ function buildVegaSpec(idiom, rows, columns, recommendation, colors, isDark) {
         titleFont: 'Inter, system-ui, sans-serif',
         labelFontSize: 11,
         titleFontSize: 12,
+        labelLimit: 90,
+        labelOverlap: 'greedy',
       },
       legend: {
         labelColor: colors.text,
@@ -93,6 +98,11 @@ function buildVegaSpec(idiom, rows, columns, recommendation, colors, isDark) {
       type: types[x] || 'nominal',
       sort: types[x] === 'nominal' ? '-y' : undefined,
       title: x,
+      axis: types[x] === 'nominal' ? {
+        labelAngle: values.length > 8 ? -35 : 0,
+        labelLimit: 90,
+        labelOverlap: 'greedy',
+      } : undefined,
     },
     y: {
       field: y,
@@ -249,6 +259,7 @@ export default function VisualizationStudio({
   rows = [],
   isLoading = false,
   isDark = false,
+  onSwitchToTable,
 }) {
   const rec = chartRecommendation || recommendation;
   const [chartType, setChartType] = useState('bar');
@@ -271,10 +282,37 @@ export default function VisualizationStudio({
       : ['#4f46e5', '#0ea5e9', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#f97316'],
   }), [isDark]);
 
+  // Data Zoom / Windowing configuration
+  const isPagingApplicable = rows.length > 15 && chartType !== 'kpi' && chartType !== 'histogram';
+  const [windowSize, setWindowSize] = useState(15);
+  const [startIndex, setStartIndex] = useState(0);
+
+  // Reset startIndex when rows change or chartType changes
+  useEffect(() => {
+    setStartIndex(0);
+  }, [rows, chartType]);
+
+  const isPaged = isPagingApplicable && windowSize < rows.length;
+  const maxStartIndex = Math.max(0, rows.length - windowSize);
+  const endIndex = isPaged ? Math.min(startIndex + windowSize, rows.length) : rows.length;
+
+  const visibleRows = useMemo(() => {
+    if (!isPaged) return rows;
+    return rows.slice(startIndex, endIndex);
+  }, [rows, isPaged, startIndex, endIndex]);
+
+  const handlePrev = () => {
+    setStartIndex((prev) => Math.max(0, prev - windowSize));
+  };
+
+  const handleNext = () => {
+    setStartIndex((prev) => Math.min(maxStartIndex, prev + windowSize));
+  };
+
   const spec = useMemo(() => {
-    if (!rows.length || !columns.length) return null;
-    return buildVegaSpec(chartType, rows, columns, rec, colors, isDark);
-  }, [chartType, rows, columns, rec, colors, isDark]);
+    if (!visibleRows.length || !columns.length) return null;
+    return buildVegaSpec(chartType, visibleRows, columns, rec, colors, isDark);
+  }, [chartType, visibleRows, columns, rec, colors, isDark]);
 
   useEffect(() => {
     if (!containerRef.current || !spec) return undefined;
@@ -381,16 +419,140 @@ export default function VisualizationStudio({
         </div>
       </div>
 
+      {/* Exploration Toolbar: Window info, Quick presets & View all in Table */}
+      {(rows.length > 15 || onSwitchToTable) && (
+        <div className={`flex flex-wrap items-center justify-between gap-2.5 px-3.5 py-2 rounded-xl text-xs border ${
+          isDark ? 'bg-slate-800/50 border-slate-700/60' : 'bg-slate-50/90 border-slate-200/80'
+        }`}>
+          <div className="flex flex-wrap items-center gap-2">
+            {isPaged ? (
+              <span className={`font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                Showing <span className="font-semibold text-indigo-500 dark:text-indigo-400">{startIndex + 1}–{endIndex}</span> of {rows.length} items
+              </span>
+            ) : (
+              <span className={`font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                Showing all {rows.length} items
+              </span>
+            )}
+
+            {/* Presets */}
+            {rows.length > 15 && (
+              <div className="flex items-center gap-1 sm:ml-1">
+                {[10, 20, 50].filter((n) => n < rows.length).map((size) => (
+                  <button
+                    key={size}
+                    onClick={() => {
+                      setWindowSize(size);
+                      setStartIndex(0);
+                    }}
+                    className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-all ${
+                      windowSize === size && isPaged
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : isDark
+                        ? 'bg-slate-700/60 text-slate-300 hover:bg-slate-700'
+                        : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    Top {size}
+                  </button>
+                ))}
+                <button
+                  onClick={() => {
+                    setWindowSize(rows.length);
+                    setStartIndex(0);
+                  }}
+                  className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-all ${
+                    !isPaged
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : isDark
+                      ? 'bg-slate-700/60 text-slate-300 hover:bg-slate-700'
+                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  All
+                </button>
+              </div>
+            )}
+          </div>
+
+          {onSwitchToTable && (
+            <button
+              onClick={onSwitchToTable}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all border cursor-pointer ${
+                isDark
+                  ? 'bg-indigo-950/60 hover:bg-indigo-900/70 text-indigo-300 border-indigo-800/60'
+                  : 'bg-indigo-50 hover:bg-indigo-100/90 text-indigo-700 border-indigo-200/80'
+              }`}
+            >
+              <Table2 className="w-3.5 h-3.5" />
+              <span>View all in Table ({rows.length})</span>
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Vega-Lite Chart Canvas */}
       <div className="w-full min-h-[300px] flex items-center justify-center pt-2">
         {error ? (
           <p className="text-xs text-rose-500 p-4">{error}</p>
-        ) : !rows.length ? (
+        ) : !visibleRows.length ? (
           <p className="text-xs text-slate-400">No plottable rows returned.</p>
         ) : (
           <div ref={containerRef} className="w-full overflow-x-auto" />
         )}
       </div>
+
+      {/* Data Zoom Scrubber / Slider (Only when paged) */}
+      {isPaged && (
+        <div className={`pt-2 border-t flex items-center gap-3 px-1 ${
+          isDark ? 'border-slate-800' : 'border-slate-100'
+        }`}>
+          <button
+            onClick={handlePrev}
+            disabled={startIndex === 0}
+            title="Previous items"
+            className={`p-1.5 rounded-lg border transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed ${
+              isDark
+                ? 'border-slate-700 hover:bg-slate-800 text-slate-300'
+                : 'border-slate-200 hover:bg-slate-100 text-slate-600'
+            }`}
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+
+          <div className="flex-1 flex flex-col gap-1">
+            <div className="flex justify-between text-[11px] text-slate-400 font-mono">
+              <span>1</span>
+              <span className="text-slate-500 dark:text-slate-400 font-sans font-medium text-[11px]">
+                Drag to explore window ({startIndex + 1}–{endIndex})
+              </span>
+              <span>{rows.length}</span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={maxStartIndex}
+              step={1}
+              value={startIndex}
+              onChange={(e) => setStartIndex(Number(e.target.value))}
+              className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-600 focus:outline-hidden"
+            />
+          </div>
+
+          <button
+            onClick={handleNext}
+            disabled={endIndex >= rows.length}
+            title="Next items"
+            className={`p-1.5 rounded-lg border transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed ${
+              isDark
+                ? 'border-slate-700 hover:bg-slate-800 text-slate-300'
+                : 'border-slate-200 hover:bg-slate-100 text-slate-600'
+            }`}
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

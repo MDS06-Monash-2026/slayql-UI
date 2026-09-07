@@ -33,14 +33,24 @@ function buildSpec(idiom, result, recommendation, colors) {
     data: { values },
     config: {
       view: { stroke: null },
-      axis: { labelColor: colors.text, titleColor: colors.muted, gridColor: colors.grid, labelFont: colors.font, titleFont: colors.font },
+      axis: { labelColor: colors.text, titleColor: colors.muted, gridColor: colors.grid, labelFont: colors.font, titleFont: colors.font, labelLimit: 90, labelOverlap: 'greedy' },
       legend: { labelColor: colors.text, titleColor: colors.muted, labelFont: colors.font, titleFont: colors.font },
       range: { category: colors.palette },
     },
   };
   const tooltip = columns.slice(0, 8).map((field) => ({ field, type: types[field] }));
   const encoding = {
-    x: { field: x, type: types[x] || 'nominal', sort: types[x] === 'nominal' ? '-y' : undefined, title: x },
+    x: {
+      field: x,
+      type: types[x] || 'nominal',
+      sort: types[x] === 'nominal' ? '-y' : undefined,
+      title: x,
+      axis: types[x] === 'nominal' ? {
+        labelAngle: values.length > 8 ? -35 : 0,
+        labelLimit: 90,
+        labelOverlap: 'greedy',
+      } : undefined,
+    },
     y: { field: y, type: types[y] || 'quantitative', title: y },
     tooltip,
   };

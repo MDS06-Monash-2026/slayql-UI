@@ -77,6 +77,13 @@ const ConversationAssistantMessage = React.memo(function ConversationAssistantMe
   const columns = Array.isArray(payload.columns) ? payload.columns : [];
   const [reportState, setReportState] = useState('idle');
   const [reportModalOpen, setReportModalOpen] = useState(false);
+  const tableContainerRef = useRef(null);
+
+  const handleScrollToTable = useCallback(() => {
+    if (tableContainerRef.current) {
+      tableContainerRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, []);
 
   const handleSubmitReport = async ({ category, note }) => {
     if (!message.id) return;
@@ -132,16 +139,19 @@ const ConversationAssistantMessage = React.memo(function ConversationAssistantMe
           recommendation={payload.chart}
           isLoading={false}
           isDark={isDark}
+          onSwitchToTable={columns.length > 0 ? handleScrollToTable : undefined}
         />
       )}
       {columns.length > 0 && (
-        <AssistantTablePreview
-          columns={columns}
-          rows={rows}
-          rowCount={payload.row_count}
-          isTruncated={payload.is_truncated}
-          isDark={isDark}
-        />
+        <div ref={tableContainerRef}>
+          <AssistantTablePreview
+            columns={columns}
+            rows={rows}
+            rowCount={payload.row_count}
+            isTruncated={payload.is_truncated}
+            isDark={isDark}
+          />
+        </div>
       )}
       {payload.reportable !== false && (
         <div className="flex items-center gap-2 pt-1">
@@ -1524,6 +1534,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
                             recommendation={activeChartRecommendation}
                             isLoading={isRunning}
                             isDark={theme === 'dark'}
+                            onSwitchToTable={() => setActiveResultTab('table')}
                           />
                         ) : (
                           <DataTablePanel
