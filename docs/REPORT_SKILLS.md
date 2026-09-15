@@ -15,6 +15,8 @@ question → scope → approved metrics → evidence queries → insight topics
 
 The report must help a business user decide what to do. A visual is useful when it answers a specific question, exposes evidence, or supports an action. Do not add a chart only to make the page look busy.
 
+For a generated dashboard, target a minimum of ten chart widgets with distinct analytical purposes when the data contains enough compatible fields. Ten is a quality floor, not permission to create decorative or misleading visuals. If the source cannot support ten meaningful charts, return the report with a visible review status and explain which field or data-shape requirement is missing.
+
 Use Malaysian business context where the data supports it: MYR currency, local date conventions, Bahasa Malaysia synonyms, states and districts of Malaysia, branch and outlet operations, sales, margin, receivables, inventory and delivery performance. Never infer a Malaysian location from an arbitrary text field.
 
 ## Reference design language
