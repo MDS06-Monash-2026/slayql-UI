@@ -17,6 +17,9 @@ function recordsFromResult(result) {
 }
 
 function buildSpec(idiom, result, recommendation, colors) {
+  // These idioms need a true Vega hierarchy layout. The report validator
+  // normally replaces them; this guard keeps older saved reports truthful.
+  if (idiom === 'treemap' || idiom === 'sunburst' || idiom === 'circle_packing') idiom = 'bar';
   const values = recordsFromResult(result);
   const columns = result?.columns || [];
   const types = Object.fromEntries(columns.map((column) => [column, inferType(values.map((row) => row[column]))]));

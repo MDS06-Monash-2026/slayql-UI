@@ -8,17 +8,19 @@ from copy import deepcopy
 from typing import Any, Dict, Iterable, List, Optional
 
 from backend.app.providers.openrouter_client import ProviderError, openrouter_client
+from backend.app.config import settings
 from backend.app.workbench.gemini_agent import CHART_IDIOMS, summarize_result
 from backend.app.workbench.report_pipeline import (
     build_pipeline_context,
     chart_is_compatible,
     field_roles,
     recommended_chart,
+    UNSUPPORTED_HIERARCHY_IDIOMS,
     validate_report_structure,
 )
 
 
-REPORT_MODEL = "deepseek/deepseek-v4-flash"
+REPORT_MODEL = settings.REPORT_MODEL or "moonshotai/kimi-k3"
 ALLOWED_LAYOUTS = {"executive", "analytical", "story"}
 ALLOWED_WIDGET_TYPES = {"kpi", "chart", "table", "text"}
 ALLOWED_PALETTES = {"indigo", "emerald", "sunset"}
@@ -40,12 +42,12 @@ def _columns(profile: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 
 def _numeric_fields(profile: Dict[str, Any]) -> List[str]:
-    return [item["name"] for item in _columns(profile) if item.get("type") == "number" or "average" in item]
+    return list(field_roles(profile)["numeric"])
 
 
 def _dimension_fields(profile: Dict[str, Any]) -> List[str]:
-    numeric = set(_numeric_fields(profile))
-    return [item["name"] for item in _columns(profile) if item["name"] not in numeric]
+    roles = field_roles(profile)
+    return roles["dimensions"] or roles["temporal"]
 
 
 def _safe_span(value: Any) -> int:
@@ -204,22 +206,34 @@ def _normalize_widget(widget: Dict[str, Any], index: int, profile: Dict[str, Any
     field = str(widget.get("field") or "row_count")
     if field not in fields:
         field = "row_count"
+    if widget_type == "kpi" and field != "row_count" and field not in field_roles(profile)["numeric"]:
+        field = next(iter(field_roles(profile)["numeric"]), "row_count")
     chart_type = str(widget.get("chart_type") or ("kpi" if widget_type == "kpi" else "bar"))
     if widget_type == "table":
         chart_type = "table"
     elif widget_type == "kpi":
         chart_type = "kpi"
-    elif chart_type not in ALLOWED_IDIOMS:
+    elif chart_type not in ALLOWED_IDIOMS or chart_type in UNSUPPORTED_HIERARCHY_IDIOMS:
         chart_type = "bar"
     config = widget.get("config") if isinstance(widget.get("config"), dict) else {}
     x_field = str(config.get("x_field") or "")
     if x_field not in fields:
-        x_field = next((name for name in fields if name != field), field)
+        roles = field_roles(profile)
+        x_field = next((name for name in roles["temporal"] + roles["dimensions"] if name != field), next(iter(roles["numeric"]), field))
     y_fields = [str(item) for item in config.get("y_fields", []) if str(item) in fields][:4]
     if field != "row_count" and field not in y_fields:
         y_fields.insert(0, field)
     if widget_type == "chart" and not chart_is_compatible(chart_type, profile, x_field, y_fields or [field]):
         chart_type = recommended_chart(profile, str(config.get("purpose") or "compare_categories"))
+        if chart_type == "kpi":
+            widget_type = "kpi"
+            field = next(iter(field_roles(profile)["numeric"]), "row_count")
+            y_fields = [field] if field != "row_count" else []
+        roles = field_roles(profile)
+        safe_binding = _chart_binding(chart_type, profile, next(iter(roles["numeric"]), None), next(iter(roles["dimensions"] or roles["temporal"]), None))
+        x_field = safe_binding["x_field"]
+        y_fields = safe_binding["y_fields"]
+        field = y_fields[0] if y_fields else field
     return {
         "id": _slug(widget.get("id"), f"widget-{index + 1}"),
         "type": widget_type,
@@ -256,6 +270,11 @@ def normalize_report(candidate: Dict[str, Any], preference: Dict[str, Any], prof
             if normalized and normalized["id"] not in {item["id"] for item in widgets}:
                 widgets.append(normalized)
         if widgets:
+            # Keep scorecards at the top so the UI can render them as one
+            # stable executive row before analytical content begins.
+            widgets.sort(key=lambda item: 0 if item.get("type") == "kpi" else 1)
+            kpis = [item for item in widgets if item.get("type") == "kpi"][:4]
+            widgets = kpis + [item for item in widgets if item.get("type") != "kpi"]
             sections.append({"id": _slug(raw_section.get("id"), f"section-{section_index + 1}"), "title": str(raw_section.get("title") or "Analysis")[:100], "layout": "full" if raw_section.get("layout") == "full" else "grid", "widgets": widgets})
     if sections:
         report["sections"] = sections
@@ -276,6 +295,7 @@ async def _complete_json(system: str, prompt: str, fallback: Dict[str, Any]) -> 
             max_tokens=3500,
             reasoning_effort="minimal",
             fallback_text="",
+            use_requested_model=True,
         ):
             if event.get("type") == "content_delta":
                 content.append(event.get("delta", ""))

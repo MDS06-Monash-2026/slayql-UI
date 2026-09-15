@@ -24,12 +24,20 @@ CHART_REGISTRY: Dict[str, Dict[str, Any]] = {
     "boxplot": {"family": "distribution", "purpose": "distribution_by_group", "needs": ("dimension", "numeric")},
     "heatmap": {"family": "pattern", "purpose": "matrix_pattern", "needs": ("dimension_pair", "numeric")},
     "donut": {"family": "composition", "purpose": "part_to_whole", "needs": ("dimension", "numeric")},
-    "treemap": {"family": "hierarchy", "purpose": "hierarchy", "needs": ("dimension", "numeric")},
+    # A treemap needs a real hierarchy (two categorical levels). A single
+    # category plus a measure is a bar chart and must never be labelled a
+    # treemap by the composer.
+    "treemap": {"family": "hierarchy", "purpose": "hierarchy", "needs": ("dimension_pair", "numeric")},
     "waterfall": {"family": "change", "purpose": "bridge_change", "needs": ("dimension", "numeric")},
     "funnel": {"family": "flow", "purpose": "stage_conversion", "needs": ("dimension", "numeric")},
     "small_multiples": {"family": "comparison", "purpose": "faceted_comparison", "needs": ("dimension_pair", "numeric")},
     "kpi": {"family": "summary", "purpose": "single_value", "needs": ("numeric",)},
 }
+
+# These require a dedicated Vega/Vega renderer to be truthful. Until that
+# renderer exists, they are deliberately rejected and replaced with a chart
+# whose marks match what the user sees.
+UNSUPPORTED_HIERARCHY_IDIOMS = {"treemap", "sunburst", "circle_packing"}
 
 # The renderer already supports a wider vocabulary. Register those idioms so
 # the composer can request them, while using conservative field requirements.
@@ -73,6 +81,11 @@ _TIME_RE = re.compile(r"(date|time|day|week|month|quarter|year|period|created|up
 _ID_RE = re.compile(r"(^|_)(id|key|code)$|(^|_)(id|key|code)(_|$)", re.I)
 
 
+def is_identifier_field(name: str) -> bool:
+    """Return true for surrogate/foreign-key fields unsuitable as measures."""
+    return bool(_ID_RE.search(str(name)))
+
+
 def field_roles(profile: Dict[str, Any]) -> Dict[str, List[str]]:
     numeric: List[str] = []
     temporal: List[str] = []
@@ -82,6 +95,11 @@ def field_roles(profile: Dict[str, Any]) -> Dict[str, List[str]]:
             continue
         name = str(item["name"])
         kind = str(item.get("type") or "").lower()
+        # Numeric IDs (department_id, customer_key, etc.) are identifiers,
+        # even when the database reports them as integers. Plotting them as a
+        # measure creates misleading charts such as department name by ID.
+        if is_identifier_field(name):
+            continue
         if kind in {"number", "numeric", "integer", "float", "decimal"} or "average" in item:
             numeric.append(name)
         elif kind in {"date", "datetime", "timestamp", "temporal"} or _TIME_RE.search(name):
@@ -128,6 +146,8 @@ def plan_topics(question: str, profile: Dict[str, Any], preference: Optional[Dic
 
 
 def chart_is_compatible(chart_id: str, profile: Dict[str, Any], x_field: Optional[str] = None, y_fields: Optional[Iterable[str]] = None) -> bool:
+    if chart_id in UNSUPPORTED_HIERARCHY_IDIOMS:
+        return False
     definition = CHART_REGISTRY.get(chart_id)
     if not definition:
         return False
@@ -137,15 +157,25 @@ def chart_is_compatible(chart_id: str, profile: Dict[str, Any], x_field: Optiona
     ys = [field for field in (y_fields or []) if field in fields]
     numeric_y = [field for field in ys if field in roles["numeric"]]
     needs = definition["needs"]
+    # Explicit bindings must pass exact role checks. Falling back to “some
+    # dimension exists somewhere” allowed unrelated ID/name pairs through.
     if "numeric" in needs and not (numeric_y or roles["numeric"]):
         return False
-    if "temporal" in needs and not (x in roles["temporal"] or roles["temporal"]):
+    if "numeric" in needs and ys and any(field not in roles["numeric"] for field in ys):
         return False
-    if "dimension" in needs and not (x in roles["dimensions"] or roles["dimensions"]):
+    if "temporal" in needs and x_field and x not in roles["temporal"]:
+        return False
+    if "temporal" in needs and not x_field and not roles["temporal"]:
+        return False
+    if "dimension" in needs and x_field and x not in roles["dimensions"]:
+        return False
+    if "dimension" in needs and not x_field and not roles["dimensions"]:
         return False
     if "numeric_pair" in needs and len(numeric_y or roles["numeric"]) < 2:
         return False
     if "dimension_pair" in needs and len(roles["dimensions"]) + len(roles["temporal"]) < 2:
+        return False
+    if "dimension_pair" in needs and x_field and x not in (roles["dimensions"] + roles["temporal"]):
         return False
     return True
 
@@ -189,6 +219,8 @@ def validate_report_structure(report: Dict[str, Any], profile: Dict[str, Any]) -
                 config = widget.get("config") if isinstance(widget.get("config"), dict) else {}
                 if not chart_is_compatible(chart, profile, config.get("x_field"), config.get("y_fields")):
                     issues.append({"code": "INCOMPATIBLE_CHART", "message": f"Chart {widget_id} is incompatible with the available fields."})
+                if chart in {"treemap", "sunburst", "circle_packing"}:
+                    issues.append({"code": "UNSUPPORTED_HIERARCHY_RENDERER", "message": f"Chart {widget_id} uses a hierarchy idiom without a true hierarchy renderer."})
     return issues
 
 
@@ -198,7 +230,7 @@ def build_pipeline_context(question: str, preference: Dict[str, Any], profile: D
         "stages": ["planner", "metadata", "query_plan", "topic_analysis", "chart_selection", "composition", "validation"],
         "topic_tasks": tasks,
         "field_roles": field_roles(profile),
-        "chart_registry": list(CHART_REGISTRY),
+        "chart_registry": [chart_id for chart_id in CHART_REGISTRY if chart_id not in UNSUPPORTED_HIERARCHY_IDIOMS],
         "report_skills": load_report_skills(),
         "catalog_tables": list((catalog or {}).get("tables", {}).keys())[:100],
         "limits": {"max_topics": 5, "max_widgets_per_section": 8},

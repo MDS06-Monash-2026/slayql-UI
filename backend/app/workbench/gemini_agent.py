@@ -238,7 +238,9 @@ def summarize_result(columns: List[str], column_types: List[str], rows: List[Lis
     for index, name in enumerate(columns):
         values = [row[index] for row in rows if index < len(row) and row[index] is not None]
         kind = column_types[index] if index < len(column_types) else "string"
-        item: Dict[str, Any] = {"name": name, "type": kind, "non_null_count": len(values)}
+        item: Dict[str, Any] = {"name": name, "type": kind, "non_null_count": len(values), "distinct_count": len({str(value) for value in values})}
+        if re.search(r"(^|_)(id|key|code)(_|$)", str(name), re.I):
+            item["semantic_role"] = "identifier"
         numeric = [float(value) for value in values if isinstance(value, (int, float))]
         if numeric:
             item.update({"min": min(numeric), "max": max(numeric), "average": round(sum(numeric) / len(numeric), 3)})

@@ -70,8 +70,10 @@ class OpenRouterClient:
         self.execution_model = settings.OPENROUTER_EXECUTION_MODEL or TEST_EXECUTION_MODEL
         self._http_client: Optional[httpx.AsyncClient] = None
 
-    def execution_model_id(self, requested_model_id: Optional[str] = None) -> str:
-        """Return the approved server execution model for a UI persona request."""
+    def execution_model_id(self, requested_model_id: Optional[str] = None, *, use_requested_model: bool = False) -> str:
+        """Resolve the model while keeping normal query execution governed."""
+        if use_requested_model and requested_model_id:
+            return requested_model_id
         return self.execution_model
 
     def _client(self) -> httpx.AsyncClient:
@@ -315,9 +317,10 @@ class OpenRouterClient:
         fallback_text: str,
         tools: Optional[List[Dict[str, Any]]] = None,
         parallel_tool_calls: bool = False,
+        use_requested_model: bool = False,
     ) -> AsyncGenerator[Dict[str, Any], None]:
         started = time.perf_counter()
-        execution_model_id = self.execution_model_id(requested_model_id)
+        execution_model_id = self.execution_model_id(requested_model_id, use_requested_model=use_requested_model)
         if not self.api_key:
             raise ProviderError("The AI provider is not configured.")
         if self.api_key.startswith("mock_"):

@@ -125,6 +125,8 @@ export default function AIDashboardBuilder({
   }), [activeResult]);
 
   const profile = report?.data_profile;
+  const reportWidgets = (report?.sections || []).flatMap((section) => section.widgets || []);
+  const firstNonKpiIndex = reportWidgets.findIndex((widget) => widget.type !== 'kpi');
 
   const profileValue = (field) => {
     if (field === 'row_count') {
@@ -424,7 +426,7 @@ export default function AIDashboardBuilder({
                 Executive Briefing
               </span>
               <span className="text-[11px] text-slate-400 font-mono">
-                {report.mode === 'openrouter' ? 'DeepSeek AI Curated' : 'Governed Schema Analysis'}
+                {report.mode === 'openrouter' ? `${report.model || 'AI'} Curated` : 'Governed Schema Analysis'}
               </span>
               {report.validation && (
                 <span className={`text-[10px] font-semibold ${report.validation.status === 'passed' ? 'text-emerald-600' : 'text-amber-600'}`}>
@@ -453,13 +455,14 @@ export default function AIDashboardBuilder({
               layout === 'story'
                 ? 'md:grid-cols-1'
                 : layout === 'analytical'
-                ? 'md:grid-cols-2'
-                : 'md:grid-cols-3'
+                ? 'md:grid-cols-3'
+                : 'md:grid-cols-4'
             } ${report.theme?.density === 'compact' ? 'gap-3.5 p-4' : 'gap-5 p-6'}`}
           >
-            {(report.sections || []).flatMap((section) => section.widgets || []).map((widget) => {
+            {reportWidgets.map((widget, widgetIndex) => {
               const isSelected = selectedWidgetId === widget.id;
               const spanClasses = widget.span > 1 ? 'md:col-span-2' : '';
+              const firstContentClass = widgetIndex === firstNonKpiIndex ? 'md:col-start-1' : '';
 
               return (
                 <article
@@ -469,7 +472,7 @@ export default function AIDashboardBuilder({
                     isSelected
                       ? 'border-indigo-500 ring-2 ring-indigo-500/20 shadow-md'
                       : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
-                  } ${spanClasses}`}
+                  } ${spanClasses} ${firstContentClass}`}
                   style={{ borderColor: isSelected ? paletteTokens.accent : undefined }}
                 >
                   <div className="flex items-center justify-between gap-2 mb-2">

@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     OPENROUTER_API_KEY: Optional[str] = None
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
     OPENROUTER_EXECUTION_MODEL: str = "deepseek/deepseek-v4-flash"
+    # Report composition can use a stronger model without changing the SQL
+    # execution model used by interactive queries.
+    REPORT_MODEL: str = "moonshotai/kimi-k3"
     DEFAULT_MODEL: str = "deepseek/deepseek-v4-flash"
     
     # Direct Provider Keys (fallback or direct use)
