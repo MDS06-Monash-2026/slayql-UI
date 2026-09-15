@@ -9,6 +9,12 @@ from typing import Any, Dict, Iterable, List, Optional
 
 from backend.app.providers.openrouter_client import ProviderError, openrouter_client
 from backend.app.workbench.gemini_agent import CHART_IDIOMS, summarize_result
+from backend.app.workbench.report_pipeline import (
+    build_pipeline_context,
+    chart_is_compatible,
+    recommended_chart,
+    validate_report_structure,
+)
 
 
 REPORT_MODEL = "deepseek/deepseek-v4-flash"
@@ -18,8 +24,8 @@ ALLOWED_PALETTES = {"indigo", "emerald", "sunset"}
 ALLOWED_DENSITIES = {"comfortable", "compact"}
 ALLOWED_FONTS = {"Inter", "IBM Plex Sans", "Source Sans 3", "system-ui"}
 ALLOWED_IDIOMS = {item[0] for item in CHART_IDIOMS}
-# A compact, deliberately diverse set used when the model omits visuals or
-# repeats one idiom. Each idiom maps cleanly to the Vega renderer.
+# Kept for backwards compatibility with callers that import this module. Chart
+# choice is now driven by topic/data compatibility instead of forced variety.
 VARIETY_IDIOMS = ("bar", "line", "area", "scatter", "donut")
 
 
@@ -64,39 +70,12 @@ def _chart_widget(index: int, idiom: str, metric: Optional[str], dimension: Opti
 
 
 def _ensure_chart_variety(report: Dict[str, Any], profile: Dict[str, Any]) -> None:
-    """Ensure a report has five distinct chart idioms without trusting model output."""
-    sections = report.get("sections") or []
-    if not sections:
-        return
-    charts = [widget for section in sections for widget in section.get("widgets", []) if widget.get("type") == "chart"]
-    used = set()
-    replacement_index = 0
-    all_idioms = VARIETY_IDIOMS + tuple(item[0] for item in CHART_IDIOMS)
-    for widget in charts:
-        idiom = widget.get("chart_type")
-        if idiom not in ALLOWED_IDIOMS or idiom in used:
-            while replacement_index < len(all_idioms) and all_idioms[replacement_index] in used:
-                replacement_index += 1
-            if replacement_index < len(all_idioms):
-                widget["chart_type"] = all_idioms[replacement_index]
-                idiom = widget["chart_type"]
-        used.add(idiom)
-    columns = _columns(profile)
-    numeric = _numeric_fields(profile)
-    dimensions = _dimension_fields(profile)
-    metric, dimension = (numeric[0] if numeric else None), (dimensions[0] if dimensions else None)
-    next_id = len(charts) + 1
-    for idiom in VARIETY_IDIOMS:
-        if idiom not in used:
-            widget = _chart_widget(next_id, idiom, metric, dimension)
-            while any(item.get("id") == widget["id"] for section in sections for item in section.get("widgets", [])):
-                next_id += 1
-                widget["id"] = f"chart-{next_id}"
-            sections[0].setdefault("widgets", []).append(widget)
-            used.add(idiom)
-            next_id += 1
-        if len(used.intersection(VARIETY_IDIOMS)) >= len(VARIETY_IDIOMS):
-            break
+    """Legacy no-op retained for compatibility.
+
+    Reports should not gain arbitrary charts merely to look varied. The
+    pipeline chooses a chart for the analytical purpose and available fields.
+    """
+    return
 
 
 def fallback_report(preference: Dict[str, Any], profile: Dict[str, Any]) -> Dict[str, Any]:
@@ -109,7 +88,8 @@ def fallback_report(preference: Dict[str, Any], profile: Dict[str, Any]) -> Dict
     ]
     if metric:
         widgets.append({"id": f"kpi-{_slug(metric, 'metric')}", "type": "kpi", "title": metric.replace("_", " ").title(), "field": metric, "chart_type": "kpi", "span": 1, "config": {"format": "number"}})
-    widgets.extend(_chart_widget(index, idiom, metric, dimension) for index, idiom in enumerate(VARIETY_IDIOMS))
+    if metric and dimension:
+        widgets.append(_chart_widget(0, "line" if dimension.lower() in {"date", "month", "week", "year"} else "bar", metric, dimension))
     widgets.append({"id": "table-detail", "type": "table", "title": "Detail view", "field": dimension or "row_count", "chart_type": "table", "span": 3, "config": {"page_size": 10}})
     return {
         "version": 1,
@@ -168,6 +148,8 @@ def _normalize_widget(widget: Dict[str, Any], index: int, profile: Dict[str, Any
     y_fields = [str(item) for item in config.get("y_fields", []) if str(item) in fields][:4]
     if field != "row_count" and field not in y_fields:
         y_fields.insert(0, field)
+    if widget_type == "chart" and not chart_is_compatible(chart_type, profile, x_field, y_fields or [field]):
+        chart_type = recommended_chart(profile, str(config.get("purpose") or "compare_categories"))
     return {
         "id": _slug(widget.get("id"), f"widget-{index + 1}"),
         "type": widget_type,
@@ -207,7 +189,6 @@ def normalize_report(candidate: Dict[str, Any], preference: Dict[str, Any], prof
             sections.append({"id": _slug(raw_section.get("id"), f"section-{section_index + 1}"), "title": str(raw_section.get("title") or "Analysis")[:100], "layout": "full" if raw_section.get("layout") == "full" else "grid", "widgets": widgets})
     if sections:
         report["sections"] = sections
-    _ensure_chart_variety(report, profile)
     report["data_profile"] = profile
     return report
 
@@ -235,10 +216,16 @@ async def _complete_json(system: str, prompt: str, fallback: Dict[str, Any]) -> 
 
 async def generate_report(preference: Dict[str, Any], profile: Dict[str, Any], catalog: Dict[str, Any]) -> Dict[str, Any]:
     fallback = fallback_report(preference, profile)
-    prompt = json.dumps({"preferences": preference, "catalog": catalog, "result_profile": profile, "fallback_report": fallback}, ensure_ascii=True, default=str)
-    system = "You are a senior Power BI report designer using DeepSeek. Return only JSON for a report document. Create 2-4 KPI cards, charts using only available idioms, a detail table, and a concise narrative. Use stable IDs. Never emit HTML, CSS, JavaScript, SQL, markdown, or claims unsupported by the result profile. Valid types are kpi, chart, table, text; valid layouts are executive, analytical, story."
+    question = str(preference.get("question") or preference.get("title") or "")
+    pipeline = build_pipeline_context(question, preference, profile, catalog)
+    prompt = json.dumps({"preferences": preference, "catalog": catalog, "result_profile": profile, "pipeline": pipeline, "fallback_report": fallback}, ensure_ascii=True, default=str)
+    system = "You are the report composer in a governed multi-stage analytics pipeline. Return only JSON for a report document. Use the supplied topic_tasks to cover relevant topics, but create only evidence-supported widgets. Select chart types from chart_registry and bind real fields. Do not add charts for visual variety. Create 1-4 KPI cards, relevant charts, a detail or exception table when useful, and a concise narrative. Use stable IDs. Never emit HTML, CSS, JavaScript, SQL, markdown, or claims unsupported by the result profile. Valid types are kpi, chart, table, text; valid layouts are executive, analytical, story."
     candidate = await _complete_json(system, prompt, fallback)
     report = normalize_report(candidate, preference, profile)
+    report["pipeline"] = pipeline
+    report["validation"] = {"status": "passed", "issues": validate_report_structure(report, profile)}
+    if report["validation"]["issues"]:
+        report["validation"]["status"] = "review"
     report.update({"model": REPORT_MODEL, "mode": "openrouter" if candidate is not fallback else "local_fallback"})
     return report
 
@@ -251,7 +238,12 @@ def _find_widget(report: Dict[str, Any], widget_id: str) -> Optional[Dict[str, A
     return None
 
 
-def apply_operations(report: Dict[str, Any], operations: Iterable[Dict[str, Any]], profile: Dict[str, Any]) -> Dict[str, Any]:
+def apply_operations(
+    report: Dict[str, Any],
+    operations: Iterable[Dict[str, Any]],
+    profile: Dict[str, Any],
+    selected_widget_id: Optional[str] = None,
+) -> Dict[str, Any]:
     updated = deepcopy(report)
     fields = {item["name"] for item in _columns(profile)} | {"row_count"}
     for operation in list(operations)[:10]:
@@ -268,7 +260,10 @@ def apply_operations(report: Dict[str, Any], operations: Iterable[Dict[str, Any]
                 updated["theme"][key] = operation["value"]
             continue
         if op == "set_widget":
-            widget = _find_widget(updated, str(operation.get("widget_id") or ""))
+            target_id = str(operation.get("widget_id") or "")
+            if selected_widget_id and target_id != selected_widget_id:
+                continue
+            widget = _find_widget(updated, target_id)
             if not widget:
                 continue
             key, value = operation.get("key"), operation.get("value")
@@ -293,7 +288,11 @@ def apply_operations(report: Dict[str, Any], operations: Iterable[Dict[str, Any]
             widget = _normalize_widget(operation.get("widget") or {}, 99, profile)
             if section and widget and not _find_widget(updated, widget["id"]):
                 section["widgets"].append(widget)
-    return normalize_report(updated, updated.get("theme", {}), profile)
+    pipeline = updated.get("pipeline")
+    normalized = normalize_report(updated, updated.get("theme", {}), profile)
+    if pipeline:
+        normalized["pipeline"] = pipeline
+    return normalized
 
 
 async def edit_report(report: Dict[str, Any], instruction: str, selected_widget_id: Optional[str], profile: Dict[str, Any]) -> Dict[str, Any]:
@@ -303,4 +302,7 @@ async def edit_report(report: Dict[str, Any], instruction: str, selected_widget_
     fallback = {"message": "Applied a safe report note.", "operations": fallback_operations}
     candidate = await _complete_json(system, prompt, fallback)
     operations = candidate.get("operations") if isinstance(candidate.get("operations"), list) else fallback_operations
-    return {"report": apply_operations(report, operations, profile), "message": str(candidate.get("message") or "Report updated.")[:500], "model": REPORT_MODEL, "mode": "openrouter" if candidate is not fallback else "local_fallback", "operations_applied": operations[:10]}
+    updated = apply_operations(report, operations, profile, selected_widget_id)
+    validation = validate_report_structure(updated, profile)
+    updated["validation"] = {"status": "passed" if not validation else "review", "issues": validation}
+    return {"report": updated, "message": str(candidate.get("message") or "Report updated.")[:500], "model": REPORT_MODEL, "mode": "openrouter" if candidate is not fallback else "local_fallback", "operations_applied": operations[:10]}

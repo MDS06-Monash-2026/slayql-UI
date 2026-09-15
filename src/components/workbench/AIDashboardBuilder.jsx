@@ -23,6 +23,7 @@ import VegaWorkbenchChart from './VegaWorkbenchChart';
 
 const initialPreferences = {
   title: 'Executive Revenue & Operations Briefing',
+  question: 'Create a management overview of the selected data and highlight the most important changes or exceptions.',
   layout: 'executive',
   palette: 'indigo',
   font: 'Inter',
@@ -310,6 +311,16 @@ export default function AIDashboardBuilder({
 
       {/* Preferences & Layout Configuration Grid */}
       <section className="grid sm:grid-cols-2 lg:grid-cols-6 gap-3 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-[#121622]/50">
+        <label className="lg:col-span-6 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+          Business Question
+          <textarea
+            value={preferences.question}
+            onChange={(e) => setPreferences({ ...preferences, question: e.target.value })}
+            rows={2}
+            placeholder="e.g. Compare monthly sales by branch and highlight unusual declines"
+            className="mt-1.5 w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs normal-case text-slate-800 dark:text-slate-100 focus:border-indigo-500 outline-none resize-y"
+          />
+        </label>
         <label className="lg:col-span-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
           Report Title
           <input
@@ -383,10 +394,10 @@ export default function AIDashboardBuilder({
             <Sparkles className="w-6 h-6" />
           </div>
           <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-            Ready to Compose Power BI Report
+            Ready to Compose AI Report
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mt-1 mb-4">
-            Click <strong>Generate Report</strong> to analyze your schema and construct an interactive dashboard with KPIs, Vega charts, and executive insights.
+            Enter a business question, then click <strong>Generate Report</strong> to build an interactive dashboard with KPIs, charts, and evidence-based insights.
           </p>
           <button
             type="button"
@@ -408,13 +419,18 @@ export default function AIDashboardBuilder({
         >
           {/* Executive Header Banner */}
           <header className="px-6 py-6 border-b dark:border-slate-800" style={{ backgroundColor: isDark ? '#151922' : paletteTokens.soft, borderColor: isDark ? undefined : paletteTokens.border }}>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="px-2 py-0.5 rounded text-[9.5px] uppercase font-extrabold tracking-wider text-white" style={{ backgroundColor: paletteTokens.accent }}>
                 Executive Briefing
               </span>
               <span className="text-[11px] text-slate-400 font-mono">
                 {report.mode === 'openrouter' ? 'DeepSeek AI Curated' : 'Governed Schema Analysis'}
               </span>
+              {report.validation && (
+                <span className={`text-[10px] font-semibold ${report.validation.status === 'passed' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                  {report.validation.status === 'passed' ? 'Structure validated' : 'Needs review'}
+                </span>
+              )}
             </div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-2 tracking-tight">
               {report.title}
