@@ -420,7 +420,7 @@ export default function AIDashboardBuilder({
           style={reportStyle}
         >
           {/* Executive Header Banner */}
-          <header className="px-6 py-6 border-b dark:border-slate-800" style={{ backgroundColor: isDark ? '#151922' : paletteTokens.soft, borderColor: isDark ? undefined : paletteTokens.border }}>
+          <header className="px-5 py-5 border-b dark:border-slate-800" style={{ backgroundColor: isDark ? '#151922' : paletteTokens.soft, borderColor: isDark ? undefined : paletteTokens.border }}>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="px-2 py-0.5 rounded text-[9.5px] uppercase font-extrabold tracking-wider text-white" style={{ backgroundColor: paletteTokens.accent }}>
                 Executive Briefing
@@ -455,27 +455,27 @@ export default function AIDashboardBuilder({
               layout === 'story'
                 ? 'md:grid-cols-1'
                 : layout === 'analytical'
-                ? 'md:grid-cols-3'
+                ? 'md:grid-cols-2'
                 : 'md:grid-cols-4'
-            } ${report.theme?.density === 'compact' ? 'gap-3.5 p-4' : 'gap-5 p-6'}`}
+            } grid-flow-row-dense items-start auto-rows-min ${report.theme?.density === 'compact' ? 'gap-2.5 p-3' : 'gap-3 p-4'}`}
           >
             {reportWidgets.map((widget, widgetIndex) => {
               const isSelected = selectedWidgetId === widget.id;
-              const spanClasses = widget.span > 1 ? 'md:col-span-2' : '';
+              const spanClasses = layout !== 'story' && widget.span > 1 ? 'md:col-span-2' : '';
               const firstContentClass = widgetIndex === firstNonKpiIndex ? 'md:col-start-1' : '';
 
               return (
                 <article
                   key={widget.id}
                   onClick={() => setSelectedWidgetId(isSelected ? null : widget.id)}
-                  className={`min-w-0 border bg-slate-50/60 dark:bg-[#161c27] rounded-xl p-5 cursor-pointer transition-all duration-150 relative group ${
+                  className={`min-w-0 self-start border bg-slate-50/60 dark:bg-[#161c27] rounded-xl p-4 cursor-pointer transition-all duration-150 relative group ${
                     isSelected
                       ? 'border-indigo-500 ring-2 ring-indigo-500/20 shadow-md'
                       : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
                   } ${spanClasses} ${firstContentClass}`}
                   style={{ borderColor: isSelected ? paletteTokens.accent : undefined }}
                 >
-                  <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center justify-between gap-2 mb-1">
                     <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
                       {widget.title}
                     </p>
@@ -497,8 +497,8 @@ export default function AIDashboardBuilder({
 
                   {/* KPI Card */}
                   {widget.type === 'kpi' && (
-                    <div className="mt-4">
-                      <div className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100" style={{ color: isDark ? undefined : paletteTokens.accent }}>
+                    <div className="mt-2">
+                      <div className="text-3xl leading-none font-extrabold tracking-tight text-slate-900 dark:text-slate-100" style={{ color: isDark ? undefined : paletteTokens.accent }}>
                         {typeof profileValue(widget.field) === 'number'
                           ? Number(profileValue(widget.field)).toLocaleString(undefined, {
                               maximumFractionDigits: 2,
@@ -521,7 +521,7 @@ export default function AIDashboardBuilder({
 
                   {/* Data Table Widget */}
                   {widget.type === 'table' && (
-                    <div className="mt-3">
+                    <div className="mt-2">
                       <DataTablePanel
                         columns={activeResult.columns}
                         rows={activeResult.rows}
@@ -532,7 +532,7 @@ export default function AIDashboardBuilder({
 
                   {/* Vega Chart Widget */}
                   {widget.type === 'chart' && (
-                    <div className="mt-3">
+                    <div className="mt-2">
                       <VegaWorkbenchChart
                         idiom={widget.chart_type}
                         result={activeResult}

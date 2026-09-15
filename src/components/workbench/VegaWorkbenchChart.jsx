@@ -32,7 +32,7 @@ function buildSpec(idiom, result, recommendation, colors) {
   const base = {
     $schema: 'https://vega.github.io/schema/vega-lite/v6.json',
     width: 'container',
-    height: 300,
+    height: 260,
     data: { values },
     config: {
       view: { stroke: null },
@@ -58,7 +58,7 @@ function buildSpec(idiom, result, recommendation, colors) {
     tooltip,
   };
 
-  if (idiom === 'kpi') return { ...base, height: 180, mark: { type: 'text', fontSize: 52, fontWeight: 700, color: colors.palette[0] }, encoding: { text: { aggregate: 'sum', field: y, type: 'quantitative', format: ',.2f' } } };
+  if (idiom === 'kpi') return { ...base, height: 150, mark: { type: 'text', fontSize: 52, fontWeight: 700, color: colors.palette[0] }, encoding: { text: { aggregate: 'sum', field: y, type: 'quantitative', format: ',.2f' } } };
   if (idiom === 'histogram' || idiom === 'density') return { ...base, mark: { type: 'bar', color: colors.palette[0], cornerRadiusTopLeft: 3, cornerRadiusTopRight: 3 }, encoding: { x: { field: y || x, type: 'quantitative', bin: { maxbins: 22 } }, y: { aggregate: 'count', type: 'quantitative' }, tooltip: [{ field: y || x, bin: true }, { aggregate: 'count', type: 'quantitative' }] } };
   if (idiom === 'boxplot' || idiom === 'violin') return { ...base, mark: { type: 'boxplot', extent: 'min-max', color: colors.palette[0] }, encoding: { x: { field: x, type: types[x] || 'nominal' }, y: { field: y, type: 'quantitative', scale: { zero: false } }, tooltip } };
   if (idiom === 'heatmap' || idiom === 'calendar_heatmap' || idiom === 'correlation_matrix' || idiom === 'mosaic') return { ...base, mark: 'rect', encoding: { x: { field: x, type: types[x] || 'nominal' }, y: { field: colorField || columns[1], type: types[colorField || columns[1]] || 'nominal' }, color: { field: y, type: 'quantitative', scale: { scheme: 'blues' } }, tooltip } };
