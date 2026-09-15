@@ -64,6 +64,23 @@ jobs:
           set -euo pipefail
           cd /opt/slayql
 
+          compose_logs_on_failure() {
+            status=$?
+            echo "Deployment command failed with exit code $status; collecting container diagnostics."
+            docker compose \
+              --env-file .env.production \
+              -f deploy/docker-compose.yml \
+              -f docker-compose.vps.yml \
+              ps -a || true
+            docker compose \
+              --env-file .env.production \
+              -f deploy/docker-compose.yml \
+              -f docker-compose.vps.yml \
+              logs --tail=200 api web || true
+            exit "$status"
+          }
+          trap compose_logs_on_failure ERR
+
           if ! git diff --quiet || ! git diff --cached --quiet; then
             echo "Tracked VPS files contain uncommitted changes; deployment stopped."
             git status --short
