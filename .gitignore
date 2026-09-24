@@ -37,3 +37,7 @@ backend/data/connections/
 *.njsproj
 *.sln
 *.sw?
+
+# Evaluation datasets and cached model outputs (large, regenerable)
+backend/eval/data/
+backend/eval/cache/
