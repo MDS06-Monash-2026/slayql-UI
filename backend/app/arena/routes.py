@@ -123,7 +123,13 @@ def eval_summary() -> Dict[str, Any]:
             "commit": report["commit"],
             "evaluated_at": report["evaluated_at"],
             "calibration": report.get("calibration"),
-            "configs": {k: test["configs"][k] for k in ("B0", "B3")},
+            "configs": {k: test["configs"][k] for k in ("B0", "B1", "B2", "B3", "B3_c1", "B3_c4", "B3_c9") if k in test["configs"]},
+            "risk_coverage": [
+                point for index, point in enumerate(test["risk_coverage_B3"]["curve"])
+                if index % max(1, len(test["risk_coverage_B3"]["curve"]) // 40) == 0
+            ],
+            "aurc": test["risk_coverage_B3"]["aurc"],
+            "ece": test["calibration_B3"]["ece"],
             "questions": [
                 {
                     "p": item["B3"]["p"],

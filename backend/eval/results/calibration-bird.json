@@ -1,0 +1,16 @@
+{
+  "bias": -1.6279,
+  "weights": {
+    "agreement": 2.0982,
+    "single_candidate": -0.0942,
+    "unresolved_blocking": -2.0754,
+    "ambiguity": -0.688,
+    "warnings": -2.146,
+    "repairs": 0.2606,
+    "empty_result": -1.1715,
+    "semantic_invalid": 0.0
+  },
+  "source": "fitted on 267 'bird' fit-split questions",
+  "fitted_at": "2026-09-24T11:00:41.854232+00:00",
+  "commit": "b9de3de"
+}

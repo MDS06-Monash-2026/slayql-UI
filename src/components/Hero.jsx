@@ -27,7 +27,7 @@ export default function Hero({ setView }) {
 
   const handleArchClick = (e) => {
     e.preventDefault();
-    const target = document.getElementById('architecture');
+    const target = document.getElementById('results');
     if (target) {
       const offset = 72;
       const top = target.getBoundingClientRect().top + window.scrollY - offset;
@@ -44,21 +44,21 @@ export default function Hero({ setView }) {
         <div className="text-center max-w-5xl mx-auto">
 
           <p className="text-sm sm:text-base font-medium text-slate-500 mb-4 tracking-wide uppercase">
-            Scalable Schema Exploration &amp; Value-Grounded Text-to-SQL
+            Trustworthy AI answers from your company's data
           </p>
 
           {/* Headline */}
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.08] mb-6">
-            Query Complex Databases
+            Ask your data anything.
             <span className="relative">
-              <span className="hero-gradient-text block sm:inline"> in Plain English.</span>
+              <span className="hero-gradient-text block sm:inline"> Know when not to trust it.</span>
               <span className="hero-underline-svg absolute -bottom-2 left-0 right-0 hidden sm:block"></span>
             </span>
           </h1>
 
           {/* Subheadline */}
           <p className="mt-6 text-lg sm:text-xl text-slate-500 max-w-3xl mx-auto leading-relaxed font-light">
-            SlayQL is an agentic Text-to-SQL framework that intelligently explores database schemas, reasons over complex join relationships, and grounds queries with real data values. Generate accurate SQL, visualize results, and explore large-scale datasets without manually navigating thousands of tables.
+            SlayQL answers questions from your company's data, and tells you when not to trust the answer. Every answer is checked for double counting, silently included cancelled records and dates outside the data. Unclear questions get a clarifying question with both numbers, and uncertain answers go to an analyst with the evidence attached.
           </p>
 
           {/* CTAs */}
@@ -70,7 +70,7 @@ export default function Hero({ setView }) {
             </button>
             <button onClick={handleArchClick} className="group inline-flex items-center gap-2 px-7 py-3.5 bg-white hover:bg-slate-50 text-slate-800 font-semibold text-base rounded-xl border border-slate-200 shadow-md hover:shadow-lg transition-all duration-200">
               <GitBranch className="w-4 h-4 text-indigo-600" />
-              View Architecture
+              See the results
             </button>
           </div>
 
@@ -78,19 +78,19 @@ export default function Hero({ setView }) {
           <div className="mt-12 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-slate-500">
             <div className="flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              Graph-Based Schema Reasoning
+              Checks every answer
             </div>
             <div className="flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              Value-Grounded Retrieval
+              Asks when a question is ambiguous
             </div>
             <div className="flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              Multi-Model AI Gateway
+              Hands uncertain answers to an analyst
             </div>
             <div className="flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              Spider 2.0-Lite Evaluation
+              English and Bahasa Malaysia
             </div>
           </div>
         </div>

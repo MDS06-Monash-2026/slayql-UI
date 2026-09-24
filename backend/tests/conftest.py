@@ -38,3 +38,10 @@ _ISOLATED_ENV = {
 }
 
 os.environ.update(_ISOLATED_ENV)
+
+import pytest
+from backend.app.verification import confidence
+
+@pytest.fixture(autouse=True)
+def _isolate_confidence_calibration(monkeypatch):
+    monkeypatch.setattr(confidence, "CALIBRATION_PATH", _TEST_DATA_DIR / "nonexistent_calibration.json")

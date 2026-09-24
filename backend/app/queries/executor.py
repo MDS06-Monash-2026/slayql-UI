@@ -1,5 +1,6 @@
 import time
 import asyncio
+import sqlite3
 import aiosqlite
 from typing import List, Dict, Any, Optional, Tuple
 from pydantic import BaseModel
@@ -24,63 +25,80 @@ class QueryExecutor:
         max_rows: int = 200
     ) -> ExecutionResult:
         start_time = time.time()
+        db = None
+        timer = None
         try:
-            async with aiosqlite.connect(db_path) as db:
-                # Set row factory or fetch
-                cursor = await asyncio.wait_for(
-                    db.execute(sql),
-                    timeout=timeout_seconds
-                )
-                
-                # Column names and descriptions
-                col_names = [d[0] for d in cursor.description] if cursor.description else []
-                
-                # Fetch up to max_rows + 1 to detect truncation
-                raw_rows = await asyncio.wait_for(
-                    cursor.fetchmany(max_rows + 1),
-                    timeout=timeout_seconds
-                )
-                
-                is_truncated = len(raw_rows) > max_rows
-                final_rows = [list(r) for r in raw_rows[:max_rows]]
-                row_count = len(final_rows)
-                
-                # Infer column types from first non-null values
-                col_types = []
-                for col_idx in range(len(col_names)):
-                    sample_type = "string"
-                    for r in final_rows:
-                        val = r[col_idx]
-                        if val is not None:
-                            if isinstance(val, (int, float)):
-                                sample_type = "number"
-                            elif isinstance(val, str) and (len(val) == 10 and val[4] == '-' and val[7] == '-'):
-                                sample_type = "date"
-                            break
-                    col_types.append(sample_type)
+            db = await aiosqlite.connect(db_path)
+            loop = asyncio.get_running_loop()
+            timer = loop.call_later(
+                timeout_seconds,
+                lambda: db._conn.interrupt() if db and hasattr(db, "_conn") and db._conn else None
+            )
 
-                exec_time_ms = int((time.time() - start_time) * 1000)
-                
-                # Auto-recommend chart
-                chart_rec = QueryExecutor._recommend_chart(col_names, col_types, final_rows)
+            # Set row factory or fetch
+            cursor = await asyncio.wait_for(
+                db.execute(sql),
+                timeout=timeout_seconds
+            )
+            
+            # Column names and descriptions
+            col_names = [d[0] for d in cursor.description] if cursor.description else []
+            
+            # Fetch up to max_rows + 1 to detect truncation
+            raw_rows = await asyncio.wait_for(
+                cursor.fetchmany(max_rows + 1),
+                timeout=timeout_seconds
+            )
+            
+            is_truncated = len(raw_rows) > max_rows
+            final_rows = [list(r) for r in raw_rows[:max_rows]]
+            row_count = len(final_rows)
+            
+            # Infer column types from first non-null values
+            col_types = []
+            for col_idx in range(len(col_names)):
+                sample_type = "string"
+                for r in final_rows:
+                    val = r[col_idx]
+                    if val is not None:
+                        if isinstance(val, (int, float)):
+                            sample_type = "number"
+                        elif isinstance(val, str) and (len(val) == 10 and val[4] == '-' and val[7] == '-'):
+                            sample_type = "date"
+                        break
+                col_types.append(sample_type)
 
+            exec_time_ms = int((time.time() - start_time) * 1000)
+            
+            # Auto-recommend chart
+            chart_rec = QueryExecutor._recommend_chart(col_names, col_types, final_rows)
+
+            return ExecutionResult(
+                columns=col_names,
+                column_types=col_types,
+                rows=final_rows,
+                row_count=row_count,
+                execution_time_ms=exec_time_ms,
+                is_truncated=is_truncated,
+                chart_recommendation=chart_rec
+            )
+        except (asyncio.TimeoutError, sqlite3.OperationalError) as exc:
+            if isinstance(exc, asyncio.TimeoutError) or "interrupted" in str(exc).lower():
                 return ExecutionResult(
-                    columns=col_names,
-                    column_types=col_types,
-                    rows=final_rows,
-                    row_count=row_count,
-                    execution_time_ms=exec_time_ms,
-                    is_truncated=is_truncated,
-                    chart_recommendation=chart_rec
+                    columns=[],
+                    column_types=[],
+                    rows=[],
+                    row_count=0,
+                    execution_time_ms=int((time.time() - start_time) * 1000),
+                    error=f"Query execution timed out after {timeout_seconds} seconds."
                 )
-        except asyncio.TimeoutError:
             return ExecutionResult(
                 columns=[],
                 column_types=[],
                 rows=[],
                 row_count=0,
                 execution_time_ms=int((time.time() - start_time) * 1000),
-                error=f"Query execution timed out after {timeout_seconds} seconds."
+                error=f"Execution error: {exc}"
             )
         except Exception as exc:
             return ExecutionResult(
@@ -91,6 +109,11 @@ class QueryExecutor:
                 execution_time_ms=int((time.time() - start_time) * 1000),
                 error=f"Execution error: {exc}"
             )
+        finally:
+            if timer is not None:
+                timer.cancel()
+            if db is not None:
+                await db.close()
 
     @staticmethod
     async def execute_external(

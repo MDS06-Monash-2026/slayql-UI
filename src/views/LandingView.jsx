@@ -5,7 +5,7 @@ import EngineWorkspace from '../components/EngineWorkspace';
 
 import ArchitectureSection from '../components/ArchitectureSection';
 import BentoGrid from '../components/BentoGrid';
-import BenchmarkSection from '../components/BenchmarkSection';
+import TrustResultsSection from '../components/TrustResultsSection';
 import DatabaseConnectors from '../components/DatabaseConnectors';
 import Footer from '../components/Footer';
 import { Github } from 'lucide-react';
@@ -40,8 +40,8 @@ export default function LandingView({ setView, onDatabaseConnect }) {
       {/* Interactive Architecture */}
       <ArchitectureSection />
 
-      {/* Enterprise Benchmark Leaderboard (includes ablation) */}
-      <BenchmarkSection />
+      {/* Measured results from backend/eval/results */}
+      <TrustResultsSection />
 
       {/* Database Connectors */}
       <DatabaseConnectors onConnected={(dbName) => {

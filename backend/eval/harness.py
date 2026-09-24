@@ -27,7 +27,7 @@ BIRD_JSON = BIRD_DIR / "mini_dev_sqlite.json"
 # Bump when prompts or generation settings change: cached generations then miss.
 PROMPT_VERSION = "v1"
 MAX_ROWS = 1000  # generous, so scoring compares complete results
-TIMEOUT_SECONDS = 30.0
+TIMEOUT_SECONDS = 10.0
 
 
 @dataclass

@@ -2,6 +2,8 @@
 
 SlayQL is an agentic Text-to-SQL workspace for exploring relational data. A user asks a question in natural language, SlayQL finds the relevant schema and values, generates read-only SQL, validates it, executes it against the selected connection, and presents the result as a table and (when useful) a chart.
 
+**SlayQL answers questions from your company's data, and tells you when not to trust the answer.** Every answer passes through a trust layer that checks it for double counting, silently included cancelled records and dates outside the data, compares independently written queries, and returns one of four outcomes: confident, caveat, clarify (showing each interpretation's number) or hand-off to an analyst. The project direction, business case and evaluation design are in [`docs/PROJECT_DIRECTION.md`](docs/PROJECT_DIRECTION.md); the current status is in [`docs/HANDOFF.md`](docs/HANDOFF.md).
+
 This repository contains both sides of the application:
 
 - **Frontend:** a React 19/Vite single-page application with the product UI, query workspace, database lab, and visualization tools.
@@ -70,6 +72,26 @@ The API is implemented in `backend/app/main.py` and is organized into catalog di
 - Read-only SQL policy enforcement, dialect-aware parsing with `sqlglot`, result row limits, timeouts, and sanitized SQL responses.
 - Persistent conversations, query history, saved queries, feedback reports, and control-database metadata.
 - Gemini-backed workbench assistance for SQL, chart idioms, dashboards, reports, and database health, with local deterministic fallbacks.
+
+### Trust layer, review queue and audience game
+
+- `backend/app/verification/`: grain (fan-out), definition, period and sanity checks; result-based consensus across candidate queries; a logistic confidence score compared with the threshold `c / (1 + c)`, where `c` is how much worse a wrong answer is than a right one (`VERIFY_DEFAULT_PENALTY`, default 4).
+- `backend/app/knowledge/`: approved business definitions (versioned, injected into SQL generation and enforced by the checks), analyst-verified queries, and the review queue for hand-offs, clarifications and flagged answers.
+- `backend/app/arena/`: Trust or Bust, the live audience game and user study (`/play`, `/arena/screen`, `/arena/host`).
+- `PRIVACY_MODE=true` masks personal-data columns (names, emails, phones, MyKad numbers) before values reach AI providers; every answer records what was sent.
+- New pages: `/review` (review queue) and `/definitions` (definitions library) for analysts and admins.
+
+## Evaluation
+
+```bash
+python -m backend.eval.datasets.build_trap_set            # rebuild and check the business trap set
+python -m backend.eval.generate --dataset trap            # paid phase: cached candidate SQL
+python -m backend.eval.generate --dataset bird --concurrency 12 --budget 15
+python -m backend.eval.evaluate --dataset trap            # free: scores B0-B3, writes backend/eval/results/
+python -m backend.eval.evaluate --dataset bird --fit      # fits a BIRD-specific calibration on the fit half
+```
+
+BIRD Mini-Dev (CC BY-SA 4.0) goes in `backend/eval/data/minidev/` (git-ignored). Every published figure must come from `backend/eval/results/`.
 
 ## Data and Database Setup
 
@@ -213,6 +235,8 @@ backend/app/
 - Provider and database failures are surfaced as recoverable UI states rather than silently switching providers.
 
 ## Testing
+
+> **Warning:** a developer `.env` may point `DATABASE_URL` at the production control database and `VITE_API_BASE_URL` at the live site. Tests isolate themselves (`backend/tests/conftest.py`) and so does the evaluation harness, but when running the app locally set `DATABASE_URL=` and `VITE_API_BASE_URL=http://localhost:<port>/api/v1` explicitly, and check that `/api/v1/health` reports `"backend_database": "sqlite"`.
 
 Backend tests live in `backend/tests` and can be run with:
 

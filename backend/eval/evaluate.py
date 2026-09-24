@@ -165,13 +165,13 @@ async def main() -> None:
     parser.add_argument("--k", type=int, default=3)
     parser.add_argument("--with-evidence", action="store_true")
     parser.add_argument("--model", default=settings.OPENROUTER_EXECUTION_MODEL)
-    parser.add_argument("--fit", action="store_true", help="fit the confidence model on the 'fit' half and save calibration.json")
+    parser.add_argument("--fit", action="store_true", help="fit the confidence model on this dataset's 'fit' half (saved to results/calibration-<dataset>.json)")
     args = parser.parse_args()
 
     items = load_items(args.dataset, args.limit)
     scored: List[Dict[str, Any]] = []
     missing = 0
-    for item in items:
+    for index, item in enumerate(items, 1):
         path = cache_path(item, args.model, args.k, args.with_evidence)
         if not path.exists():
             missing += 1
@@ -179,13 +179,19 @@ async def main() -> None:
         record = json.loads(path.read_text(encoding="utf-8"))
         gold = await run_gold(item) if item.expected == "answer" else None
         scored.append(await score_item(item, record, gold))
+        if len(scored) % 50 == 0 or len(scored) == len(items):
+            print(f"  {len(scored)}/{len(items)} scored", flush=True)
     if missing:
         print(f"Note: {missing} questions have no cached generation yet (run generate.py).")
     if not scored:
         raise SystemExit("Nothing to evaluate.")
 
     penalty = settings.VERIFY_DEFAULT_PENALTY
-    model_used = confidence.load_model()
+    # Calibration is domain-specific: a model fitted on BIRD does not transfer to a
+    # company's own schema. Each dataset uses its own fitted calibration if one
+    # exists, otherwise the default prior; the app's calibration.json is never written here.
+    calibration_file = RESULTS_DIR / f"calibration-{args.dataset}.json"
+    model_used = json.loads(calibration_file.read_text(encoding="utf-8")) if calibration_file.exists() else confidence.DEFAULT_MODEL
     if args.fit:
         fit_rows = [r for r in scored if r["split"] == "fit" and r["expected"] == "answer"]
         fitted = metrics.fit_logistic(
@@ -193,9 +199,10 @@ async def main() -> None:
         )
         if fitted:
             fitted.update({"source": f"fitted on {len(fit_rows)} '{args.dataset}' fit-split questions", "fitted_at": datetime.now(timezone.utc).isoformat(), "commit": _git_commit()})
-            confidence.CALIBRATION_PATH.write_text(json.dumps(fitted, indent=2), encoding="utf-8")
+            RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+            calibration_file.write_text(json.dumps(fitted, indent=2), encoding="utf-8")
             model_used = fitted
-            print(f"Saved calibration fitted on {len(fit_rows)} questions to {confidence.CALIBRATION_PATH}")
+            print(f"Saved calibration fitted on {len(fit_rows)} questions to {calibration_file}")
         else:
             print("Calibration not fitted: the fit split needs both correct and wrong answers.")
 
@@ -206,6 +213,10 @@ async def main() -> None:
         b3["p"] = round(p, 4)
         b3["outcome"] = outcome
         b3["correct"] = bool(metrics.is_answered(outcome) and b3["selected_correct"])
+        # The same decision at each penalty's own threshold c / (1 + c).
+        for c in metrics.PENALTIES:
+            outcome_c, _ = _decide(b3["features"], b3["blocking"], b3["options"], model_used, c)
+            record[f"B3_c{c}"] = {"outcome": outcome_c, "correct": bool(metrics.is_answered(outcome_c) and b3["selected_correct"])}
 
     report: Dict[str, Any] = {
         "dataset": args.dataset,
@@ -231,7 +242,7 @@ async def main() -> None:
             by_group[group] = {config: metrics.summarize(members, config) for config in CONFIGS}
         report["splits"][split] = {
             "n": len(subset),
-            "configs": {config: metrics.summarize(subset, config) for config in CONFIGS},
+            "configs": {config: metrics.summarize(subset, config) for config in CONFIGS + tuple(f"B3_c{c}" for c in metrics.PENALTIES)},
             "by_" + group_key: by_group,
             "risk_coverage_B3": metrics.risk_coverage(confidence_points),
             "calibration_B3": metrics.expected_calibration_error(confidence_points),
@@ -247,8 +258,10 @@ async def main() -> None:
     header = f"{'config':6} {'coverage':>9} {'sel.risk':>9} {'silent err':>11} {'EX':>7} {'RS c=4':>8} {'catch':>7} {'false alarm':>12}"
     for split in ("test", "all"):
         print(f"\n[{split}]\n{header}")
-        for config in CONFIGS:
+        for config in CONFIGS + tuple(f"B3_c{c}" for c in metrics.PENALTIES):
             m = report["splits"][split]["configs"][config]
+            if not m.get("n"):
+                continue
             print(f"{config:6} {m['coverage']:>9.3f} {m['selective_risk']:>9.3f} {m['silent_error_rate']:>11.3f} "
                   f"{(m['execution_accuracy'] or 0):>7.3f} {m['reliability_score_c4']:>8.3f} "
                   f"{(m.get('catch_rate') or 0):>7.3f} {(m.get('false_alarm_rate') or 0):>12.3f}")
