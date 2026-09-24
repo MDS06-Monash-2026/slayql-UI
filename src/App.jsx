@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import LandingView from './views/LandingView';
 import LiveDemoView from './views/LiveDemoView';
 import LoginView from './views/LoginView';
-import OnboardingView from './views/OnboardingView';
-import DashboardView from './views/DashboardView';
 import ProfileView from './views/ProfileView';
 import DatabaseCenterView from './views/DatabaseCenterView';
 import WorkspaceWarmupOverlay from './components/common/WorkspaceWarmupOverlay';
@@ -41,8 +39,9 @@ const SLUG_TO_VIEW = {
   '/lab': 'databases',
   '/ai-database-lab': 'databases',
   '/profile': 'profile',
-  '/onboarding': 'onboarding',
-  '/dashboard': 'dashboard',
+  // Retired mock pages redirect to the live workspace.
+  '/onboarding': 'demo',
+  '/dashboard': 'demo',
 };
 
 const VIEW_TO_SLUG = {
@@ -51,8 +50,6 @@ const VIEW_TO_SLUG = {
   demo: '/app',
   databases: '/database-lab',
   profile: '/profile',
-  onboarding: '/onboarding',
-  dashboard: '/dashboard',
 };
 
 function getViewFromLocation() {
@@ -71,11 +68,8 @@ function getViewFromLocation() {
   if (target.startsWith('/login')) {
     return 'login';
   }
-  if (target.startsWith('/onboarding')) {
-    return 'onboarding';
-  }
-  if (target.startsWith('/dashboard')) {
-    return 'dashboard';
+  if (target.startsWith('/onboarding') || target.startsWith('/dashboard')) {
+    return 'demo';
   }
   return SLUG_TO_VIEW[hash] || SLUG_TO_VIEW[path] || 'landing';
 }
@@ -249,19 +243,6 @@ export default function App() {
           onSessionUpdate={handleSessionUpdate}
           theme={theme}
           setTheme={setTheme}
-        />
-      )}
-      {view === 'onboarding' && (
-        <OnboardingView 
-          setView={changeView} 
-          onDatabaseConnect={handleDatabaseConnect} 
-        />
-      )}
-      {view === 'dashboard' && (
-        <DashboardView 
-          setView={changeView} 
-          activeDatabase={activeDatabase} 
-          setActiveDatabase={handleDatabaseConnect}
         />
       )}
       {view === 'profile' && (

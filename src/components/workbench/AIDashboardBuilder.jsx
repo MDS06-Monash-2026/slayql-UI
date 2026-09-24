@@ -17,7 +17,7 @@ import {
   CheckCircle2,
   AlertCircle,
 } from 'lucide-react';
-import { editPowerBIReport, generatePowerBIReport } from '../../services/api';
+import { editReport, generateReport } from '../../services/api';
 import DataTablePanel from '../demo/DataTablePanel';
 import VegaWorkbenchChart from './VegaWorkbenchChart';
 
@@ -152,7 +152,7 @@ export default function AIDashboardBuilder({
     setError('');
     setMessage('');
     try {
-      const response = await generatePowerBIReport(connectionId, {
+      const response = await generateReport(connectionId, {
         preference: { ...preferences, source_sql: sql },
         result: boundedResult,
       });
@@ -174,7 +174,7 @@ export default function AIDashboardBuilder({
     setEditing(true);
     setError('');
     try {
-      const response = await editPowerBIReport(connectionId, {
+      const response = await editReport(connectionId, {
         report,
         instruction: promptText,
         selected_widget_id: selectedWidgetId,
@@ -241,7 +241,7 @@ export default function AIDashboardBuilder({
                 AI Report Studio
               </h2>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/60">
-                DeepSeek Power BI Engine
+                SlayQL Report Studio
               </span>
             </div>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">

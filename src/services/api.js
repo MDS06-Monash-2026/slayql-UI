@@ -378,11 +378,11 @@ export function generateWorkbenchDashboard(connectionId, { preference, result })
   return workbenchRequest(`/connections/${connectionId}/workbench/ai/dashboard`, { preference, result });
 }
 
-export function generatePowerBIReport(connectionId, { preference, result }) {
+export function generateReport(connectionId, { preference, result }) {
   return workbenchRequest(`/connections/${connectionId}/workbench/ai/report`, { preference, result });
 }
 
-export function editPowerBIReport(connectionId, { report, instruction, selected_widget_id }) {
+export function editReport(connectionId, { report, instruction, selected_widget_id }) {
   return workbenchRequest(`/connections/${connectionId}/workbench/ai/report/edit`, {
     report,
     instruction,

@@ -208,7 +208,7 @@ backend/app/
 
 - Only one read-only `SELECT`/safe CTE statement is accepted; DML/DDL, stacked statements, system schemas, and unsafe file/database functions are rejected.
 - Queries are parsed and checked against the discovered catalog before execution, with a configurable timeout and maximum result rows.
-- AI requests receive the user question, bounded schema context, and safe result profiles. Credentials, control-database secrets, and full databases are never sent to providers.
+- AI requests go through OpenRouter (and Gemini for workbench features) to providers outside Malaysia. They contain the user question, the relevant schema, up to 8 database values that match the question (for grounding), and, at every thinking effort above minimal, up to 25 result rows for the written answer. At high and max effort, result profiles are also sent for chart planning. Credentials, control-database secrets, and full databases are never sent to providers. Enable privacy mode to mask personal-data columns before anything is sent.
 - Result rows are not written to the control database; history stores run metadata, SQL, status, and result summaries.
 - Provider and database failures are surfaced as recoverable UI states rather than silently switching providers.
 
