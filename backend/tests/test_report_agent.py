@@ -24,7 +24,8 @@ def test_fallback_report_has_stable_sections_and_governed_widgets():
     assert all(item["id"] for item in widgets)
     assert all(item["field"] in {"row_count", "segment", "revenue"} for item in widgets)
     charts = [item for item in widgets if item["type"] == "chart"]
-    assert len(charts) >= 5
+    # The fallback shows only the chart the data supports; it is not padded.
+    assert len(charts) == 1
     assert len({item["chart_type"] for item in charts}) == len(charts)
 
 
@@ -41,8 +42,31 @@ def test_normalize_report_replaces_repeated_chart_idioms():
     report = report_agent.normalize_report(candidate, {}, _profile())
     charts = [item for item in report["sections"][0]["widgets"] if item["type"] == "chart"]
 
-    assert len(charts) >= 5
+    # The duplicate "bar" is rebound to a distinct idiom and nothing is added.
+    # "line" is invalid without a date field, so it is rebound as well.
+    assert [item["id"] for item in charts] == ["a", "b", "c"]
+    assert charts[0]["chart_type"] == "bar"
+    assert "line" not in {item["chart_type"] for item in charts}
     assert len({item["chart_type"] for item in charts}) == len(charts)
+
+
+def test_normalize_report_does_not_pad_charts():
+    candidate = {"sections": [{"widgets": [{"id": "only", "type": "chart", "field": "revenue", "chart_type": "bar"}]}]}
+    report = report_agent.normalize_report(candidate, {}, _profile())
+    charts = [item for item in report["sections"][0]["widgets"] if item["type"] == "chart"]
+
+    assert [item["id"] for item in charts] == ["only"]
+
+
+def test_apply_chart_review_removes_rejected_charts():
+    report = {"sections": [{"widgets": [
+        {"id": "keep", "type": "chart", "chart_type": "bar"},
+        {"id": "drop", "type": "chart", "chart_type": "line"},
+        {"id": "kpi", "type": "kpi"},
+    ]}]}
+    reviewed = report_agent.apply_chart_review(report, {"rejected_widget_ids": ["drop"]}, _profile())
+
+    assert [item["id"] for item in reviewed["sections"][0]["widgets"]] == ["keep", "kpi"]
 
 
 def test_normalize_report_drops_unsafe_fields_and_unknown_columns():
@@ -70,8 +94,7 @@ def test_normalize_report_drops_unsafe_fields_and_unknown_columns():
     assert widget["span"] == 3
     assert "ignored" not in report
     charts = [item for item in report["sections"][0]["widgets"] if item["type"] == "chart"]
-    assert len(charts) >= 5
-    assert len({item["chart_type"] for item in charts}) == len(charts)
+    assert len(charts) == 1
 
 
 def test_normalize_report_handles_malformed_widget_span():

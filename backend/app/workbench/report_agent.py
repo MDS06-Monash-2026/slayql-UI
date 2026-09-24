@@ -72,7 +72,7 @@ def _chart_widget(index: int, idiom: str, metric: Optional[str], dimension: Opti
     }
 
 
-MIN_CHARTS = 10
+# Order in which replacement idioms are tried when a chart type repeats.
 CHART_BUILD_ORDER = (
     "line", "bar", "grouped_bar", "stacked_bar", "area", "scatter",
     "histogram", "boxplot", "heatmap", "donut", "treemap", "waterfall",
@@ -110,33 +110,46 @@ def _existing_chart_ids(report: Dict[str, Any]) -> set[str]:
     }
 
 
-def ensure_minimum_charts(report: Dict[str, Any], profile: Dict[str, Any], minimum: int = MIN_CHARTS) -> Dict[str, Any]:
-    """Fill the report with distinct, field-compatible chart proposals."""
-    sections = report.setdefault("sections", [])
-    if not sections:
-        sections.append({"id": "insights", "title": "Insights", "layout": "grid", "widgets": []})
-    section = sections[0]
-    widgets = section.setdefault("widgets", [])
-    metric = next(iter(field_roles(profile)["numeric"]), None)
+def dedupe_chart_idioms(report: Dict[str, Any], profile: Dict[str, Any]) -> Dict[str, Any]:
+    """Replace a repeated chart type with the next compatible unused one.
+
+    A duplicate is rebound to a distinct idiom over the same fields, or dropped
+    when none fits. Reports are never padded with charts to reach a count.
+    """
     roles = field_roles(profile)
+    metric = next(iter(roles["numeric"]), None)
     dimension = next(iter(roles["dimensions"] or roles["temporal"]), None)
-    used_types = {str(widget.get("chart_type")) for widget in widgets if widget.get("type") == "chart"}
-    next_index = len(widgets) + 1
-    for idiom in CHART_BUILD_ORDER:
-        if len([w for w in widgets if w.get("type") == "chart"]) >= minimum:
-            break
-        if idiom in used_types or idiom not in ALLOWED_IDIOMS:
-            continue
-        binding = _chart_binding(idiom, profile, metric, dimension)
-        if not chart_is_compatible(idiom, profile, binding["x_field"], binding["y_fields"]):
-            continue
-        widget = _chart_widget(next_index, idiom, metric, dimension)
-        widget["id"] = f"insight-{idiom}-{next_index}"
-        widget["config"].update(binding)
-        widget["title"] = f"{idiom.replace('_', ' ').title()} insight"
-        widgets.append(widget)
-        used_types.add(idiom)
-        next_index += 1
+    used_types: set[str] = set()
+    # Replacements must not take an idiom another widget explicitly requested.
+    requested_types = {
+        str(widget.get("chart_type"))
+        for section in report.get("sections", [])
+        for widget in section.get("widgets", [])
+        if widget.get("type") == "chart"
+    }
+    for section in report.get("sections", []):
+        kept = []
+        for widget in section.get("widgets", []):
+            if widget.get("type") != "chart":
+                kept.append(widget)
+                continue
+            idiom = str(widget.get("chart_type"))
+            if idiom not in used_types:
+                used_types.add(idiom)
+                kept.append(widget)
+                continue
+            for replacement in CHART_BUILD_ORDER:
+                if replacement in used_types or replacement in requested_types or replacement not in ALLOWED_IDIOMS:
+                    continue
+                binding = _chart_binding(replacement, profile, metric, dimension)
+                if not chart_is_compatible(replacement, profile, binding["x_field"], binding["y_fields"]):
+                    continue
+                widget["chart_type"] = replacement
+                widget.setdefault("config", {}).update(binding)
+                used_types.add(replacement)
+                kept.append(widget)
+                break
+        section["widgets"] = kept
     return report
 
 
@@ -179,7 +192,7 @@ def fallback_report(preference: Dict[str, Any], profile: Dict[str, Any]) -> Dict
         "model": REPORT_MODEL,
         "mode": "local_fallback",
     }
-    return ensure_minimum_charts(report, profile)
+    return dedupe_chart_idioms(report, profile)
 
 
 def _extract_json(text: str) -> Dict[str, Any]:
@@ -279,7 +292,7 @@ def normalize_report(candidate: Dict[str, Any], preference: Dict[str, Any], prof
     if sections:
         report["sections"] = sections
     report["data_profile"] = profile
-    return ensure_minimum_charts(report, profile)
+    return dedupe_chart_idioms(report, profile)
 
 
 async def _complete_json(system: str, prompt: str, fallback: Dict[str, Any]) -> Dict[str, Any]:
@@ -329,8 +342,8 @@ async def review_report_charts(report: Dict[str, Any], profile: Dict[str, Any], 
         "You are the report quality reviewer. Return only JSON with approved_widget_ids, rejected_widget_ids, "
         "replacement_chart_ids and issues. Review whether every chart answers a useful business question, has valid "
         "field bindings, is distinct enough from other charts, and is readable in its slot. Reject decorative, "
-        "duplicated or analytically incompatible charts. Preserve at least ten useful charts when the data supports "
-        "them; suggest registry chart IDs for replacements. Never emit HTML, CSS, JavaScript, SQL or Vega-Lite code."
+        "duplicated or analytically incompatible charts; rejected charts are removed. Suggest registry chart IDs for "
+        "replacements. Never emit HTML, CSS, JavaScript, SQL or Vega-Lite code."
     )
     return await _complete_json(system, prompt, fallback)
 
@@ -340,14 +353,11 @@ def apply_chart_review(report: Dict[str, Any], review: Dict[str, Any], profile: 
     rejected = {str(item) for item in review.get("rejected_widget_ids", []) if isinstance(item, str)}
     if not rejected:
         return report
-    chart_count = sum(1 for section in report.get("sections", []) for widget in section.get("widgets", []) if widget.get("type") == "chart")
     for section in report.get("sections", []):
-        kept = []
-        for widget in section.get("widgets", []):
-            if widget.get("type") == "chart" and widget.get("id") in rejected and chart_count > MIN_CHARTS:
-                continue
-            kept.append(widget)
-        section["widgets"] = kept
+        section["widgets"] = [
+            widget for widget in section.get("widgets", [])
+            if not (widget.get("type") == "chart" and widget.get("id") in rejected)
+        ]
     return report
 
 
@@ -356,7 +366,7 @@ async def generate_report(preference: Dict[str, Any], profile: Dict[str, Any], c
     question = str(preference.get("question") or preference.get("title") or "")
     pipeline = build_pipeline_context(question, preference, profile, catalog)
     prompt = json.dumps({"preferences": preference, "catalog": catalog, "result_profile": profile, "pipeline": pipeline, "fallback_report": fallback}, ensure_ascii=True, default=str)
-    system = "You are the report composer in a governed multi-stage analytics pipeline. Return only JSON for a report document. Use the supplied topic_tasks to cover relevant topics, but create only evidence-supported widgets. Select chart types from chart_registry and bind real fields. Create at least ten distinct, meaningful chart widgets when the available fields support them; use different analytical purposes and never add a chart solely for decoration. Create 1-4 KPI cards, a detail or exception table when useful, and a concise narrative. Use stable IDs. Never emit HTML, CSS, JavaScript, SQL, markdown, or claims unsupported by the result profile. Valid types are kpi, chart, table, text; valid layouts are executive, analytical, story."
+    system = "You are the report composer in a governed multi-stage analytics pipeline. Return only JSON for a report document. Use the supplied topic_tasks to cover relevant topics, but create only evidence-supported widgets. Select chart types from chart_registry and bind real fields. Create only as many distinct chart widgets as the question and available fields justify; give each a different analytical purpose and never add a chart solely for decoration. Create 1-4 KPI cards, a detail or exception table when useful, and a concise narrative. Use stable IDs. Never emit HTML, CSS, JavaScript, SQL, markdown, or claims unsupported by the result profile. Valid types are kpi, chart, table, text; valid layouts are executive, analytical, story."
     candidate = await _complete_json(system, prompt, fallback)
     report = normalize_report(candidate, preference, profile)
     report["pipeline"] = pipeline
@@ -364,18 +374,11 @@ async def generate_report(preference: Dict[str, Any], profile: Dict[str, Any], c
     report = apply_chart_review(report, review, profile)
     report["chart_review"] = review
     issues = validate_report_structure(report, profile)
-    remaining_ids = {str(widget.get("id")) for section in report.get("sections", []) for widget in section.get("widgets", []) if widget.get("type") == "chart"}
-    retained_rejections = [item for item in review.get("rejected_widget_ids", []) if str(item) in remaining_ids]
-    if retained_rejections:
-        issues.append({"code": "CHART_REVIEW_REJECTED", "message": "The reviewer rejected charts that could not be removed while preserving the ten-chart minimum."})
     issues.extend(
         {"code": "CHART_REVIEW", "message": str(item)[:240]}
         for item in review.get("issues", [])
         if isinstance(item, (str, dict))
     )
-    chart_count = sum(1 for section in report.get("sections", []) for widget in section.get("widgets", []) if widget.get("type") == "chart")
-    if chart_count < MIN_CHARTS:
-        issues.append({"code": "MINIMUM_CHARTS_UNAVAILABLE", "message": f"Only {chart_count} compatible charts could be generated from the available fields; {MIN_CHARTS} are required."})
     report["validation"] = {"status": "passed" if not issues else "review", "issues": issues}
     report.update({"model": REPORT_MODEL, "mode": "openrouter" if candidate is not fallback else "local_fallback"})
     return report
@@ -449,7 +452,7 @@ def apply_operations(
 async def edit_report(report: Dict[str, Any], instruction: str, selected_widget_id: Optional[str], profile: Dict[str, Any]) -> Dict[str, Any]:
     fallback_operations = [{"op": "set_report", "key": "narrative", "value": f"Updated report guidance: {instruction[:300]}"}]
     prompt = json.dumps({"instruction": instruction, "selected_widget_id": selected_widget_id, "report": report, "result_profile": profile}, ensure_ascii=True, default=str)
-    system = "You edit a Power BI-style report document. Return only JSON with message and operations. Use at most 10 allowlisted operations: set_report(key title|subtitle|narrative|layout|palette|density, value), set_widget(widget_id, key title|field|chart_type|span|x_field, value), add_widget(section_id, widget), remove_widget(widget_id). Target the selected widget when relevant. Never return HTML, CSS, JavaScript, SQL, arbitrary paths, or unknown IDs."
+    system = "You edit a management report document. Return only JSON with message and operations. Use at most 10 allowlisted operations: set_report(key title|subtitle|narrative|layout|palette|density, value), set_widget(widget_id, key title|field|chart_type|span|x_field, value), add_widget(section_id, widget), remove_widget(widget_id). Target the selected widget when relevant. Never return HTML, CSS, JavaScript, SQL, arbitrary paths, or unknown IDs."
     fallback = {"message": "Applied a safe report note.", "operations": fallback_operations}
     candidate = await _complete_json(system, prompt, fallback)
     operations = candidate.get("operations") if isinstance(candidate.get("operations"), list) else fallback_operations
@@ -458,11 +461,5 @@ async def edit_report(report: Dict[str, Any], instruction: str, selected_widget_
     updated = apply_chart_review(updated, review, profile)
     updated["chart_review"] = review
     validation = validate_report_structure(updated, profile)
-    remaining_ids = {str(widget.get("id")) for section in updated.get("sections", []) for widget in section.get("widgets", []) if widget.get("type") == "chart"}
-    if any(str(item) in remaining_ids for item in review.get("rejected_widget_ids", [])):
-        validation.append({"code": "CHART_REVIEW_REJECTED", "message": "The reviewer rejected charts that could not be removed while preserving the ten-chart minimum."})
-    chart_count = sum(1 for section in updated.get("sections", []) for widget in section.get("widgets", []) if widget.get("type") == "chart")
-    if chart_count < MIN_CHARTS:
-        validation.append({"code": "MINIMUM_CHARTS_UNAVAILABLE", "message": f"Only {chart_count} compatible charts remain after this edit; {MIN_CHARTS} are required."})
     updated["validation"] = {"status": "passed" if not validation else "review", "issues": validation}
     return {"report": updated, "message": str(candidate.get("message") or "Report updated.")[:500], "model": REPORT_MODEL, "mode": "openrouter" if candidate is not fallback else "local_fallback", "operations_applied": operations[:10]}
