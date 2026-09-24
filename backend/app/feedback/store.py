@@ -10,6 +10,8 @@ from backend.app.control_database import ControlDatabase, control_database
 
 
 REPORT_CATEGORIES = {
+    "wrong_number",
+    "wrong_definition",
     "incorrect_or_unhelpful",
     "incorrect_answer",
     "inappropriate_content",

@@ -46,6 +46,7 @@ import ConfirmationModal from '../components/demo/ConfirmationModal';
 import SignOutModal from '../components/demo/SignOutModal';
 import ReportModal from '../components/demo/ReportModal';
 import AssistantTablePreview from '../components/demo/AssistantTablePreview';
+import TrustPanel from '../components/trust/TrustPanel';
 import EmptyChatState from '../components/demo/EmptyChatState';
 
 import {
@@ -102,6 +103,14 @@ const ConversationAssistantMessage = React.memo(function ConversationAssistantMe
       <div className="ai-response-text">
         <MarkdownContent content={message.content} isDark={isDark} />
       </div>
+      {payload.verification && (
+        <TrustPanel
+          verification={payload.verification}
+          dataSent={payload.data_sent}
+          runId={String(message.id || '').replace(/^msg_/, '')}
+          isDark={isDark}
+        />
+      )}
       {isSqlQuery && payload.reasoning && (
         <details
           className={`rounded-xl border px-3.5 py-2 text-xs transition-all ${
@@ -144,6 +153,11 @@ const ConversationAssistantMessage = React.memo(function ConversationAssistantMe
       )}
       {columns.length > 0 && (
         <div ref={tableContainerRef}>
+          {['clarify', 'handoff'].includes(payload.verification?.outcome) && (
+            <p className={`mb-1.5 text-[11px] font-medium ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>
+              Unconfirmed result, shown for reference only.
+            </p>
+          )}
           <AssistantTablePreview
             columns={columns}
             rows={rows}
@@ -163,7 +177,7 @@ const ConversationAssistantMessage = React.memo(function ConversationAssistantMe
               }
             }}
             disabled={reportState === 'sending' || reportState === 'reported'}
-            title={reportState === 'reported' ? 'Response reported' : 'Report this response'}
+            title={reportState === 'reported' ? 'Sent to the analyst review queue' : 'Flag this answer for an analyst to review'}
             className={`inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[11px] font-medium transition-colors disabled:cursor-default ${
               reportState === 'reported'
                 ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-900/60 font-semibold'
@@ -179,7 +193,7 @@ const ConversationAssistantMessage = React.memo(function ConversationAssistantMe
             ) : (
               <Flag className="h-3.5 w-3.5" />
             )}
-            {reportState === 'sending' ? 'Reporting...' : reportState === 'reported' ? 'Reported' : 'Report'}
+            {reportState === 'sending' ? 'Sending...' : reportState === 'reported' ? 'Sent to review' : 'Flag this number'}
           </button>
           {reportState === 'error' && (
             <span className="text-[11px] text-red-600 dark:text-red-400">Could not send report. Try again.</span>

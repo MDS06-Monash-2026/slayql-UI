@@ -64,30 +64,42 @@ async def verify(
     semantic_invalid: bool = False,
     today: Optional[date] = None,
 ) -> Verification:
-    """Check the chosen answer, compare candidates and decide the outcome."""
-    groups = consensus.cluster(candidates)
+    """Check every candidate, let only unblocked ones vote, and decide the outcome."""
     primary = next((c for c in candidates if c.candidate_id == primary_id), None)
+    checked: Dict[str, Tuple[List[Finding], List[ClarifyOption], List[Dict[str, Any]]]] = {}
+    for candidate in candidates:
+        if candidate.ok and candidate.result is not None:
+            checked[candidate.candidate_id] = await run_checks(
+                question=question,
+                sql=candidate.sql,
+                dialect=dialect,
+                catalog=catalog,
+                run_sql=run_sql,
+                result=candidate.result,
+                definitions=definitions,
+                today=today,
+            )
+    # A candidate with a blocking problem (e.g. fan-out) must not outvote a correct one.
+    eligible = [
+        c for c in candidates
+        if c.candidate_id in checked and not any(f.severity == "blocking" for f in checked[c.candidate_id][0])
+    ]
+    groups = consensus.cluster(eligible)
     if groups:
         top = groups[0]
         selected = primary if primary is not None and primary in top else top[0]
     else:
         selected = primary
-    consensus_summary = consensus.summarize(candidates)
+    consensus_summary = consensus.summarize(eligible or candidates)
+    consensus_summary["excluded_by_checks"] = sum(1 for c in candidates if c.candidate_id in checked) - len(eligible)
+    consensus_summary["candidates"] = len(candidates)
 
     findings: List[Finding] = []
     options: List[ClarifyOption] = []
     used: List[Dict[str, Any]] = []
-    if selected is not None and selected.ok and selected.result is not None:
-        findings, options, used = await run_checks(
-            question=question,
-            sql=selected.sql,
-            dialect=dialect,
-            catalog=catalog,
-            run_sql=run_sql,
-            result=selected.result,
-            definitions=definitions,
-            today=today,
-        )
+    if selected is not None and selected.candidate_id in checked:
+        findings, options, used = checked[selected.candidate_id]
+        findings, options = list(findings), list(options)
         if options:
             options.insert(0, ClarifyOption(
                 label="As calculated (all records)",
@@ -103,7 +115,7 @@ async def verify(
             detail="Every generated query failed validation or execution.",
         ))
 
-    disagreement = consensus.disagreement_options(candidates, dialect)
+    disagreement = consensus.disagreement_options(eligible, dialect)
     if disagreement and not options:
         options = disagreement
         findings.append(Finding(

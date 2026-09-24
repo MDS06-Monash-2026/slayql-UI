@@ -307,3 +307,17 @@ async def test_openrouter_model_list():
     assert "anthropic/claude-sonnet-5" in model_ids
     assert "openai/gpt-5.6-terra" in model_ids
     assert "deepseek/deepseek-v4-flash" in model_ids
+
+
+def test_sqlite_catalog_resolves_foreign_keys_without_a_target_column(tmp_path):
+    import sqlite3
+    db = tmp_path / "implicit_fk.sqlite"
+    conn = sqlite3.connect(db)
+    conn.executescript(
+        "CREATE TABLE parent (id INTEGER PRIMARY KEY, name TEXT);"
+        "CREATE TABLE child (id INTEGER PRIMARY KEY, parent_id INTEGER REFERENCES parent);"
+    )
+    conn.close()
+    catalog = CatalogService.get_sqlite_catalog(str(db))
+    fk = catalog.tables["child"].foreign_keys[0]
+    assert (fk.to_table, fk.to_column) == ("parent", "id")

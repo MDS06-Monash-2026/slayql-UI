@@ -530,3 +530,59 @@ export async function saveQuery({ name, description, prompt, sql }) {
   if (!res.ok) throw new Error('Failed to save query');
   return res.json();
 }
+
+// --- Trust layer: clarifications, review queue and approved definitions ---
+
+async function jsonRequest(path, { method = 'GET', body } = {}) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method,
+    headers: {
+      ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+      ...getAuthHeaders(),
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const error = new Error(err.detail || `Request failed (${res.status})`);
+    error.status = res.status;
+    throw error;
+  }
+  return res.json();
+}
+
+export function fetchTrustSettings() {
+  return jsonRequest('/trust/settings');
+}
+
+export function chooseClarification(runId, optionIndex) {
+  return jsonRequest(`/agent-runs/${runId}/clarify`, { method: 'POST', body: { option_index: optionIndex } });
+}
+
+export function fetchReviewItems(status = 'open') {
+  return jsonRequest(`/review-items?status=${encodeURIComponent(status)}`);
+}
+
+export function fetchReviewCount() {
+  return jsonRequest('/review-items/count');
+}
+
+export function resolveReviewItem(itemId, { resolution, note = '', correctedSql = null, saveVerifiedQuery = false }) {
+  return jsonRequest(`/review-items/${itemId}/resolve`, {
+    method: 'POST',
+    body: { resolution, note, corrected_sql: correctedSql, save_verified_query: saveVerifiedQuery },
+  });
+}
+
+export function fetchDefinitions(connectionId, status) {
+  const query = status ? `?status=${encodeURIComponent(status)}` : '';
+  return jsonRequest(`/connections/${connectionId}/definitions${query}`);
+}
+
+export function createDefinition(connectionId, definition) {
+  return jsonRequest(`/connections/${connectionId}/definitions`, { method: 'POST', body: definition });
+}
+
+export function updateDefinitionStatus(definitionId, status) {
+  return jsonRequest(`/definitions/${definitionId}`, { method: 'PATCH', body: { status } });
+}

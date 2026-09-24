@@ -26,6 +26,58 @@ QUERY_ALIASES = {
 }
 
 
+# Bahasa Malaysia business vocabulary, so Malay questions reach the English schema.
+MALAY_TERMS = {
+    "pelanggan": ["customer", "customers", "client"],
+    "pesanan": ["order", "orders"],
+    "tempahan": ["order", "orders"],
+    "jualan": ["sales", "sale", "order", "orders", "revenue", "amount", "total"],
+    "hasil": ["revenue", "sales", "amount", "total"],
+    "pendapatan": ["revenue", "income", "amount", "total"],
+    "untung": ["profit", "margin"],
+    "keuntungan": ["profit", "margin"],
+    "gudang": ["warehouse", "warehouses"],
+    "produk": ["product", "products"],
+    "barang": ["product", "products", "item", "items"],
+    "pembekal": ["supplier", "suppliers"],
+    "pekerja": ["employee", "employees", "staff"],
+    "kakitangan": ["employee", "employees", "staff"],
+    "penghantaran": ["shipment", "shipments", "delivery", "shipping"],
+    "bayaran": ["payment", "payments", "amount"],
+    "pembayaran": ["payment", "payments"],
+    "kategori": ["category", "categories"],
+    "stok": ["inventory", "stock"],
+    "inventori": ["inventory"],
+    "cawangan": ["branch", "region", "warehouse"],
+    "wilayah": ["region", "regions"],
+    "rantau": ["region", "regions"],
+    "pasukan": ["team", "teams"],
+    "gaji": ["salary"],
+    "harga": ["price", "unit_price"],
+    "kos": ["cost", "cost_price"],
+    "diskaun": ["discount"],
+    "cukai": ["tax"],
+    "sokongan": ["support", "case"],
+    "aduan": ["support", "case", "complaint"],
+    "tarikh": ["date"],
+    "bulan": ["month", "date"],
+    "tahun": ["year", "date"],
+    "minggu": ["week", "date"],
+    "negara": ["country"],
+    "bandar": ["city"],
+    "syarikat": ["company"],
+    "jumlah": ["total", "sum", "amount"],
+    "purata": ["average"],
+    "selesai": ["completed", "status"],
+    "batal": ["cancelled", "status"],
+    "dibatalkan": ["cancelled", "status"],
+    "penggunaan": ["utilization", "utilization_percent", "usage"],
+    "kapasiti": ["capacity"],
+    "peratus": ["percent"],
+    "hutang": ["payment", "pending", "balance", "amount"],
+}
+
+
 def tokenize(value: Any) -> List[str]:
     text = str(value or "")
     text = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", text).replace("_", " ")
@@ -40,6 +92,7 @@ def query_tokens(question: str) -> List[str]:
         expanded.append(stem)
         expanded.extend(QUERY_ALIASES.get(token, []))
         expanded.extend(QUERY_ALIASES.get(stem, []))
+        expanded.extend(MALAY_TERMS.get(token, []))
     return expanded
 
 

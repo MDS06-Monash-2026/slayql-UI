@@ -143,3 +143,17 @@ def test_threshold_follows_the_penalty():
     assert confidence.threshold(1) == pytest.approx(0.5)
     assert confidence.threshold(4) == pytest.approx(0.8)
     assert confidence.threshold(9) == pytest.approx(0.9)
+
+
+@pytest.mark.asyncio
+async def test_candidates_failing_a_blocking_check_do_not_outvote_a_correct_one():
+    may = "SELECT SUM(total_amount) FROM orders WHERE status = 'completed' AND order_date >= '2026-05-01' AND order_date < '2026-06-01'"
+    stale = "SELECT SUM(total_amount) FROM orders WHERE status = 'completed' AND order_date >= date('now', 'start of month', '-1 month') AND order_date < date('now', 'start of month')"
+    candidates = [await _candidate("a", may), await _candidate("b", stale), await _candidate("c", stale)]
+    result = await verify(
+        question="What was the total value of completed orders last month?", dialect="sqlite", catalog=_catalog(),
+        run_sql=_run, candidates=candidates, primary_id="a", penalty=4, today=TODAY,
+    )
+    assert result.selected_candidate_id == "a"
+    assert result.consensus["excluded_by_checks"] == 2
+    assert result.outcome == "confident"

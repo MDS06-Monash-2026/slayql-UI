@@ -3,6 +3,7 @@ import React from 'react';
 export const THINKING_EFFORT_LEVELS = [
   {
     id: 'minimal',
+    hint: 'Checks only: 1 query',
     label: 'Low',
     badgeLight: 'text-emerald-700 bg-emerald-50 border-emerald-200',
     badgeDark: 'text-emerald-400 bg-emerald-950/60 border-emerald-800',
@@ -10,6 +11,7 @@ export const THINKING_EFFORT_LEVELS = [
   },
   {
     id: 'low',
+    hint: '2 independent queries compared',
     label: 'Medium',
     badgeLight: 'text-indigo-700 bg-indigo-50 border-indigo-200',
     badgeDark: 'text-indigo-400 bg-indigo-950/60 border-indigo-800',
@@ -17,6 +19,7 @@ export const THINKING_EFFORT_LEVELS = [
   },
   {
     id: 'medium',
+    hint: '3 independent queries compared',
     label: 'High',
     badgeLight: 'text-purple-700 bg-purple-50 border-purple-200',
     badgeDark: 'text-purple-400 bg-purple-950/60 border-purple-800',
@@ -24,6 +27,7 @@ export const THINKING_EFFORT_LEVELS = [
   },
   {
     id: 'high',
+    hint: '3 queries and deeper model checks',
     label: 'Max',
     badgeLight: 'text-rose-700 bg-rose-50 border-rose-200',
     badgeDark: 'text-rose-400 bg-rose-950/60 border-rose-800',
@@ -56,7 +60,7 @@ export default function ThinkingEffortSelector({ value = 'minimal', onChange, di
     }`}>
       {/* Plain text label: Effort */}
       <span className="text-[11px] font-semibold">
-        Effort:
+        Certainty:
       </span>
 
       {/* Badge showing current level: Low, Medium, High, Max */}
@@ -78,8 +82,8 @@ export default function ThinkingEffortSelector({ value = 'minimal', onChange, di
           disabled={disabled}
           onChange={handleSliderChange}
           className="effort-slider w-full cursor-pointer disabled:opacity-50"
-          aria-label={`Thinking effort: ${activeLevel.label}`}
-          title={`Thinking effort: ${activeLevel.label}`}
+          aria-label={`Certainty: ${activeLevel.label} (${activeLevel.hint})`}
+          title={`Certainty: ${activeLevel.label}. ${activeLevel.hint}.`}
         />
       </div>
     </div>

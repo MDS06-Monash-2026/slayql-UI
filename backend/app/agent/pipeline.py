@@ -855,6 +855,20 @@ class SlayQLPipeline:
         }
 
     @staticmethod
+    def _unconfirmed_answer(verification: Dict[str, Any]) -> str:
+        if verification.get("outcome") == "clarify":
+            lines = ["This question can be read in more than one way, and the answers differ:"]
+            for option in verification.get("clarify_options") or []:
+                lines.append(f"- **{option['label']}**: {option['preview']}")
+            lines.append("\nChoose the meaning you intend. An analyst can save your choice as the company's definition.")
+            return "\n".join(lines)
+        reasons = [f["title"] for f in verification.get("findings") or [] if f.get("severity") in {"blocking", "ambiguity"}]
+        text = "I'm not confident enough in this answer to present it as fact, so it has been sent to an analyst for review."
+        if reasons:
+            text += " Reason: " + "; ".join(reasons[:2]) + "."
+        return text + " The result below is shown for reference only."
+
+    @staticmethod
     def _handoff_verification(reason: str, detail: str, sql: str = "") -> Dict[str, Any]:
         penalty = settings.VERIFY_DEFAULT_PENALTY
         return {
@@ -2040,11 +2054,17 @@ class SlayQLPipeline:
             )
             try:
                 first_answer_delta = False
-                if not thinking_profile.use_model_answer:
-                    local_answer = SlayQLPipeline._fast_result_answer(
-                        execution_result.columns,
-                        execution_result.rows,
-                        execution_result.is_truncated,
+                unconfirmed = (verification_payload or {}).get("outcome") in {"clarify", "handoff"}
+                if unconfirmed or not thinking_profile.use_model_answer:
+                    # Never let a written answer state an unconfirmed number as fact.
+                    local_answer = (
+                        SlayQLPipeline._unconfirmed_answer(verification_payload)
+                        if unconfirmed
+                        else SlayQLPipeline._fast_result_answer(
+                            execution_result.columns,
+                            execution_result.rows,
+                            execution_result.is_truncated,
+                        )
                     )
                     answer_parts.append(local_answer)
                     SlayQLPipeline._emit(

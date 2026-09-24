@@ -8,6 +8,16 @@ import {
 
 const REPORT_OPTIONS = [
   {
+    id: 'wrong_number',
+    label: 'Wrong number',
+    activeGradient: 'bg-gradient-to-r from-red-500 via-rose-500 to-red-600 text-white shadow-xs shadow-rose-500/25 ring-1 ring-rose-400/50',
+  },
+  {
+    id: 'wrong_definition',
+    label: 'Wrong business definition',
+    activeGradient: 'bg-gradient-to-r from-sky-500 via-sky-600 to-blue-600 text-white shadow-xs shadow-sky-500/25 ring-1 ring-sky-400/50',
+  },
+  {
     id: 'incorrect_answer',
     label: 'Incorrect answer',
     activeGradient: 'bg-gradient-to-r from-red-500 via-rose-500 to-red-600 text-white shadow-xs shadow-rose-500/25 ring-1 ring-rose-400/50',
@@ -45,7 +55,7 @@ export default function ReportModal({
   onSubmit,
   isDark = false,
 }) {
-  const [category, setCategory] = useState('incorrect_answer');
+  const [category, setCategory] = useState('wrong_number');
   const [note, setNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -138,7 +148,7 @@ export default function ReportModal({
               <Flag className="w-2.5 h-2.5" />
             </div>
             <h2 id="report-modal-title" className="text-[11px] font-bold tracking-tight">
-              Report Response
+              Flag this answer
             </h2>
           </div>
           <button

@@ -207,6 +207,23 @@ function extractHumanMilestones(events = [], sqlText = '') {
     });
   }
 
+  // 6b. Answer checks (trust layer)
+  const decisionEvent = events.find((e) => e.type === 'verification.decision');
+  if (decisionEvent) {
+    const consensusEvent = events.find((e) => e.type === 'verification.consensus');
+    const checks = events.filter((e) => e.type === 'verification.check');
+    const agreement = consensusEvent?.payload;
+    const agreementText = agreement?.candidates > 1
+      ? ` • ${Math.round((agreement.agreement || 0) * (agreement.succeeded || 0))} of ${agreement.candidates} independent queries agree`
+      : '';
+    milestones.push({
+      id: 'verification',
+      title: 'Answer Checks',
+      description: `${decisionEvent.payload?.summary || 'Checked the answer'}${agreementText}${checks.length ? ` • ${checks.length} finding${checks.length === 1 ? '' : 's'}` : ''}`,
+      icon: ShieldCheck,
+    });
+  }
+
   // 7. Visualization
   const chartEvent = events.find((e) => e.type === 'visualization.recommended' || e.payload?.chart);
   if (chartEvent && chartEvent.payload?.chart) {

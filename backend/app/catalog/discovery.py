@@ -79,6 +79,13 @@ class CatalogService:
             for fk in fks_raw:
                 # id, seq, table, from, to, on_update, on_delete, match
                 _, _, to_table, from_col, to_col, _, _, _ = fk
+                if to_col is None:
+                    # "REFERENCES t" without a column means t's primary key.
+                    cursor.execute(f"PRAGMA table_info(`{to_table}`);")
+                    target_keys = [row[1] for row in cursor.fetchall() if row[5]]
+                    if len(target_keys) != 1:
+                        continue
+                    to_col = target_keys[0]
                 fks.append(ForeignKeyInfo(
                     from_column=from_col,
                     to_table=to_table,

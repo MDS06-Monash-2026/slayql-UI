@@ -17,6 +17,7 @@ const STAGE_LABELS = {
   sql_validation: 'Checking SQL safety and dialect',
   semantic_validation: 'Checking whether SQL answers the request',
   execution: 'Running a read-only query',
+  verification: 'Checking the answer before showing it',
   visualization: 'Choosing the clearest visualization',
   answer_generation: 'Summarizing the validated result',
 };
@@ -37,6 +38,7 @@ export default function SlayQLTraceTimeline({ stages = {}, activeStageKey, isRun
     'sql_validation',
     'semantic_validation',
     'execution',
+    'verification',
     'visualization',
     'answer_generation',
   ];
