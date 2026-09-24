@@ -4,7 +4,10 @@ import { chooseClarification } from '../../services/api';
 
 function formatCell(value) {
   if (value === null || value === undefined) return 'NULL';
-  if (typeof value === 'number') return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  if (typeof value === 'number') {
+    const digits = Number.isInteger(value) ? 0 : 2;
+    return value.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  }
   return String(value);
 }
 

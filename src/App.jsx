@@ -4,6 +4,11 @@ import LiveDemoView from './views/LiveDemoView';
 import LoginView from './views/LoginView';
 import ProfileView from './views/ProfileView';
 import DatabaseCenterView from './views/DatabaseCenterView';
+import ReviewQueueView from './views/ReviewQueueView';
+import DefinitionsView from './views/DefinitionsView';
+import ArenaPlayerView from './views/ArenaPlayerView';
+import ArenaScreenView from './views/ArenaScreenView';
+import ArenaHostView from './views/ArenaHostView';
 import WorkspaceWarmupOverlay from './components/common/WorkspaceWarmupOverlay';
 import {
   fetchSession,
@@ -39,6 +44,11 @@ const SLUG_TO_VIEW = {
   '/lab': 'databases',
   '/ai-database-lab': 'databases',
   '/profile': 'profile',
+  '/review': 'review',
+  '/definitions': 'definitions',
+  '/play': 'play',
+  '/arena/screen': 'arena-screen',
+  '/arena/host': 'arena-host',
   // Retired mock pages redirect to the live workspace.
   '/onboarding': 'demo',
   '/dashboard': 'demo',
@@ -50,6 +60,11 @@ const VIEW_TO_SLUG = {
   demo: '/app',
   databases: '/database-lab',
   profile: '/profile',
+  review: '/review',
+  definitions: '/definitions',
+  play: '/play',
+  'arena-screen': '/arena/screen',
+  'arena-host': '/arena/host',
 };
 
 function getViewFromLocation() {
@@ -65,6 +80,11 @@ function getViewFromLocation() {
   if (target.startsWith('/profile')) {
     return 'profile';
   }
+  if (target.startsWith('/review')) return 'review';
+  if (target.startsWith('/definitions')) return 'definitions';
+  if (target.startsWith('/play')) return 'play';
+  if (target.startsWith('/arena/screen')) return 'arena-screen';
+  if (target.startsWith('/arena/host')) return 'arena-host';
   if (target.startsWith('/login')) {
     return 'login';
   }
@@ -132,7 +152,7 @@ export default function App() {
   useEffect(() => {
     let active = true;
     const currentSession = getStoredSession();
-    if (!currentSession && (view === 'demo' || view === 'databases' || view === 'profile')) {
+    if (!currentSession && ['demo', 'databases', 'profile', 'review', 'definitions', 'arena-host'].includes(view)) {
       loginOrganization({ is_reviewer: true }).then((reviewerSession) => {
         if (!active) return;
         setSession(reviewerSession);
@@ -248,6 +268,11 @@ export default function App() {
       {view === 'profile' && (
         <ProfileView setView={changeView} session={session} onSessionUpdate={handleSessionUpdate} onLogout={handleLogout} theme={theme} setTheme={setTheme} />
       )}
+      {view === 'review' && <ReviewQueueView setView={changeView} session={session} />}
+      {view === 'definitions' && <DefinitionsView setView={changeView} session={session} />}
+      {view === 'play' && <ArenaPlayerView />}
+      {view === 'arena-screen' && <ArenaScreenView />}
+      {view === 'arena-host' && <ArenaHostView session={session} />}
       {view === 'databases' && (
         <DatabaseCenterView setView={changeView} session={session} theme={theme} setTheme={setTheme} />
       )}

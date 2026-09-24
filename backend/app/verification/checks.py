@@ -67,7 +67,7 @@ async def check_grain(tree: exp.Expression, catalog: CatalogSchema, run_sql: Sql
                 findings.append(Finding(
                     check="grain",
                     severity="blocking",
-                    title=f"Joins repeat each {table} row about {ratio:.1f} times",
+                    title=f"Joins repeat each row of {table} about {ratio:.1f} times",
                     detail=(
                         f"After the joins, {n_rows:,} rows remain for {n_keys:,} distinct {table}. "
                         f"{aggregate_sql} therefore counts some {table} rows more than once."

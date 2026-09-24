@@ -28,6 +28,7 @@ import {
   ChevronsUpDown,
   Settings,
   ShieldCheck,
+  BookOpen,
 } from 'lucide-react';
 
 import ModelSelector from '../components/demo/ModelSelector';
@@ -139,7 +140,7 @@ const ConversationAssistantMessage = React.memo(function ConversationAssistantMe
       {message.sql && (
         <SqlEditorPanel sql={message.sql} isExecuting={false} isDark={isDark} />
       )}
-      {payload.chart && rows.length > 0 && (
+      {payload.chart && rows.length > 0 && !['clarify', 'handoff'].includes(payload.verification?.outcome) && (
         <VisualizationStudio
           rows={rows}
           columns={columns}
@@ -1048,6 +1049,22 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
               >
                 <Database className={`w-4 h-4 ${theme === 'dark' ? 'text-indigo-400' : 'text-indigo-600'}`} />
                 <span className="flex-1 text-left font-bold">AI Database Lab</span>
+              </button>
+
+              <button
+                onClick={() => setView('review')}
+                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-200/60 transition-all"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-slate-500" />
+                <span className="flex-1 text-left">Review queue</span>
+              </button>
+
+              <button
+                onClick={() => setView('definitions')}
+                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-200/60 transition-all"
+              >
+                <BookOpen className="w-3.5 h-3.5 text-slate-500" />
+                <span className="flex-1 text-left">Definitions</span>
               </button>
 
               <button
