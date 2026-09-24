@@ -108,12 +108,20 @@ class OpenRouterClient:
         grounding_hints: str,
         retrieval_context: str = "",
         repair_feedback: str = "",
+        guidance: str = "",
+        definitions_context: str = "",
     ) -> str:
         repair_section = (
             f"\n### PREVIOUS ATTEMPT FEEDBACK\n{repair_feedback}\n"
             if repair_feedback
             else ""
         )
+        definitions_section = (
+            f"\n### APPROVED BUSINESS DEFINITIONS\nApply these whenever the question uses the term.\n{definitions_context}\n"
+            if definitions_context
+            else ""
+        )
+        guidance_section = f"\n### ADDITIONAL GUIDANCE\n{guidance}\n" if guidance else ""
         return f"""You are SlayQL's SQL planning agent. Generate one accurate, read-only {dialect.upper()} query for the user's latest question.
 
 ### BM25 RETRIEVAL EVIDENCE
@@ -124,7 +132,7 @@ class OpenRouterClient:
 
 ### GROUNDED VALUES
 {grounding_hints or "No literal values were grounded."}
-{repair_section}
+{definitions_section}{repair_section}{guidance_section}
 ### RULES
 - Use only tables and columns present in the verified schema.
 - Prefer the supplied foreign-key relationships for joins.
@@ -149,6 +157,8 @@ class OpenRouterClient:
         fallback_sql: str = "SELECT 1 AS result",
         reasoning_effort: str = "medium",
         max_tokens: int = 1500,
+        guidance: str = "",
+        definitions_context: str = "",
     ) -> AsyncGenerator[Dict[str, Any], None]:
         system_prompt = self.build_system_prompt(
             dialect,
@@ -156,6 +166,8 @@ class OpenRouterClient:
             grounding_hints,
             retrieval_context,
             repair_feedback,
+            guidance,
+            definitions_context,
         )
         messages: List[Dict[str, str]] = [{"role": "system", "content": system_prompt}]
         for item in (conversation_messages or [])[-8:]:

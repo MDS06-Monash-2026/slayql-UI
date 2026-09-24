@@ -16,6 +16,7 @@ from backend.app.agent.effort import (
     ThinkingEffort,
     get_thinking_profile,
 )
+from backend.app.agent.candidates import generate_variants
 from backend.app.agent.rbp import RBPGraphEngine
 from backend.app.agent.orchestrator import deepseek_orchestrator
 from backend.app.catalog.discovery import CatalogService
@@ -28,8 +29,16 @@ from backend.app.providers.openrouter_client import (
     ProviderError,
     openrouter_client,
 )
-from backend.app.queries.executor import QueryExecutor
+from backend.app.knowledge.store import knowledge_store
+from backend.app.queries.executor import ExecutionResult, QueryExecutor
 from backend.app.queries.validator import SqlValidator
+from backend.app.verification import (
+    Finding,
+    candidate_from_result,
+    repair_feedback as verification_repair_feedback,
+    run_checks,
+    verify,
+)
 from backend.app.workbench.gemini_agent import (
     GEMINI_WORKBENCH_MODEL,
     _fallback_chat_intent,
@@ -81,6 +90,7 @@ class SlayQLPipeline:
         owner_id: str = "anonymous_demo",
         conversation_messages: Optional[List[Dict[str, str]]] = None,
         thinking_effort: ThinkingEffort = DEFAULT_THINKING_EFFORT,
+        penalty: Optional[float] = None,
     ) -> Dict[str, Any]:
         run_id = f"run_{uuid.uuid4().hex[:12]}"
         conv_id = conversation_id or f"conv_{uuid.uuid4().hex[:12]}"
@@ -98,6 +108,7 @@ class SlayQLPipeline:
             "owner_id": owner_id,
             "conversation_messages": conversation_messages or [],
             "thinking_effort": thinking_effort,
+            "penalty": penalty,
             "status": "pending",
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
@@ -661,6 +672,7 @@ class SlayQLPipeline:
         reasoning: str = "",
         token_usage: Optional[Dict[str, Any]] = None,
         response_model: Optional[str] = None,
+        verification: Optional[Dict[str, Any]] = None,
     ) -> None:
         metadata = RUN_METADATA_STORE[run_id]
         result_rows = rows or []
@@ -687,6 +699,7 @@ class SlayQLPipeline:
             "tool_name": intent_decision.get("tool_name"),
             "response_model": response_model or intent_decision.get("response_model"),
             "resolution_code": resolution_code,
+            "verification": verification,
             "reportable": True,
             "total_duration_ms": int((time.perf_counter() - started) * 1000),
         }
@@ -803,6 +816,180 @@ class SlayQLPipeline:
             for item in entity_matches["join_relationships"]
         )
         return f"Ranked tables: {ranked or 'none'}\nVerified join paths: {relationships or 'none'}"
+
+    @staticmethod
+    def _probe_runner(connection: Dict[str, Any], connection_id: str, catalog: Any, dialect: str):
+        """Run trust-layer probe queries through the same validator and limits as answers."""
+        async def run(sql: str) -> ExecutionResult:
+            validation = SqlValidator.validate_and_sanitize(
+                sql=sql, dialect=dialect, catalog=catalog, max_rows=settings.MAX_RESULT_ROWS
+            )
+            if not validation.is_valid:
+                return ExecutionResult(
+                    columns=[], column_types=[], rows=[], row_count=0, execution_time_ms=0,
+                    error=validation.error_message or "Probe query failed validation.",
+                )
+            return await SlayQLPipeline._execute_query(connection, connection_id, validation.sanitized_sql)
+        return run
+
+    @staticmethod
+    def _verified_query_verification(verified_query: Dict[str, Any], penalty: float) -> Dict[str, Any]:
+        return {
+            "outcome": "confident",
+            "probability": 1.0,
+            "threshold": round(penalty / (1 + penalty), 4),
+            "penalty": penalty,
+            "summary": "Answered with a query an analyst has verified for this question.",
+            "findings": [],
+            "consensus": {},
+            "clarify_options": [],
+            "definitions_used": [],
+            "verified_query": {
+                "id": verified_query["id"],
+                "approved_by": verified_query.get("approved_by"),
+                "created_at": verified_query.get("created_at"),
+            },
+            "features": {},
+            "selected_candidate_id": None,
+        }
+
+    @staticmethod
+    def _handoff_verification(reason: str, detail: str, sql: str = "") -> Dict[str, Any]:
+        penalty = settings.VERIFY_DEFAULT_PENALTY
+        return {
+            "outcome": "handoff",
+            "probability": 0.0,
+            "threshold": round(penalty / (1 + penalty), 4),
+            "penalty": penalty,
+            "summary": "SlayQL could not produce an answer it can stand behind, so this goes to an analyst.",
+            "findings": [Finding(check="execution", severity="blocking", title=reason, detail=detail).model_dump()],
+            "consensus": {},
+            "clarify_options": [],
+            "definitions_used": [],
+            "features": {},
+            "selected_candidate_id": None,
+            "sql": sql,
+        }
+
+    @staticmethod
+    async def _queue_for_review(run_id: str, *, question: str, sql: str, verification: Dict[str, Any]) -> None:
+        metadata = RUN_METADATA_STORE.get(run_id, {})
+        try:
+            await asyncio.to_thread(
+                knowledge_store.create_review_item,
+                source="clarify" if verification.get("outcome") == "clarify" else "handoff",
+                question=question,
+                sql=sql,
+                owner_id=metadata.get("owner_id"),
+                connection_id=metadata.get("connection_id"),
+                run_id=run_id,
+                outcome=verification.get("outcome"),
+                verification=verification,
+            )
+        except Exception:
+            logger.exception("Could not queue run %s for review", run_id)
+
+    @staticmethod
+    async def _verify_answer(
+        run_id: str,
+        *,
+        question: str,
+        primary_sql: str,
+        primary_result: ExecutionResult,
+        dialect: str,
+        catalog: Any,
+        connection: Dict[str, Any],
+        connection_id: str,
+        probe_runner: Any,
+        definitions: List[Dict[str, Any]],
+        definitions_context: str,
+        penalty: float,
+        repairs: int,
+        semantic_invalid: bool,
+        thinking_profile: Any,
+        requested_model_id: str,
+        schema_context: str,
+        grounding_context: str,
+        retrieval_context: str,
+        conversation_messages: List[Dict[str, str]],
+        conversation_id: str,
+        sql_usage: Dict[str, Any],
+    ) -> tuple[Dict[str, Any], str, ExecutionResult]:
+        """Generate extra candidates, compare them, check the answer and decide."""
+        started = time.perf_counter()
+        extra = max(0, thinking_profile.candidate_count - 1)
+        SlayQLPipeline._emit(
+            run_id,
+            "verification",
+            "verification.started",
+            {"candidates": 1 + extra, "penalty": penalty, "summary": "Checking the answer before showing it."},
+        )
+        candidates = [candidate_from_result("cand_primary", primary_sql, primary_result)]
+        variants = await generate_variants(
+            count=extra,
+            requested_model_id=requested_model_id,
+            question=question,
+            dialect=dialect,
+            schema_context=schema_context,
+            grounding_hints=grounding_context,
+            retrieval_context=retrieval_context,
+            conversation_messages=conversation_messages,
+            definitions_context=definitions_context,
+            reasoning_effort=thinking_profile.provider_sql_effort,
+            max_tokens=thinking_profile.sql_max_tokens,
+            session_id=conversation_id,
+        )
+        for index, variant in enumerate(variants, start=1):
+            usage = variant.get("usage") or {}
+            for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
+                sql_usage[key] += int(usage.get(key) or 0)
+            sql_usage["cost"] += float(usage.get("cost") or 0)
+            candidate_id = f"cand_{index}"
+            if variant.get("error") or not variant.get("sql"):
+                candidates.append(candidate_from_result(candidate_id, variant.get("sql", ""), None, variant.get("error") or "no SQL returned"))
+                continue
+            validation = SqlValidator.validate_and_sanitize(
+                sql=variant["sql"], dialect=dialect, catalog=catalog, max_rows=settings.MAX_RESULT_ROWS
+            )
+            if not validation.is_valid:
+                candidates.append(candidate_from_result(candidate_id, variant["sql"], None, validation.error_message or "invalid SQL"))
+                continue
+            result = await SlayQLPipeline._execute_query(connection, connection_id, validation.sanitized_sql)
+            candidates.append(candidate_from_result(candidate_id, validation.sanitized_sql, result))
+
+        verification = await verify(
+            question=question,
+            dialect=dialect,
+            catalog=catalog,
+            run_sql=probe_runner,
+            candidates=candidates,
+            primary_id="cand_primary",
+            penalty=penalty,
+            definitions=definitions,
+            repairs=repairs,
+            semantic_invalid=semantic_invalid,
+        )
+        SlayQLPipeline._emit(run_id, "verification", "verification.consensus", verification.consensus)
+        for finding in verification.findings:
+            SlayQLPipeline._emit(run_id, "verification", "verification.check", finding.model_dump())
+        payload = verification.model_dump()
+        payload["duration_ms"] = int((time.perf_counter() - started) * 1000)
+        SlayQLPipeline._emit(
+            run_id,
+            "verification",
+            "verification.decision",
+            {
+                "outcome": verification.outcome,
+                "probability": verification.probability,
+                "threshold": verification.threshold,
+                "summary": verification.summary,
+                "duration_ms": payload["duration_ms"],
+            },
+        )
+        selected = next((c for c in candidates if c.candidate_id == verification.selected_candidate_id), None)
+        if selected and selected.candidate_id != "cand_primary" and selected.result is not None:
+            return payload, selected.sql, selected.result
+        return payload, primary_sql, primary_result
 
     @staticmethod
     async def _execute_query(connection: Dict[str, Any], connection_id: str, sql: str):
@@ -1249,6 +1436,18 @@ class SlayQLPipeline:
                 if intent_decision["intent"] == "row_count_overview"
                 else ""
             )
+            definitions = await asyncio.to_thread(knowledge_store.approved_definitions, connection_id)
+            definitions_context = knowledge_store.definitions_context(definitions)
+            verified_query = (
+                None
+                if deterministic_sql
+                else await asyncio.to_thread(knowledge_store.find_verified_query, connection_id, effective_question)
+            )
+            if verified_query:
+                # An analyst already confirmed SQL for this exact question.
+                deterministic_sql = verified_query["sql"]
+            probe_runner = SlayQLPipeline._probe_runner(connection, connection_id, catalog, dialect)
+            penalty = float(metadata.get("penalty") or settings.VERIFY_DEFAULT_PENALTY)
             if intent_decision["intent"] == "row_count_overview" and not deterministic_sql:
                 SlayQLPipeline._complete_without_generated_sql(
                     run_id,
@@ -1329,6 +1528,7 @@ class SlayQLPipeline:
                         fallback_sql=fallback_sql,
                         reasoning_effort=thinking_profile.provider_sql_effort,
                         max_tokens=thinking_profile.sql_max_tokens,
+                        definitions_context=definitions_context,
                     )
                 async for provider_event in provider_stream:
                     event_type = provider_event["type"]
@@ -1470,6 +1670,12 @@ class SlayQLPipeline:
                     )
                     if not deterministic_sql and attempt < thinking_profile.max_repair_attempts:
                         continue
+                    handoff = SlayQLPipeline._handoff_verification(
+                        "No valid SQL could be produced",
+                        validation.error_message or "The generated SQL failed safety or schema validation.",
+                        candidate_sql,
+                    )
+                    await SlayQLPipeline._queue_for_review(run_id, question=effective_question, sql=candidate_sql, verification=handoff)
                     SlayQLPipeline._complete_without_generated_sql(
                         run_id,
                         answer=SlayQLPipeline._no_query_answer(run_id, question),
@@ -1480,6 +1686,7 @@ class SlayQLPipeline:
                         },
                         status="no_query",
                         resolution_code="sql_validation_failed",
+                        verification=handoff,
                     )
                     return
 
@@ -1534,6 +1741,12 @@ class SlayQLPipeline:
                     )
                     if not deterministic_sql and attempt < thinking_profile.max_repair_attempts:
                         continue
+                    handoff = SlayQLPipeline._handoff_verification(
+                        "The SQL does not answer the question",
+                        semantic_validation["reason"],
+                        validation.sanitized_sql,
+                    )
+                    await SlayQLPipeline._queue_for_review(run_id, question=effective_question, sql=validation.sanitized_sql, verification=handoff)
                     SlayQLPipeline._complete_without_generated_sql(
                         run_id,
                         answer=SlayQLPipeline._no_query_answer(run_id, question),
@@ -1544,6 +1757,7 @@ class SlayQLPipeline:
                         },
                         status="no_query",
                         resolution_code="semantic_validation_failed",
+                        verification=handoff,
                     )
                     return
 
@@ -1575,6 +1789,12 @@ class SlayQLPipeline:
                     )
                     if not deterministic_sql and attempt < thinking_profile.max_repair_attempts:
                         continue
+                    handoff = SlayQLPipeline._handoff_verification(
+                        "The query failed when it ran",
+                        str(result.error),
+                        validation.sanitized_sql,
+                    )
+                    await SlayQLPipeline._queue_for_review(run_id, question=effective_question, sql=validation.sanitized_sql, verification=handoff)
                     SlayQLPipeline._complete_without_generated_sql(
                         run_id,
                         answer=SlayQLPipeline._no_query_answer(run_id, question),
@@ -1585,8 +1805,39 @@ class SlayQLPipeline:
                         },
                         status="no_query",
                         resolution_code="sql_execution_failed",
+                        verification=handoff,
                     )
                     return
+
+                if thinking_profile.verify and not deterministic_sql:
+                    check_findings, _, _ = await run_checks(
+                        question=effective_question,
+                        sql=validation.sanitized_sql,
+                        dialect=dialect,
+                        catalog=catalog,
+                        run_sql=probe_runner,
+                        result=result,
+                        definitions=definitions,
+                    )
+                    for finding in check_findings:
+                        SlayQLPipeline._emit(
+                            run_id,
+                            "verification",
+                            "verification.check",
+                            {"attempt": attempt, **finding.model_dump()},
+                        )
+                    blocking_hint = verification_repair_feedback(check_findings)
+                    if blocking_hint and attempt < thinking_profile.max_repair_attempts:
+                        repair_feedback = (
+                            "The previous SQL ran, but SlayQL's answer checks found a problem. " + blocking_hint
+                        )
+                        SlayQLPipeline._emit(
+                            run_id,
+                            "verification",
+                            "verification.repair_requested",
+                            {"attempt": attempt, "feedback": repair_feedback},
+                        )
+                        continue
 
                 final_sql = validation.sanitized_sql
                 final_validation = validation
@@ -1604,8 +1855,48 @@ class SlayQLPipeline:
                     },
                     status="no_query",
                     resolution_code="no_executable_sql",
+                    verification=SlayQLPipeline._handoff_verification(
+                        "No executable SQL was produced",
+                        "Every attempt failed before a result could be checked.",
+                    ),
                 )
                 return
+
+            verification_payload: Optional[Dict[str, Any]] = None
+            if verified_query:
+                verification_payload = SlayQLPipeline._verified_query_verification(verified_query, penalty)
+            elif thinking_profile.verify and not deterministic_sql:
+                verification_payload, final_sql, execution_result = await SlayQLPipeline._verify_answer(
+                    run_id,
+                    question=effective_question,
+                    primary_sql=final_sql,
+                    primary_result=execution_result,
+                    dialect=dialect,
+                    catalog=catalog,
+                    connection=connection,
+                    connection_id=connection_id,
+                    probe_runner=probe_runner,
+                    definitions=definitions,
+                    definitions_context=definitions_context,
+                    penalty=penalty,
+                    repairs=attempt_count - 1,
+                    semantic_invalid=not semantic_validation.get("is_semantically_valid", True),
+                    thinking_profile=thinking_profile,
+                    requested_model_id=requested_model_id,
+                    schema_context=schema_context,
+                    grounding_context=grounding_context,
+                    retrieval_context=retrieval_context,
+                    conversation_messages=metadata["conversation_messages"],
+                    conversation_id=conversation_id,
+                    sql_usage=sql_usage,
+                )
+                if verification_payload["outcome"] in {"handoff", "clarify"}:
+                    await SlayQLPipeline._queue_for_review(
+                        run_id,
+                        question=effective_question,
+                        sql=final_sql,
+                        verification=verification_payload,
+                    )
 
             SlayQLPipeline._emit(
                 run_id,
@@ -1915,6 +2206,7 @@ class SlayQLPipeline:
                 "orchestrator_route": intent_decision.get("orchestrator_route", "sql_agent"),
                 "tool_name": intent_decision.get("tool_name", "sql_agent"),
                 "semantic_validation": semantic_validation,
+                "verification": verification_payload,
                 "resolution_code": "sql_executed",
                 "reportable": True,
                 "total_duration_ms": int((time.perf_counter() - started) * 1000),

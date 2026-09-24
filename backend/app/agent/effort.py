@@ -20,11 +20,15 @@ class ThinkingProfile:
     use_model_semantic_validation: bool
     use_model_chart: bool
     use_model_answer: bool
+    # Candidate queries compared by the trust layer (1 = checks only, no consensus).
+    candidate_count: int = 1
+    verify: bool = True
 
 
 THINKING_PROFILES: dict[ThinkingEffort, ThinkingProfile] = {
     "minimal": ThinkingProfile(
         name="minimal",
+        candidate_count=1,
         provider_sql_effort="minimal",
         provider_answer_effort="none",
         sql_max_tokens=700,
@@ -37,6 +41,7 @@ THINKING_PROFILES: dict[ThinkingEffort, ThinkingProfile] = {
     ),
     "low": ThinkingProfile(
         name="low",
+        candidate_count=2,
         provider_sql_effort="low",
         provider_answer_effort="none",
         sql_max_tokens=1100,
@@ -49,6 +54,7 @@ THINKING_PROFILES: dict[ThinkingEffort, ThinkingProfile] = {
     ),
     "medium": ThinkingProfile(
         name="medium",
+        candidate_count=3,
         provider_sql_effort="medium",
         provider_answer_effort="minimal",
         sql_max_tokens=1500,
@@ -61,6 +67,7 @@ THINKING_PROFILES: dict[ThinkingEffort, ThinkingProfile] = {
     ),
     "high": ThinkingProfile(
         name="high",
+        candidate_count=3,
         provider_sql_effort="high",
         provider_answer_effort="low",
         sql_max_tokens=1800,
@@ -73,6 +80,7 @@ THINKING_PROFILES: dict[ThinkingEffort, ThinkingProfile] = {
     ),
     "max": ThinkingProfile(
         name="max",
+        candidate_count=5,
         provider_sql_effort="xhigh",
         provider_answer_effort="medium",
         sql_max_tokens=2600,

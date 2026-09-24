@@ -56,6 +56,12 @@ class Settings(BaseSettings):
     MAX_ACTIVE_RUNS: int = 5
     QUERY_TIMEOUT_SECONDS: float = 10.0
     MAX_RESULT_ROWS: int = 200
+    # Trust layer: a wrong answer costs this many times a correct one is worth;
+    # answers are given only when P(correct) > c / (1 + c).
+    VERIFY_DEFAULT_PENALTY: float = 4.0
+    # Mask personal-data columns before values or rows are sent to AI providers.
+    PRIVACY_MODE: bool = False
+    ARENA_MAX_STUMP_PER_PARTICIPANT: int = 3
     MAX_CONNECTION_UPLOAD_BYTES: int = 250 * 1024 * 1024
 
     @field_validator("DEBUG", mode="before")

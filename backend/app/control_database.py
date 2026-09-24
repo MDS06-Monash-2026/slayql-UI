@@ -178,6 +178,64 @@ class ControlDatabase:
             Column("owner_id", String),
         )
         Index("idx_data_connections_owner", self.data_connections.c.owner_id)
+        # Approved business definitions: what "revenue" or "overdue" means.
+        self.business_definitions = Table(
+            "business_definitions",
+            self.metadata,
+            Column("id", String, primary_key=True),
+            Column("connection_id", String, nullable=False),
+            Column("term", String, nullable=False),
+            Column("synonyms", Text, nullable=False, server_default="[]"),
+            Column("description", Text, nullable=False, server_default=""),
+            Column("table_name", String, nullable=False),
+            Column("column_name", String),
+            Column("filter_sql", Text, nullable=False, server_default=""),
+            Column("status", String, nullable=False, server_default="draft"),
+            Column("version", Integer, nullable=False, server_default="1"),
+            Column("created_by", String),
+            Column("approved_by", String),
+            Column("approved_at", String),
+            Column("created_at", String, nullable=False),
+            Column("updated_at", String, nullable=False),
+        )
+        Index("idx_business_definitions_connection", self.business_definitions.c.connection_id, self.business_definitions.c.status)
+        # Question-to-SQL pairs confirmed by an analyst.
+        self.verified_queries = Table(
+            "verified_queries",
+            self.metadata,
+            Column("id", String, primary_key=True),
+            Column("connection_id", String, nullable=False),
+            Column("question", Text, nullable=False),
+            Column("question_key", String, nullable=False),
+            Column("sql", Text, nullable=False),
+            Column("definition_ids", Text, nullable=False, server_default="[]"),
+            Column("approved_by", String),
+            Column("created_at", String, nullable=False),
+        )
+        Index("idx_verified_queries_lookup", self.verified_queries.c.connection_id, self.verified_queries.c.question_key)
+        # Review queue: handed-off, clarified and flagged answers for an analyst.
+        self.review_items = Table(
+            "review_items",
+            self.metadata,
+            Column("id", String, primary_key=True),
+            Column("owner_id", String),
+            Column("connection_id", String),
+            Column("run_id", String),
+            Column("question", Text, nullable=False),
+            Column("sql", Text, nullable=False, server_default=""),
+            Column("source", String, nullable=False),
+            Column("outcome", String),
+            Column("verification", Text, nullable=False, server_default="{}"),
+            Column("note", Text, nullable=False, server_default=""),
+            Column("status", String, nullable=False, server_default="open"),
+            Column("resolution", String),
+            Column("resolution_note", Text),
+            Column("corrected_sql", Text),
+            Column("reviewed_by", String),
+            Column("created_at", String, nullable=False),
+            Column("updated_at", String, nullable=False),
+        )
+        Index("idx_review_items_status", self.review_items.c.status, self.review_items.c.created_at.desc())
         if self.is_postgres:
             with self.engine.begin() as connection:
                 connection.execute(

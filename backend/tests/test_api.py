@@ -551,3 +551,25 @@ async def test_profiles_credits_and_connection_ownership():
         assert cleanup_resp.status_code == 200
         assert (await client.post("/api/v1/auth/logout", headers=first_headers)).status_code == 200
         assert (await client.post("/api/v1/auth/logout", headers=second_headers)).status_code == 200
+
+
+def _completed_payload(stream_text):
+    block = next(b for b in stream_text.split("\n\n") if "event: run.completed\n" in b)
+    return json.loads(block.split("data: ", 1)[1])["payload"]
+
+
+@pytest.mark.asyncio
+async def test_agent_run_attaches_a_verification_outcome():
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post("/api/v1/agent-runs/stream", json={
+            "question": "List customers for review",
+            "connection_id": "sqlite_demo",
+            "thinking_effort": "medium",
+        })
+        assert response.status_code == 200
+        assert "event: verification.decision" in response.text
+        verification = _completed_payload(response.text)["verification"]
+        assert verification["outcome"] in {"confident", "caveat", "clarify", "handoff"}
+        # medium effort compares three candidate queries
+        assert verification["consensus"]["candidates"] == 3
+        assert 0.0 <= verification["probability"] <= 1.0

@@ -1,0 +1,145 @@
+"""Trust-layer checks against the traps measured on the demo database."""
+from datetime import date
+
+import pytest
+
+from backend.app.catalog.discovery import CatalogService
+from backend.app.config import settings
+from backend.app.queries.executor import QueryExecutor
+from backend.app.verification import candidate_from_result, confidence, run_checks, verify
+
+TODAY = date(2026, 9, 24)  # the demo data ends on 28 June 2026
+
+CORRECT = "SELECT SUM(total_amount) FROM orders WHERE status = 'completed'"
+FAN_OUT = (
+    "SELECT SUM(o.total_amount) FROM orders o JOIN order_items oi ON oi.order_id = o.id "
+    "WHERE o.status = 'completed'"
+)
+ALL_STATUSES = "SELECT SUM(total_amount) FROM orders"
+
+
+def _catalog():
+    return CatalogService.get_sqlite_catalog(settings.SQLITE_DEMO_PATH)
+
+
+async def _run(sql):
+    return await QueryExecutor.execute_sqlite(settings.SQLITE_DEMO_PATH, sql)
+
+
+async def _checks(question, sql):
+    result = await _run(sql)
+    return await run_checks(
+        question=question, sql=sql, dialect="sqlite", catalog=_catalog(),
+        run_sql=_run, result=result, today=TODAY,
+    )
+
+
+async def _candidate(candidate_id, sql):
+    return candidate_from_result(candidate_id, sql, await _run(sql))
+
+
+@pytest.mark.asyncio
+async def test_correct_revenue_passes_all_checks():
+    findings, options, _ = await _checks("What is total revenue from completed orders?", CORRECT)
+    assert findings == []
+    assert options == []
+
+
+@pytest.mark.asyncio
+async def test_fan_out_join_is_blocking_with_measured_ratio():
+    findings, _, _ = await _checks("What is total revenue from completed orders?", FAN_OUT)
+    grain = [f for f in findings if f.check == "grain"]
+    assert len(grain) == 1
+    assert grain[0].severity == "blocking"
+    assert grain[0].data["rows"] == 337
+    assert grain[0].data["keys"] == 134
+    assert "orders" in grain[0].repair_hint
+
+
+@pytest.mark.asyncio
+async def test_unfiltered_statuses_offer_a_clarification():
+    findings, options, _ = await _checks("What is our total revenue?", ALL_STATUSES)
+    ambiguity = [f for f in findings if f.check == "definition"]
+    assert ambiguity and ambiguity[0].severity == "ambiguity"
+    assert set(ambiguity[0].data["excluded"]) == {"cancelled", "refunded"}
+    assert options and "cancelled" in options[0].label
+
+
+@pytest.mark.asyncio
+async def test_status_check_ignores_questions_without_a_business_measure():
+    findings, options, _ = await _checks("How many orders are there?", "SELECT COUNT(*) FROM orders")
+    assert not [f for f in findings if f.check == "definition"]
+    assert options == []
+
+
+@pytest.mark.asyncio
+async def test_relative_dates_after_the_data_ends_are_blocking():
+    sql = "SELECT SUM(total_amount) FROM orders WHERE order_date >= date('now', '-1 month')"
+    findings, _, _ = await _checks("Sales last month", sql)
+    period = [f for f in findings if f.check == "period" and f.severity == "blocking"]
+    assert period and "2026-06-28" in period[0].repair_hint
+
+
+@pytest.mark.asyncio
+async def test_date_only_upper_bound_on_datetime_column_is_blocking():
+    sql = "SELECT COUNT(*) FROM orders WHERE order_date BETWEEN '2026-01-01' AND '2026-01-31'"
+    findings, _, _ = await _checks("How many orders in January 2026?", sql)
+    assert any(f.check == "period" and "last day" in f.title for f in findings)
+
+
+@pytest.mark.asyncio
+async def test_verify_hands_off_unrepaired_fan_out():
+    candidates = [await _candidate("a", FAN_OUT)]
+    result = await verify(
+        question="What is total revenue from completed orders?", dialect="sqlite", catalog=_catalog(),
+        run_sql=_run, candidates=candidates, primary_id="a", penalty=4, today=TODAY,
+    )
+    assert result.outcome == "handoff"
+
+
+@pytest.mark.asyncio
+async def test_verify_is_confident_when_candidates_agree_and_checks_pass():
+    candidates = [await _candidate(cid, CORRECT) for cid in ("a", "b", "c")]
+    result = await verify(
+        question="What is total revenue from completed orders?", dialect="sqlite", catalog=_catalog(),
+        run_sql=_run, candidates=candidates, primary_id="a", penalty=4, today=TODAY,
+    )
+    assert result.outcome == "confident"
+    assert result.consensus["agreement"] == 1.0
+    assert result.probability >= result.threshold
+
+
+@pytest.mark.asyncio
+async def test_verify_prefers_the_majority_result():
+    candidates = [
+        await _candidate("a", ALL_STATUSES),
+        await _candidate("b", CORRECT),
+        await _candidate("c", CORRECT),
+    ]
+    result = await verify(
+        question="Total revenue from completed orders", dialect="sqlite", catalog=_catalog(),
+        run_sql=_run, candidates=candidates, primary_id="a", penalty=4, today=TODAY,
+    )
+    assert result.selected_candidate_id == "b"
+    assert result.consensus["agreement"] == pytest.approx(0.667, abs=0.001)
+
+
+@pytest.mark.asyncio
+async def test_verify_asks_when_candidates_all_disagree():
+    candidates = [
+        await _candidate("a", ALL_STATUSES),
+        await _candidate("b", CORRECT),
+        await _candidate("c", "SELECT SUM(total_amount) FROM orders WHERE status IN ('completed', 'shipped')"),
+    ]
+    result = await verify(
+        question="How much did we sell?", dialect="sqlite", catalog=_catalog(),
+        run_sql=_run, candidates=candidates, primary_id="a", penalty=4, today=TODAY,
+    )
+    assert result.outcome == "clarify"
+    assert len(result.clarify_options) >= 2
+
+
+def test_threshold_follows_the_penalty():
+    assert confidence.threshold(1) == pytest.approx(0.5)
+    assert confidence.threshold(4) == pytest.approx(0.8)
+    assert confidence.threshold(9) == pytest.approx(0.9)
