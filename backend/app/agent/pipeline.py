@@ -29,6 +29,7 @@ from backend.app.providers.openrouter_client import (
     ProviderError,
     openrouter_client,
 )
+from backend.app import privacy
 from backend.app.knowledge.store import knowledge_store
 from backend.app.queries.executor import ExecutionResult, QueryExecutor
 from backend.app.queries.validator import SqlValidator
@@ -1428,6 +1429,7 @@ class SlayQLPipeline:
             dialect = SlayQLPipeline._dialect(connection.get("engine", "sqlite"))
             schema_context = SlayQLPipeline._schema_context(catalog, chain)
             retrieval_context = SlayQLPipeline._retrieval_context(entity_matches)
+            grounded_values = privacy.mask_grounding(grounded_values)
             grounding_context = json.dumps(grounded_values, ensure_ascii=True, default=str)
             fallback_table = chain[0] if chain else next(iter(catalog.tables), "")
             fallback_sql = f'SELECT * FROM "{fallback_table}" LIMIT {min(100, settings.MAX_RESULT_ROWS)}'
@@ -2077,7 +2079,7 @@ class SlayQLPipeline:
                         question=question,
                         sql=final_sql,
                         columns=execution_result.columns,
-                        rows=execution_result.rows,
+                        rows=privacy.mask_rows(execution_result.columns, execution_result.rows),
                         session_id=conversation_id,
                         reasoning_effort=thinking_profile.provider_answer_effort,
                         max_tokens=thinking_profile.answer_max_tokens,
@@ -2207,6 +2209,12 @@ class SlayQLPipeline:
                 "tool_name": intent_decision.get("tool_name", "sql_agent"),
                 "semantic_validation": semantic_validation,
                 "verification": verification_payload,
+                "data_sent": privacy.disclosure(
+                    grounding=grounded_values,
+                    answer_columns=execution_result.columns,
+                    answer_rows=len(execution_result.rows),
+                    answer_sent=thinking_profile.use_model_answer,
+                ),
                 "resolution_code": "sql_executed",
                 "reportable": True,
                 "total_duration_ms": int((time.perf_counter() - started) * 1000),

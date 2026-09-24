@@ -38,6 +38,8 @@ from backend.app.control_database import control_database
 from backend.app.history.store import history_store
 from backend.app.history.conversation_store import conversation_store
 from backend.app.feedback.store import chat_report_store
+from backend.app.knowledge.routes import build_router as build_knowledge_router
+from backend.app.knowledge.store import knowledge_store
 from backend.app.accounts.store import account_store
 from backend.app.accounts.session_store import session_store
 from backend.app.workbench.gemini_agent import (
@@ -1425,6 +1427,24 @@ async def report_chat_response(req: ChatReportRequest, request: Request):
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not report:
         raise HTTPException(status_code=404, detail="Assistant response was not found.")
+    # Flagged answers also reach the analyst review queue with their evidence.
+    run_metadata = RUN_METADATA_STORE.get(req.message_id.removeprefix("msg_"), {})
+    run_result = run_metadata.get("result") or {}
+    try:
+        await asyncio.to_thread(
+            knowledge_store.create_review_item,
+            source="flag",
+            question=run_metadata.get("question") or "(question unavailable)",
+            sql=run_result.get("sql") or "",
+            owner_id=owner_id,
+            connection_id=run_metadata.get("connection_id"),
+            run_id=run_metadata.get("run_id"),
+            outcome=(run_result.get("verification") or {}).get("outcome"),
+            verification=run_result.get("verification") or {},
+            note=f"{req.category}: {req.note}".strip(": "),
+        )
+    except Exception:
+        logger.exception("Could not queue flagged answer %s for review", req.message_id)
     return report
 
 
@@ -1483,6 +1503,74 @@ async def create_saved_query(req: SaveQueryRequest):
     }
     SAVED_QUERIES.insert(0, new_item)
     return new_item
+
+def _connection_dialect(conn: Dict[str, Any]) -> str:
+    engine = conn.get("engine", "sqlite")
+    return "sqlite" if engine == "sqlite" else "postgres" if engine in {"postgresql", "supabase"} else engine
+
+
+def _validate_for_connection(connection_id: str, sql: str):
+    conn = get_connection(connection_id)
+    if not conn:
+        raise HTTPException(status_code=404, detail="Database connection not found.")
+    catalog = _catalog_for_connection(conn, connection_id)
+    return SqlValidator.validate_and_sanitize(
+        sql, dialect=_connection_dialect(conn), catalog=catalog, max_rows=settings.MAX_RESULT_ROWS
+    )
+
+
+async def _try_sql(connection_id: str, sql: str) -> Optional[str]:
+    """Validate and run a statement; return an error message, or None if it runs."""
+    try:
+        validation = await asyncio.to_thread(_validate_for_connection, connection_id, sql)
+    except HTTPException as exc:
+        return str(exc.detail)
+    if not validation.is_valid:
+        return validation.error_message or "SQL validation failed."
+    result = await SlayQLPipeline._execute_query(get_connection(connection_id), connection_id, validation.sanitized_sql)
+    return result.error
+
+
+async def _run_clarify_option(run_id: str, option_index: int, request: Request) -> Optional[Dict[str, Any]]:
+    """Execute a clarification option the server offered for this run."""
+    metadata = RUN_METADATA_STORE.get(run_id)
+    owner_id = await asyncio.to_thread(_owner_id, request)
+    if not metadata or not SlayQLPipeline.owns_run(run_id, owner_id):
+        return None
+    verification = ((metadata.get("result") or {}).get("verification")) or {}
+    options = verification.get("clarify_options") or []
+    if option_index >= len(options):
+        return None
+    option = options[option_index]
+    connection_id = metadata["connection_id"]
+    validation = await asyncio.to_thread(_validate_for_connection, connection_id, option["sql"])
+    if not validation.is_valid:
+        raise HTTPException(status_code=400, detail=validation.error_message or "The option's SQL failed validation.")
+    conn = get_connection(connection_id)
+    result = await SlayQLPipeline._execute_query(conn, connection_id, validation.sanitized_sql)
+    if result.error:
+        raise HTTPException(status_code=400, detail=result.error)
+    return {"label": option["label"], "sql": validation.sanitized_sql, **result.model_dump()}
+
+
+@app.get("/api/v1/trust/settings")
+async def trust_settings():
+    penalty = settings.VERIFY_DEFAULT_PENALTY
+    return {
+        "penalty": penalty,
+        "threshold": round(penalty / (1 + penalty), 4),
+        "privacy_mode": settings.PRIVACY_MODE,
+    }
+
+
+app.include_router(build_knowledge_router(
+    require_admin=_require_admin,
+    session_from_request=_session_from_request,
+    run_option=_run_clarify_option,
+    validate_sql=_validate_for_connection,
+    try_sql=_try_sql,
+))
+
 
 if __name__ == "__main__":
     import uvicorn
