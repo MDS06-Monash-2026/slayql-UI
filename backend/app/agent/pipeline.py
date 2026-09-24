@@ -92,6 +92,7 @@ class SlayQLPipeline:
         conversation_messages: Optional[List[Dict[str, str]]] = None,
         thinking_effort: ThinkingEffort = DEFAULT_THINKING_EFFORT,
         penalty: Optional[float] = None,
+        ephemeral: bool = False,
     ) -> Dict[str, Any]:
         run_id = f"run_{uuid.uuid4().hex[:12]}"
         conv_id = conversation_id or f"conv_{uuid.uuid4().hex[:12]}"
@@ -110,6 +111,8 @@ class SlayQLPipeline:
             "conversation_messages": conversation_messages or [],
             "thinking_effort": thinking_effort,
             "penalty": penalty,
+            # Ephemeral runs (e.g. audience questions) are not saved to a conversation.
+            "ephemeral": ephemeral,
             "status": "pending",
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
@@ -425,6 +428,8 @@ class SlayQLPipeline:
     ) -> None:
         """Persist a terminal response without delaying its SSE event."""
         metadata = RUN_METADATA_STORE[run_id]
+        if metadata.get("ephemeral"):
+            return
         conversation_id = metadata["conversation_id"]
 
         async def persist() -> None:

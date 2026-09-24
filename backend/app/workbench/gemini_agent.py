@@ -144,6 +144,10 @@ def _fallback_chat_intent(question: str, recent_messages: List[Dict[str, str]]) 
             "count ", "sum ", "average ", "avg ", "total ", "compare ",
             "summarize ", "breakdown ", "top ", "bottom ", "trend ",
             "revenue", "sales", "orders", "customers", "users", "products",
+            # Bahasa Malaysia data questions
+            "berapa", "senarai", "tunjukkan", "jumlah", "purata", "bandingkan", "paling ",
+            "tertinggi", "terendah", "jualan", "hasil", "pendapatan", "pelanggan", "pesanan",
+            "produk", "gudang", "pekerja", "pembekal", "penghantaran", "bayaran",
         )
         if is_follow_up or any(marker in normalized for marker in data_markers):
             intent = "data_query"

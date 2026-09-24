@@ -38,6 +38,7 @@ from backend.app.control_database import control_database
 from backend.app.history.store import history_store
 from backend.app.history.conversation_store import conversation_store
 from backend.app.feedback.store import chat_report_store
+from backend.app.arena.routes import build_router as build_arena_router
 from backend.app.knowledge.routes import build_router as build_knowledge_router
 from backend.app.knowledge.store import knowledge_store
 from backend.app.accounts.store import account_store
@@ -1570,6 +1571,7 @@ app.include_router(build_knowledge_router(
     validate_sql=_validate_for_connection,
     try_sql=_try_sql,
 ))
+app.include_router(build_arena_router(require_admin=_require_admin))
 
 
 if __name__ == "__main__":

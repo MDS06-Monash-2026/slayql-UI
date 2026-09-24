@@ -236,6 +236,20 @@ class ControlDatabase:
             Column("updated_at", String, nullable=False),
         )
         Index("idx_review_items_status", self.review_items.c.status, self.review_items.c.created_at.desc())
+        # Trust or Bust study responses (consenting, anonymous participants only).
+        self.arena_responses = Table(
+            "arena_responses",
+            self.metadata,
+            Column("id", String, primary_key=True),
+            Column("session_id", String, nullable=False),
+            Column("participant_id", String, nullable=False),
+            Column("step_id", String, nullable=False),
+            Column("kind", String, nullable=False),
+            Column("condition", String, nullable=False),
+            Column("payload", Text, nullable=False),
+            Column("created_at", String, nullable=False),
+        )
+        Index("idx_arena_responses_session", self.arena_responses.c.session_id)
         if self.is_postgres:
             with self.engine.begin() as connection:
                 connection.execute(
