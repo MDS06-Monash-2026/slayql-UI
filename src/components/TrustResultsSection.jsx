@@ -66,7 +66,7 @@ export default function TrustResultsSection() {
               title="Business trap set"
               subtitle="Our questions on the demo company: double counting, cancelled orders, dates, Bahasa Malaysia"
               data={trap}
-              note="Draft set written by the team; results will be re-run after independent review. The remaining wrong answer is a question the data cannot answer, which SlayQL does not yet detect."
+              note={`Draft set written by the team; results will be re-run after independent review.${trap.configs.B3.wrong_answers ? ' The remaining wrong answer is a question the data cannot answer, which SlayQL does not yet detect.' : ''}`}
             />
           )}
           {bird && (
@@ -77,6 +77,7 @@ export default function TrustResultsSection() {
                 Here the model is usually wrong: {pct(bird.configs.B0.selective_risk)} of its answers are incorrect.
                 SlayQL's confidence ranks answers well (calibration error {bird.ece}), but never reaches 80%, so at the default setting it answers nothing rather than guess.
                 {top20 && ` Its most confident 20% of answers are wrong ${pct(top20.risk)} of the time.`}
+                {bird.configs.B3_c1 && ` At a lenient setting (answer when at least 50% confident) it answers ${pct(bird.configs.B3_c1.coverage)} of questions and gives a wrong answer as fact on ${pct(bird.configs.B3_c1.silent_error_rate)} of all questions, against ${pct(bird.configs.B0.silent_error_rate)} for the plain pipeline.`}
               </p>
               <div className="mt-4 h-56">
                 <ResponsiveContainer width="100%" height="100%">

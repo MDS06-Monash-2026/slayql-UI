@@ -49,7 +49,7 @@ export default function Navbar({ setView, currentView }) {
               <a href="#workspace" onClick={(e) => handleNavClick('workspace', e)} className="nav-link px-3.5 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all duration-150">Workspace</a>
               <a href="#architecture" onClick={(e) => handleNavClick('architecture', e)} className="nav-link px-3.5 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all duration-150">Architecture</a>
               <a href="#features" onClick={(e) => handleNavClick('features', e)} className="nav-link px-3.5 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all duration-150">Features</a>
-              <a href="#benchmark" onClick={(e) => handleNavClick('benchmark', e)} className="nav-link px-3.5 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all duration-150">Benchmark</a>
+              <a href="#results" onClick={(e) => handleNavClick('results', e)} className="nav-link px-3.5 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all duration-150">Results</a>
               <a href="#connectors" onClick={(e) => handleNavClick('connectors', e)} className="nav-link px-3.5 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all duration-150">Connectors</a>
             </nav>
 
@@ -91,7 +91,7 @@ export default function Navbar({ setView, currentView }) {
               <a href="#workspace" onClick={(e) => handleNavClick('workspace', e)} className="block px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all">Workspace</a>
               <a href="#architecture" onClick={(e) => handleNavClick('architecture', e)} className="block px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all">Architecture</a>
               <a href="#features" onClick={(e) => handleNavClick('features', e)} className="block px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all">Features</a>
-              <a href="#benchmark" onClick={(e) => handleNavClick('benchmark', e)} className="block px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all">Benchmark</a>
+              <a href="#results" onClick={(e) => handleNavClick('results', e)} className="block px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all">Results</a>
               <a href="#connectors" onClick={(e) => handleNavClick('connectors', e)} className="block px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all">Connectors</a>
 
               <div className="pt-2 flex flex-col gap-2">

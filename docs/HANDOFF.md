@@ -1,6 +1,6 @@
 # Handoff: SlayQL trust-layer work (for the next agent)
 
-Written 24 September 2026 at the end of a long session. Read this first, then `docs/PROJECT_DIRECTION.md`, which is the source of truth for what the project is and why.
+Written 24 September 2026; updated the same day after BIRD finished (see sections 5 and 6). Read this first, then `docs/PROJECT_DIRECTION.md`, which is the source of truth for what the project is and why.
 
 ## 1. Project in one paragraph
 
@@ -86,6 +86,18 @@ Trap set, all 40 items, model `deepseek/deepseek-v4-flash`, uncalibrated default
 
 Consensus alone (B2) caught almost nothing: candidates share the same business assumptions, and the deterministic checks do the work. The remaining B3 wrong answer is `infeasible-03`, "which salesperson closed the most deals?". It's a known blind spot: nothing checks whether the data can answer the question at all. Report it as a limitation.
 
+BIRD Mini-Dev, all 500 generated (USD 0.70) and 233 held-out questions scored with a BIRD-specific calibration (`results/calibration-bird.json`, fitted on the other 267):
+
+| Config | Coverage | Wrong among answered | Silent error rate | Catch | False alarm |
+|---|---|---|---|---|---|
+| B0 | 63.5% | 60.8% | 38.6% | — | — |
+| B3 at c=1 (threshold 50%) | 29.2% | 35.3% | 10.3% | 73% | 24% |
+| B3 at c=4 or 9 | 0% | — | 0% | — | — |
+
+On BIRD without hints the model is right only about 25% of the time (strict scoring). Confidence is well calibrated (ECE 0.05) and ranks answers usefully: the top 20% are wrong 29% of the time. But it never exceeds 62%, so at the default c=4 SlayQL answers nothing, which is correct behaviour. The checks rarely fire on BIRD (catch 5.6% for B1), because its errors are schema misunderstandings, not business traps.
+
+**Calibration is domain-specific.** Applying the BIRD-fitted calibration to the trap set dropped its coverage to 0%, and would have made the live demo hand off almost everything. So `evaluate.py` now saves calibration per dataset in `results/`, and the app keeps the default prior (`confidence.DEFAULT_MODEL`). Per-workspace calibration, learned from review-queue outcomes, is future work and a good point for the report.
+
 Live examples on the demo database:
 - "What is our total revenue?" gives **clarify**, with options 3,241,298.23 (all) and 2,938,582.20 (excluding cancelled and refunded).
 - Once the "completed only" definition is approved, the same question gives **confident** at 2,159,970.05. So does "Berapa jumlah jualan kita?", which also answers in Malay.
@@ -93,19 +105,16 @@ Live examples on the demo database:
 
 ## 6. Remaining tasks, in priority order
 
-1. **Finish BIRD.** 297 of 500 are cached. Resume with `python -u -m backend.eval.generate --dataset bird --concurrency 12 --budget 15`, which takes about an hour; the cache makes it resumable. Then run `python -m backend.eval.evaluate --dataset bird --fit`, which fits `backend/app/verification/calibration.json` on the fit half and reports on the test half. Re-run `evaluate --dataset trap` afterwards, because calibration changes B3. Commit `results/*.json` and `calibration.json`.
-2. **Landing page** (`src/views/LandingView.jsx`, `src/components/Hero.jsx`):
-   - New hero: the tagline, and CTAs "Try Live Demo" and "Play Trust or Bust".
-   - Replace `BenchmarkSection`/`AblationSection` (mock data in `src/mock/mockData.js`) with a results section fed by `GET /api/v1/arena/eval-summary`, with a risk–coverage chart using recharts.
-   - State the old Spider 2.0-Lite result honestly: 72/178 vs 71/178, 16 improved and 15 degraded, no meaningful difference, which motivated the verification work.
-3. **Report Studio** (`AIDashboardBuilder.jsx`, `report_agent.py`): outcome badges on KPI cards, and KPIs from a server-side aggregate instead of the 200-row preview (line ~124).
-4. **Docs:** update the README (new pages, trust layer, evaluation commands, the safety note about `.env`) and add a status section to `PROJECT_DIRECTION.md`.
-5. **Game polish (optional):** browser-test the penalty, stump, definition, results and exit-poll rounds; only the lobby and card rounds were screenshot-tested. Run a load test with about 50 phones. Consider hiding the arena from production navigation.
-6. **Nice-to-have fixes:**
-   - Opening `/demo` directly without a stored session shows "No data sources". This is a pre-existing race between the connections fetch and the reviewer auto-login.
-   - The validator doesn't reject every unknown column; execution catches them.
-   - Infeasible-question detection (the known blind spot).
-7. **Human tasks, not for an agent:** team review of the trap set, the MUHREC ethics question, 8–12 interviews, a rehearsal with real phones, reviewing and running the production cleanup SQL, and moving `VITE_API_BASE_URL` out of `.env`.
+Done since the first handoff: BIRD generated and scored; per-dataset calibration; per-penalty B3 results; SQLite timeout interrupt fix; new landing hero and results section (`src/components/TrustResultsSection.jsx`, fed by `/api/v1/arena/eval-summary`; the old Benchmark and Ablation sections were removed); README updated.
+
+1. **Report Studio** (`AIDashboardBuilder.jsx`, `report_agent.py`): outcome badges on KPI cards, and KPIs from a server-side aggregate instead of the 200-row preview (line ~124).
+2. **`docs/PROJECT_DIRECTION.md`:** add a status section with the measured results above, and revise section 5 and 6.10 claims to match them. For example, BIRD shows a trade-off at c=1 rather than a clean win.
+3. **Game polish:** browser-test the penalty, stump, definition, results and exit-poll rounds (only the lobby and card rounds were screenshot-tested); run a load test with about 50 phones. The big screen's A/B and penalty text uses `B3` (c=4); consider showing `B3_c1` for BIRD.
+4. **Research ideas worth trying (cheap, no regeneration needed; re-run `evaluate.py`):**
+   - an "infeasible question" check (the trap set's one remaining miss);
+   - adding the evidence-hints run (`--with-evidence`, needs a new generation pass of about USD 0.7) for comparison with published BIRD numbers.
+5. **Nice-to-have fixes:** the `/demo` direct-visit "No data sources" race; unknown-column validation.
+6. **Human tasks, not for an agent:** team review of the trap set (then rebuild and re-evaluate), the MUHREC ethics question, 8–12 interviews, a rehearsal with real phones, running the production cleanup SQL, and moving `VITE_API_BASE_URL` out of `.env`.
 
 ## 7. Incidents this session (already reported to the user)
 

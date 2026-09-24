@@ -28,7 +28,7 @@ export default function Footer({ setView }) {
             <ul className="space-y-3 text-sm">
               <li><a href="#workspace" className="hover:text-white transition-colors">Workspace</a></li>
               <li><a href="#architecture" className="hover:text-white transition-colors">Architecture</a></li>
-              <li><a href="#benchmark" className="hover:text-white transition-colors">Benchmark</a></li>
+              <li><a href="#results" className="hover:text-white transition-colors">Results</a></li>
               <li><a href="#ablation" className="hover:text-white transition-colors">Ablation Study</a></li>
             </ul>
           </div>

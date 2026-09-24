@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { PlayCircle, Network, CheckCircle2, ArrowRight, GitBranch } from 'lucide-react';
+import {
+  BarChart3, PlayCircle, Network, CheckCircle2, ArrowRight, GitBranch } from 'lucide-react';
 
 export default function Hero({ setView }) {
   const [typedText, setTypedText] = useState('');
@@ -69,7 +70,7 @@ export default function Hero({ setView }) {
               <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
             </button>
             <button onClick={handleArchClick} className="group inline-flex items-center gap-2 px-7 py-3.5 bg-white hover:bg-slate-50 text-slate-800 font-semibold text-base rounded-xl border border-slate-200 shadow-md hover:shadow-lg transition-all duration-200">
-              <GitBranch className="w-4 h-4 text-indigo-600" />
+              <BarChart3 className="w-4 h-4 text-indigo-600" />
               See the results
             </button>
           </div>
