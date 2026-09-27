@@ -84,7 +84,7 @@ async def score_item(item: Item, record: Dict[str, Any], gold: Optional[Executio
     primary_ok = primary_result is not None and not primary_result.error
     out: Dict[str, Any] = {
         "dataset": item.dataset, "id": item.id, "question": item.question, "expected": item.expected,
-        "trap": item.trap, "language": item.language, "difficulty": item.difficulty, "split": split_of(item),
+        "trap": item.trap, "language": item.language, "author": item.author, "difficulty": item.difficulty, "split": split_of(item),
         "cost_usd": record.get("cost_usd", 0.0), "calls": record.get("calls", 0),
     }
 
@@ -250,6 +250,11 @@ async def main() -> None:
             "configs": {config: metrics.summarize(subset, config) for config in CONFIGS + tuple(f"B3_c{c}" for c in metrics.PENALTIES)},
             "by_" + group_key: by_group,
             "by_language": by_language,
+            # Items written outside the team are reported apart from the team's own.
+            "by_author": {
+                author: {config: metrics.summarize([r for r in subset if r.get("author", "team") == author], config) for config in CONFIGS}
+                for author in sorted({r.get("author", "team") for r in subset})
+            },
             "risk_coverage_B3": metrics.risk_coverage(confidence_points),
             "calibration_B3": metrics.expected_calibration_error(confidence_points),
         }
@@ -277,6 +282,13 @@ async def main() -> None:
         for language, configs in languages.items():
             b0, b3 = configs["B0"], configs["B3"]
             print(f"  {language:6} n={b3['n']:>3}  {b0['silent_error_rate']:.3f} -> {b3['silent_error_rate']:.3f}  "
+                  f"cov {b3['coverage']:.3f}  FA {(b3.get('false_alarm_rate') or 0):.3f}")
+    authors = report["splits"]["all"]["by_author"]
+    if len(authors) > 1:
+        print("\n[all, by author]  silent errors B0 -> B3, B3 coverage, B3 false alarms")
+        for author, configs in authors.items():
+            b0, b3 = configs["B0"], configs["B3"]
+            print(f"  {author:10} n={b3['n']:>3}  {b0['silent_error_rate']:.3f} -> {b3['silent_error_rate']:.3f}  "
                   f"cov {b3['coverage']:.3f}  FA {(b3.get('false_alarm_rate') or 0):.3f}")
     print(f"\nWrote {out_path}")
 

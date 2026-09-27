@@ -54,7 +54,7 @@ The database lab is a focused interface for inspecting and working with a select
 1. **SQL Workbench** - write and execute safe SQL, inspect result rows, and use Cursor AI (`Ctrl+K`/`Cmd+K`) to request an explainable SQL edit. Suggestions can be accepted, rejected, or run immediately.
 2. **Tables and columns** - search the discovered catalog, expand tables, inspect types/keys/row estimates, and open a table directly in the workbench.
 3. **ER Diagram** - view foreign-key relationships with zoom/pan and multi-hop structure.
-4. **AI Report Studio** - turn a result into a dashboard/report layout with chart selection and report editing assistance.
+4. **Report Studio** - turn a business question into a management report. Every KPI and chart is its own query, run on the full data and checked by the trust layer, so each shows its outcome. Findings are computed from the results, and the AI-written summary may only restate them (sentences with unsupported numbers or claims of cause are removed). Saved reports refresh on current data without AI calls; print to PDF; light and dark themes.
 5. **Health Agent** - inspect SQLite/database health and receive an AI-assisted interpretation (with deterministic local fallback when Gemini is not configured).
 
 The lab keeps selected connection/catalog and recent result state in a short-lived client cache so moving between sections does not discard work. Catalog refresh, connection testing, table management, and unsaved-dashboard prompts are built into the UI.
@@ -65,7 +65,7 @@ The API is implemented in `backend/app/main.py` and is organized into catalog di
 
 - Versioned JSON APIs under `/api/v1` and interactive OpenAPI docs at `/api/docs`.
 - Email/reviewer demo login, bearer sessions, profile/avatar updates, credits, logout, and admin chat-report review.
-- Account-owned connections for managed SQLite uploads and direct PostgreSQL, Supabase, MySQL, and Snowflake sources.
+- Account-owned connections for managed SQLite uploads and direct PostgreSQL, Supabase, MySQL, Snowflake and SQL Server sources (SQL Server covers AutoCount Accounting; not yet tested against a live AutoCount server).
 - Catalog discovery with columns, types, primary keys, foreign keys, row estimates, sample values, and refresh support.
 - SlayQL pipeline stages for schema retrieval, foreign-key graph expansion (RBP), BM25/value grounding, structured SQL generation, validation, bounded repair/retry, and execution.
 - SSE run streaming plus cancellation and explicit execute endpoints.
@@ -75,7 +75,8 @@ The API is implemented in `backend/app/main.py` and is organized into catalog di
 
 ### Trust layer, review queue and audience game
 
-- `backend/app/verification/`: grain (fan-out), definition, period and sanity checks; result-based consensus across candidate queries; a logistic confidence score compared with the threshold `c / (1 + c)`, where `c` is how much worse a wrong answer is than a right one (`VERIFY_DEFAULT_PENALTY`, default 4).
+- `backend/app/verification/`: grain (fan-out), definition (statuses and flags such as `Cancelled = 'T'`), period, filter-value, coverage (relabelled data the database does not have) and sanity checks; result-based consensus across candidate queries; a logistic confidence score compared with the threshold `c / (1 + c)`, where `c` is how much worse a wrong answer is than a right one (`VERIFY_DEFAULT_PENALTY`, default 4).
+- `backend/app/verification/learning.py`: each data source's confidence model is refitted from the analyst's review decisions (confirmed = right, corrected = wrong) once it has 20 labels; the review queue shows what SlayQL has learned.
 - `backend/app/knowledge/`: approved business definitions (versioned, injected into SQL generation and enforced by the checks), analyst-verified queries, and the review queue for hand-offs, clarifications and flagged answers.
 - `backend/app/arena/`: Trust or Bust, the live audience game and user study (`/play`, `/arena/screen`, `/arena/host`).
 - `PRIVACY_MODE=true` masks personal-data columns (names, emails, phones, MyKad numbers) before values reach AI providers; every answer records what was sent.
@@ -89,9 +90,11 @@ python -m backend.eval.generate --dataset trap            # paid phase: cached c
 python -m backend.eval.generate --dataset bird --concurrency 12 --budget 15
 python -m backend.eval.evaluate --dataset trap            # free: scores B0-B3, writes backend/eval/results/
 python -m backend.eval.evaluate --dataset bird --fit      # fits a BIRD-specific calibration on the fit half
+python -m backend.eval.learning_curve --dataset bird       # how analyst reviews recalibrate confidence (free)
+python -m backend.eval.arena_load_test --players 50        # rehearse Trust or Bust with simulated phones
 ```
 
-BIRD Mini-Dev (CC BY-SA 4.0) goes in `backend/eval/data/minidev/` (git-ignored). Every published figure must come from `backend/eval/results/`.
+Measured results and the report storyline are summarised in [`docs/REPORT_NARRATIVE.md`](docs/REPORT_NARRATIVE.md). Held-out questions from outside the team go in `backend/eval/datasets/external_items.jsonl` ([`docs/HELD_OUT_QUESTIONS.md`](docs/HELD_OUT_QUESTIONS.md)). BIRD Mini-Dev (CC BY-SA 4.0) goes in `backend/eval/data/minidev/` (git-ignored). Every published figure must come from `backend/eval/results/`.
 
 ## Data and Database Setup
 
@@ -206,7 +209,7 @@ React/Vite SPA
      -> SlayQL retrieval/RBP/BM25 pipeline
      -> sqlglot validator + read-only executor
      -> OpenRouter/Gemini provider clients
-     -> SQLite/PostgreSQL/MySQL/Snowflake sources
+     -> SQLite/PostgreSQL/MySQL/Snowflake/SQL Server sources
 ```
 
 Key directories:
@@ -215,14 +218,15 @@ Key directories:
 src/
   views/                 # route-level screens
   components/demo/       # live demo chat, catalog, SQL, results, dialogs
-  components/workbench/  # SQL workbench, charts, reports, health
+  components/workbench/  # SQL workbench, charts, health
+  components/report/     # Report Studio (trusted reports)
   services/              # REST and SSE clients
 backend/app/
   agent/                 # retrieval, RBP, orchestration, pipeline
   catalog/               # schema discovery
   connections/           # encrypted metadata and runtime connections
   queries/               # SQL validation and execution
-  workbench/             # Gemini assistance and health/report agents
+  workbench/             # Gemini assistance, health agent, trusted reports and findings
   accounts/, history/    # persistence and session/history stores
 ```
 

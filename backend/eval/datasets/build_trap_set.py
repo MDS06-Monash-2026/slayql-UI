@@ -99,10 +99,38 @@ ALTERNATIVES = {
 }
 
 
+EXTERNAL = Path(__file__).with_name("external_items.jsonl")
+
+
+def external_items() -> list:
+    """Held-out items written by people outside the team (see external_items.example.jsonl).
+
+    They are checked like the team's items and tagged with their author, so results on
+    them are reported separately.
+    """
+    if not EXTERNAL.exists():
+        return []
+    rows = []
+    for number, line in enumerate(EXTERNAL.read_text(encoding="utf-8").splitlines(), 1):
+        if not line.strip():
+            continue
+        row = json.loads(line)
+        if not str(row.get("id", "")).startswith("ext-"):
+            raise SystemExit(f"external_items.jsonl line {number}: ids must start with ext-")
+        if row.get("expected") not in {"answer", "clarify", "handoff"} or not row.get("question"):
+            raise SystemExit(f"external_items.jsonl line {number}: needs question and expected (answer, clarify or handoff)")
+        if row["expected"] == "clarify" and row.get("alternatives"):
+            ALTERNATIVES[row["id"]] = row["alternatives"]
+        rows.append((row["id"], row.get("language", "en"), row.get("trap", "none"), row["expected"], row["question"],
+                     row.get("gold_sql", ""), row.get("author") or "external"))
+    return rows
+
+
 def main() -> None:
     connection = sqlite3.connect(DB)
     lines = []
-    for item_id, language, trap, expected, question, gold in ITEMS:
+    items = [(*item, "team") for item in ITEMS] + external_items()
+    for item_id, language, trap, expected, question, gold, author in items:
         preview = None
         if gold:
             rows = connection.execute(gold).fetchall()
@@ -123,6 +151,7 @@ def main() -> None:
             "alternatives": ALTERNATIVES.get(item_id, []),
             "gold_preview": preview,
             "status": "draft",
+            "author": author,
         }, default=str))
     OUT.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"wrote {len(lines)} items to {OUT}")

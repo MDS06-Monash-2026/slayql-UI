@@ -2,6 +2,16 @@
 
 Prepared 24 September 2026 for the SlayQL FYP team. This document replaces the project direction in `FYP_DEMO_STRATEGY.md`, `FYP_KILLER_DEMO_IDEAS.md` and `MALAYSIAN_MARKET_PITCH_STRATEGY.md`. Those documents contain accuracy, pilot and interview figures that have not been measured. `MALAYSIA_MARKET_RESEARCH_AND_PITCH.md`, `MALAYSIAN_MARKET_PITCH_STRATEGY_REVIEW.md` and `REPORTING_PLATFORM_IMPLEMENTATION_PLAN.md` remain the evidence base for the business case.
 
+## 0. Status on 27 September 2026
+
+Measured results, their sources and the report storyline are in [`REPORT_NARRATIVE.md`](REPORT_NARRATIVE.md); the current build state is in [`HANDOFF.md`](HANDOFF.md). In short:
+
+- **Business trap set** (52 questions): wrong answers stated as fact fall from 26.9% to 1.9% of questions, with 75% answered immediately and no false alarms.
+- **BIRD Mini-Dev** (233 held-out questions): at c = 1, from 59.7% to 15.0%, with 40% answered. At the default c = 4, SlayQL answers none, because the model is right on only about 28%.
+- **Review-queue learning:** after 40 analyst reviews, confident wrong answers at c = 4 fall from 34.3% to 0.8%.
+- **New since the direction was written:** Report Studio rebuilt on checked queries; coverage, filter-value and flag checks; SQL Server connector; Bahasa Malaysia test items; per-workspace learning.
+- **Still open:** interviews, external held-out questions, the user study at demo day, and a pilot. Business-value claims about time and money remain hypotheses (section 6.10).
+
 ## 1. The direction
 
 SlayQL stops competing on "ask your database in plain English", which Power BI Copilot and other incumbents already offer. Instead it competes on the property that blocks real adoption: **whether a manager can trust the number**.
@@ -186,7 +196,7 @@ Section 6.9 adds a 30-second "Tool A or Tool B?" opener and a 30-second exit pol
 
 | Dataset | Size | Use | Notes |
 | --- | --- | --- | --- |
-| Business trap set (new, written by the team) | 80–100 questions on the demo database | Calibration and test (50/50), Round 1 cards | Each item has gold SQL, a trap tag (fan-out, definition, period, ambiguity, infeasible) and an expected outcome (answer, clarify or hand-off). The four queries in section 2.2 are the first items. |
+| Business trap set (written by the team; 52 items including 12 in Bahasa Malaysia or mixed language, plus external held-out items when collected) | 52 questions on the demo database | Calibration and test (50/50), Round 1 cards | Each item has gold SQL, a trap tag (fan-out, definition, period, ambiguity, infeasible) and an expected outcome (answer, clarify or hand-off). The four queries in section 2.2 are the first items. |
 | BIRD Mini-Dev, SQLite | 500 questions | Calibration and test (250/250) | Public, runs locally on the existing SQLite executor, and curated from BIRD dev |
 | Spider 2.0-Lite subset | 178 instances | Optional comparison with the earlier AutoLink run | Only if the harness and per-instance outputs behind `run/comparison_report.md` are recovered. They are not in `slayql-UI` or `slayql`, and the run needs warehouse access. |
 
@@ -373,9 +383,10 @@ Businesses in scope now hold validated, itemised invoice records. That makes mor
 
 - AutoCount Accounting runs on Microsoft SQL Server, usually the Express edition.
 - eStream's SQL Account runs on Firebird. eStream states that more than 320,000 companies use SQL Account and SQL Payroll.
-- SlayQL currently connects to SQLite, PostgreSQL/Supabase, MySQL and Snowflake, but **not to SQL Server or Firebird**.
+- SlayQL connects to SQLite, PostgreSQL/Supabase, MySQL, Snowflake and, since 27 September 2026, **SQL Server** (read-only, via pymssql, including named instances such as `SERVER\A2006`). The SQL Server connector is tested up to the network layer but **not yet against a live AutoCount server**. There is **no Firebird connector** for SQL Account.
+- An AutoCount-style sample (`public/autocount-sample.db`: invoices, lines, credit notes, receipts and e-invoice status, all invented) is in the app's sample list. The trust layer catches its cancelled-invoice flags and invoice-line fan-out.
 
-A SQL Server connector for AutoCount users is the first local integration to build, once a pilot partner needs it; Firebird follows. Until then, pilots use exported data uploaded as SQLite, which the app already supports.
+The first pilot step is to confirm the connector on a real AutoCount database with a read-only login. Firebird follows if a SQL Account pilot needs it. Until then, SQL Account data can be exported and uploaded as SQLite.
 
 A database connection alone is not a maintained connector: the meaning of each table must be mapped and approved for each system edition. KRI's 2026 research with MDEC describes shallow digital adoption and disconnected applications among micro and small enterprises. The integration work, not the AI, is often the hard part.
 
@@ -396,11 +407,13 @@ Malaysian buyers will ask what leaves their server. The honest answer today is t
 
 The README's statement that providers receive only "safe result profiles" understates this and must be corrected.
 
-Before any company pilot, add a privacy mode:
+Privacy mode (`PRIVACY_MODE=true`, implemented) does three things:
 
-- mask columns that look like personal data (names, emails, phone numbers, MyKad numbers) in grounding values and answer rows;
-- record exactly what each run sent;
-- show that record in the evidence panel.
+- it masks columns that look like personal data (names, emails, phone numbers, MyKad numbers) in grounding values and answer rows;
+- it records exactly what each run sent;
+- it shows that record in the evidence panel.
+
+Report Studio sends table and column names, category examples, date ranges and computed findings, never table rows. In privacy mode, findings about people are not sent.
 
 A self-hosted or in-region model is a future option, not a current capability.
 
@@ -409,9 +422,9 @@ A self-hosted or in-region model is a future option, not a current capability.
 | AIGE principle | SlayQL feature |
 | --- | --- |
 | Reliability, safety and control | Answer checks, calibrated confidence, abstention, read-only execution |
-| Transparency | SQL, checks, candidate agreement and definitions shown with each answer; a record of data sent to AI (planned) |
+| Transparency | SQL, checks, candidate agreement and definitions shown with each answer; a record of data sent to AI with every answer and report |
 | Accountability | Review queue with named approvers, versioned definitions, run history |
-| Privacy and security | Encrypted credentials, no stored result rows, privacy mode (planned) |
+| Privacy and security | Encrypted credentials, no stored result rows, privacy mode |
 | Inclusiveness | Questions in Bahasa Malaysia and English (to be tested) |
 | Pursuit of human benefit and happiness | People make the final call on uncertain answers |
 
@@ -473,7 +486,7 @@ Calculator formulas, shown on screen next to the result. Weeks per month are tak
 | When | What can be said |
 | --- | --- |
 | Today | The errors are real and large on realistic data: up to three times the correct revenue in the demo database. AI-generated SQL is often wrong on realistic tasks: an o1-preview agent solved 21.3% of Spider 2.0 tasks, and our own engine solved 45.89% of 547 Spider 2.0-Lite instances. |
-| After the evaluation (weeks 2–3) | How much SlayQL reduces confident wrong answers, and what share of questions it still answers immediately |
+| Now (measured 27 September 2026, `docs/REPORT_NARRATIVE.md`) | Business trap set: wrong answers stated as fact 26.9% → 1.9% of questions, 75% answered immediately, no false alarms. BIRD at c = 1: 59.7% → 15.0%, 40% answered. Learning: 34.3% → 0.8% after 40 analyst reviews. Always state that the trap set is team-written and small. |
 | After a pilot with a real company | Capacity released, errors avoided, adoption and willingness to pay. Until then, no ROI, savings or payback figures. |
 
 **Pitch lines by audience:**
@@ -496,10 +509,10 @@ About two minutes, with a live demo. It says only what is true today.
 
 | CTO question | Honest answer |
 | --- | --- |
-| How does it connect? | Read-only to PostgreSQL, MySQL, Snowflake or SQLite, with a read-only database user. For AutoCount or SQL Account: "No SQL Server or Firebird connector yet. The pilot uses an export, and we build the connector if the pilot works." |
+| How does it connect? | Read-only to PostgreSQL, MySQL, Snowflake, SQL Server or SQLite, with a read-only database user. For AutoCount: "We connect to its SQL Server database with a read-only login; the first pilot step is confirming that on your server." For SQL Account: "No Firebird connector yet; the pilot uses an export." |
 | Can it damage our data? | No. It accepts only a single read-only `SELECT`, blocks anything that writes, and runs under a read-only database user. |
-| What data leaves our servers? | "The question, the relevant table structure, a few matching values and up to 25 result rows go to an AI provider outside Malaysia. Before a pilot we switch on a privacy mode that masks names, emails, phone numbers and IC numbers and logs what each question sent." Never say "nothing leaves" or "only metadata". |
-| How accurate is it? | "The better question is how often it gives a wrong number while sounding confident. We measure that on public benchmarks, and the pilot measures it on your questions, judged by your finance person." Quote the evaluation's figures once they exist. |
+| What data leaves our servers? | "The question, the relevant table structure, a few matching values and up to 25 result rows go to an AI provider outside Malaysia. Privacy mode masks names, emails, phone numbers and IC numbers, and every answer shows what it sent." Never say "nothing leaves" or "only metadata". |
+| How accurate is it? | "The better question is how often it gives a wrong number while sounding confident. We measure that on public benchmarks, and the pilot measures it on your questions, judged by your finance person." Then: "On business questions like yours, wrong answers stated as fact fell from 27% to 2%, while three quarters were still answered immediately. And it learns: after about 40 of your analyst's reviews it knows how far to trust itself on your data." |
 | We already have Power BI or dashboards. | "If they already answer the question, you don't need us. We're for the questions they don't cover, and we work on the database you already have, without a maintained BI model." |
 | What's the maintenance burden? | "Your analyst approves definitions and reviews escalated questions. That's the main ongoing work, and it's how the system improves." |
 

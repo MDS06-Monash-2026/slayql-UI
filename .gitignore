@@ -41,3 +41,6 @@ backend/data/connections/
 # Evaluation datasets and cached model outputs (large, regenerable)
 backend/eval/data/
 backend/eval/cache/
+
+# Discovery interview notes (personal data; keep out of git)
+interviews/

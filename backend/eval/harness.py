@@ -45,6 +45,7 @@ class Item:
     difficulty: str = ""
     evidence: str = ""
     alternatives: List[str] = field(default_factory=list)
+    author: str = "team"  # "team", or who wrote an externally authored held-out item
 
 
 def load_items(dataset: str, limit: Optional[int] = None) -> List[Item]:
@@ -56,6 +57,7 @@ def load_items(dataset: str, limit: Optional[int] = None) -> List[Item]:
                 dataset="trap", id=row["id"], question=row["question"], db_path=DEMO_DB,
                 expected=row["expected"], gold_sql=row["gold_sql"], trap=row["trap"],
                 language=row["language"], alternatives=row.get("alternatives", []),
+                author=row.get("author", "team"),
             ))
     elif dataset == "bird":
         if not BIRD_JSON.exists():
