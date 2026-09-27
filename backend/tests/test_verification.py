@@ -294,3 +294,13 @@ async def test_review_fixes_for_checks():
         "SELECT COUNT(*) FROM customers WHERE id IN (SELECT customer_id FROM orders WHERE status = 'shipped')",
     )
     assert not [f for f in findings if f.check == "filter"]
+
+
+@pytest.mark.asyncio
+async def test_todays_date_in_select_is_not_a_period_problem():
+    # Ages computed from today are fine; only filters measured from today are checked.
+    findings, _, _ = await _checks(
+        "How old is each customer account in days?",
+        "SELECT full_name, julianday('now') - julianday(created_at) AS account_age_days FROM customers WHERE created_at >= '2025-01-01'",
+    )
+    assert not [f for f in findings if f.check == "period"]

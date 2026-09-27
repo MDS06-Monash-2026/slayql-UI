@@ -89,11 +89,17 @@ Caveat: the team wrote this set, so it may favour our checks. `backend/eval/data
 | Configuration | Answered | Wrong answers stated as fact | Wrong answers caught | Right answers withheld |
 | --- | --- | --- | --- | --- |
 | B0: plain pipeline | 88.0% | 59.7% | — | — |
-| B1: checks | 76.0% | 48.1% | 19.4% | 3.0% |
+| B1: checks | 76.8% | 48.9% | 18.0% | 3.0% |
 | B3 at c = 1 (answer if ≥ 50% sure) | 40.3% | 15.0% | 75.5% | 10.6% |
 | B3 at c = 4 (≥ 80%) | 0% | 0% | — | — |
 
 The plain pipeline is right on only about 28% of these questions. The calibrated confidence never reaches 80%, so at the default setting SlayQL declines everything. On a database where it is usually wrong, that is the correct behaviour. Calibration error (ECE) is 0.07.
+
+**With BIRD's evidence hints** (a sentence of domain knowledge per question, as in the published benchmark setting). Source: `backend/eval/results/bird-evidence.json`.
+
+- The plain pipeline is right on 49.0% of all 500 questions, and 42.9% of the test half.
+- At c = 1, the trust layer answers 52.8% of the test half. Wrong answers stated as fact fall from 48.1% to 20.6% of questions, with 24% of right answers withheld.
+- At c = 4 it answered 4 questions confidently (1.7%), and all 4 were wrong. That calibration was fitted on 267 questions, so treat strict thresholds on this run as noisy. The hints add derived concepts, such as rates and differences, that the checks were not designed around.
 
 ### 5.3 It learns from the analyst
 
@@ -108,7 +114,7 @@ Simulated on BIRD, reviews come from the fit half and scoring is on the test hal
 | 40 | 0.8% | 0.22 |
 | 267 | 0% | 0.11 |
 
-Learning only from hand-offs, which is the realistic case because analysts mainly see what SlayQL escalates, reaches 3.0% after 40 reviews.
+Learning only from hand-offs, which is the realistic case because analysts mainly see what SlayQL escalates, reaches 2.3% after 40 reviews.
 
 This is the product's clearest differentiator: the tools we compared ship curated verified queries but do not recalibrate automatically from review decisions.
 
@@ -128,7 +134,7 @@ This is worth a paragraph in the report: an evaluation harness that exercises th
 ## 7. Limitations to state
 
 1. The trap set is small and team-written; external items are pending.
-2. BIRD results are without evidence hints, which is harder than the published setting. A with-hints run is in `results/bird-evidence.json` once generated.
+2. The main BIRD results are without evidence hints, which is harder than the published setting. With hints (section 5.2), accuracy rises to 49%, but calibration at strict settings is noisy.
 3. Consensus adds little on its own (B2): independently written queries share the same business assumptions, so the deterministic checks do most of the work.
 4. The confidence prior tops out at 88% without an approved definition. At a room penalty of 9 or more, SlayQL answers nothing until the workspace has learned from reviews or approved definitions.
 5. No user study results or company pilot yet. The business value is argued from measured error rates, not from observed time or money saved.

@@ -51,7 +51,7 @@ function LearningCard({ learning }) {
         </p>
         <p className="mt-2 text-xs text-slate-500">
           BIRD Mini-Dev, {learning.test} held-out questions; reviews drawn at random from the other half, averaged over {learning.repeats} orders.
-          Learning only from hand-offs gets there more slowly.
+          Learning only from hand-offs, which is what analysts mostly see, gets there more slowly.
         </p>
       </div>
       <div className="h-56">

@@ -7,8 +7,8 @@
   "penalty": 4.0,
   "threshold": 0.8,
   "calibration": "default prior (not yet calibrated)",
-  "commit": "f1681d5",
-  "evaluated_at": "2026-09-27T06:42:40.440631+00:00",
+  "commit": "66040e3",
+  "evaluated_at": "2026-09-27T07:24:47.606803+00:00",
   "total_generation_cost_usd": 0.0325,
   "splits": {
     "test": {

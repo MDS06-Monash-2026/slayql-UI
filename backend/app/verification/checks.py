@@ -221,12 +221,14 @@ async def check_periods(
     """Check date filters against the dates actually present in the data."""
     findings: List[Finding] = []
     today = today or date.today()
-    uses_now = bool(NOW_TOKENS.search(sql))
+    reported_now = False
     for select in tree.find_all(exp.Select):
         select_sources = sql_scope.sources(select, catalog)
         where = select.args.get("where")
         if where is None:
             continue
+        # Only a filter measured from today matters; today's date in SELECT (an age) is fine.
+        uses_now = not reported_now and bool(NOW_TOKENS.search(where.sql()))
         for column in where.find_all(exp.Column):
             source = sql_scope.column_source(column, select_sources)
             if not source or not DATE_COLUMN.search(column.name):
@@ -251,7 +253,7 @@ async def check_periods(
                     ),
                     data={"column": key, "min": first, "max": last},
                 ))
-                uses_now = False
+                uses_now, reported_now = False, True
             if _has_time_component(last):
                 for literal in _upper_bounds(where, column):
                     if DATE_ONLY.match(literal):
@@ -293,7 +295,7 @@ GENERIC_TERMS = {
     "items", "entry", "entries", "frequency", "occurrences", "size", "level", "top", "bottom", "yearly", "monthly",
     "weekly", "daily", "annual", "annually", "cumulative", "running", "status", "type", "category", "group",
     "label", "flag", "jumlah", "purata", "bilangan", "ramai", "peratus", "tertinggi", "terendah", "hasil", "jualan",
-    "pendapatan", "full", "lost", "loss", "losses", "leakage", "gain", "gains", "paid", "bought", "made", "owed", "owing", "outstanding", "repeat", "returning", "new", "active", "inactive", "churned", "churn", "retained", "retention", "loyal", "recurring", "lapsed", "dormant", "frequent", "conversion", "nilai", "banyak", "setiap", "seunit", "lepas", "paling", "kita", "yang",
+    "pendapatan", "full", "lost", "loss", "losses", "leakage", "gain", "gains", "paid", "bought", "made", "owed", "owing", "outstanding", "faster", "slower", "higher", "lower", "greater", "bigger", "smaller", "larger", "longer", "shorter", "older", "younger", "earlier", "later", "better", "worse", "increase", "decrease", "decline", "rise", "drop", "delta", "repeat", "returning", "new", "active", "inactive", "churned", "churn", "retained", "retention", "loyal", "recurring", "lapsed", "dormant", "frequent", "conversion", "nilai", "banyak", "setiap", "seunit", "lepas", "paling", "kita", "yang",
     "january", "february", "march", "april", "june", "july", "august", "september", "october", "november",
     "december", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday", "januari",
     "februari", "mac", "julai", "ogos", "oktober", "disember",
@@ -401,7 +403,7 @@ def check_grounding(
         codes = [str(literal.this).lower() for literal in alias.this.find_all(exp.Literal) if literal.is_string]
         for token in tokenize(label):
             stem = _stem(token)
-            if len(token) < 4 or stem not in question_words or stem in missing:
+            if len(token) < 4 or token.isdigit() or stem not in question_words or stem in missing:
                 continue
             if any(code and code[0] == token[0] and (len(code) <= 2 or _abbreviates(code, token)) for code in codes):
                 continue
