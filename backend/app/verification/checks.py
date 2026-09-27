@@ -19,6 +19,10 @@ from backend.app.verification.models import ClarifyOption, Finding, SqlRunner, r
 # Statuses that usually should not count towards business totals.
 NEGATIVE_STATUS = re.compile(r"cancel|refund|fail|void|reject|return|declin|deleted|test", re.I)
 STATUS_COLUMN = re.compile(r"(^|_)(status|state|stage)($|_)", re.I)
+# Yes/no flags that mark rows most totals leave out, e.g. AutoCount's Cancelled = 'T'.
+FLAG_COLUMN = re.compile(r"^(is_?)?(cancel+ed|void(ed)?|deleted|rejected)$", re.I)
+TRUE_VALUES = {"t", "y", "1", "true", "yes"}
+FLAG_VALUES = TRUE_VALUES | {"f", "n", "0", "false", "no"}
 # Measures whose business meaning depends on which statuses count.
 MEASURE_TERMS = re.compile(
     r"\b(revenue|sales|income|turnover|earnings?|gmv|takings|jualan|hasil|pendapatan|untung)\b", re.I
@@ -132,14 +136,15 @@ async def check_definitions(
         if used or not MEASURE_TERMS.search(question):
             continue
         # A deliberate filter on any status column settles the table's status question.
-        settled_tables = {table for table, column in filtered if STATUS_COLUMN.search(column)}
+        settled_tables = {table for table, column in filtered if STATUS_COLUMN.search(column) or FLAG_COLUMN.search(column)}
         for source in select_sources.values():
             if source.table.name.lower() in settled_tables:
                 continue
             for column in source.table.columns:
-                if not STATUS_COLUMN.search(column.name) or (source.table.name.lower(), column.name.lower()) in filtered:
+                is_flag = bool(FLAG_COLUMN.search(column.name))
+                if not (STATUS_COLUMN.search(column.name) or is_flag) or (source.table.name.lower(), column.name.lower()) in filtered:
                     continue
-                if not re.search(r"char|text|string|varchar", column.type or "text", re.I) and column.type:
+                if column.type and not re.search(r"char|text|string" + (r"|int|bit|bool" if is_flag else ""), column.type, re.I):
                     continue
                 distribution = await run_sql(
                     f"SELECT {_q(column.name)}, COUNT(*) FROM {_q(source.table.name)} "
@@ -147,9 +152,18 @@ async def check_definitions(
                 )
                 if distribution.error or not distribution.rows or len(distribution.rows) > 12:
                     continue
-                negative = [row[0] for row in distribution.rows if row[0] is not None and NEGATIVE_STATUS.search(str(row[0]))]
-                # A question that already names these statuses ("cancellations", "refunds") has decided.
-                if not negative or any(str(value).lower()[:6] in lowered_question for value in negative):
+                if is_flag:
+                    # A flag such as AutoCount's Cancelled = 'T': its "true" rows are the ones in question.
+                    values = {str(row[0]).strip().lower() for row in distribution.rows if row[0] is not None}
+                    if not values or not values <= FLAG_VALUES:
+                        continue
+                    negative = [row[0] for row in distribution.rows if row[0] is not None and str(row[0]).strip().lower() in TRUE_VALUES]
+                    named = column.name.lower()[:6] in lowered_question
+                else:
+                    negative = [row[0] for row in distribution.rows if row[0] is not None and NEGATIVE_STATUS.search(str(row[0]))]
+                    # A question that already names these statuses ("cancellations", "refunds") has decided.
+                    named = any(str(value).lower()[:6] in lowered_question for value in negative)
+                if not negative or named:
                     continue
                 counts = ", ".join(f"{row[0]} {row[1]:,}" for row in distribution.rows)
                 variant = select.copy()
@@ -160,18 +174,20 @@ async def check_definitions(
                 variant_result = await run_sql(variant_sql)
                 if variant_result.error:
                     continue
+                excluded = (f"{source.table.name} marked {column.name}" if is_flag
+                            else f"{', '.join(str(v) for v in negative)} {source.table.name}")
                 findings.append(Finding(
                     check="definition",
                     severity="ambiguity",
-                    title=f"Includes {', '.join(str(v) for v in negative)} {source.table.name}",
+                    title=f"Includes {excluded}",
                     detail=(
-                        f"{source.table.name}.{column.name} is not filtered, so every status counts ({counts}). "
+                        f"{source.table.name}.{column.name} is not filtered, so every row counts ({counts}). "
                         "Whether these count depends on the company's definition."
                     ),
                     data={"table": source.table.name, "column": column.name, "excluded": negative},
                 ))
                 options.append(ClarifyOption(
-                    label=f"Exclude {', '.join(str(v) for v in negative)} {source.table.name}",
+                    label=f"Exclude {excluded}",
                     sql=variant_sql,
                     preview=result_preview(variant_result),
                 ))

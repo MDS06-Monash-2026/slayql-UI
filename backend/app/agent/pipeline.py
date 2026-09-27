@@ -22,7 +22,7 @@ from backend.app.agent.orchestrator import deepseek_orchestrator
 from backend.app.catalog.discovery import CatalogService
 from backend.app.config import settings
 from backend.app.connections.registry import get_connection, get_credentials, get_sqlite_path, require_sqlite_path
-from backend.app.connections.runtime import get_external_catalog
+from backend.app.connections.runtime import get_external_catalog, sqlglot_dialect
 from backend.app.history.conversation_store import conversation_store
 from backend.app.providers.openrouter_client import (
     TEST_EXECUTION_MODEL,
@@ -459,9 +459,7 @@ class SlayQLPipeline:
 
     @staticmethod
     def _dialect(engine: str) -> str:
-        if engine in {"postgresql", "supabase"}:
-            return "postgres"
-        return engine or "sqlite"
+        return sqlglot_dialect(engine)
 
     @staticmethod
     def _intent_catalog_summary(catalog: Any) -> Dict[str, Any]:

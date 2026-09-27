@@ -245,3 +245,29 @@ async def test_a_filter_value_absent_from_the_data_is_a_warning_with_the_real_va
     # A filter that matches real rows is not flagged.
     findings, _, _ = await _checks("How many orders were completed?", "SELECT COUNT(*) FROM orders WHERE status IN ('completed', 'shipped')")
     assert not [f for f in findings if f.check == "filter"]
+
+
+@pytest.mark.asyncio
+async def test_autocount_style_ledger_traps_are_caught():
+    from pathlib import Path
+    from backend.data.seed_autocount_sample import build
+
+    path = str(build(Path(settings.CONNECTION_DATA_DIR) / "autocount-test.db"))
+    catalog = CatalogService.get_sqlite_catalog(path)
+
+    async def run(sql):
+        return await QueryExecutor.execute_sqlite(path, sql)
+
+    async def checks(question, sql):
+        return await run_checks(question=question, sql=sql, dialect="sqlite", catalog=catalog, run_sql=run, result=await run(sql), today=TODAY)
+
+    # Cancelled invoices are marked with a flag, not a status: SlayQL still asks.
+    findings, options, _ = await checks("What were our total sales in 2025?",
+                                        "SELECT SUM(NetTotal) FROM IV WHERE DocDate >= '2025-01-01' AND DocDate < '2026-01-01'")
+    assert any(f.check == "definition" and "Cancelled" in f.title for f in findings)
+    assert options and "Cancelled" in options[0].label
+    # Invoice lines multiply invoice totals.
+    findings, _, _ = await checks("What were our total sales from rice?",
+                                  "SELECT SUM(i.NetTotal) FROM IV i JOIN IVDTL d ON d.DocKey = i.DocKey JOIN Item t ON t.ItemCode = d.ItemCode "
+                                  "WHERE t.ItemGroup = 'BERAS' AND i.Cancelled = 'F'")
+    assert any(f.check == "grain" and f.severity == "blocking" for f in findings)

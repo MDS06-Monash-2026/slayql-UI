@@ -269,6 +269,7 @@ def fallback_plan(ctx: ReportContext, tables: List[str], question: str = "") -> 
             "postgres": f"TO_CHAR(DATE_TRUNC('month', {q(column)}), 'YYYY-MM')",
             "snowflake": f"TO_CHAR(DATE_TRUNC('month', {q(column)}), 'YYYY-MM')",
             "mysql": f"DATE_FORMAT({q(column)}, '%Y-%m')",
+            "tsql": f"FORMAT({q(column)}, 'yyyy-MM')",
         }.get(d, f"strftime('%Y-%m', {q(column)})")
 
     # Pick the fact table: one with dates and a money measure, preferring what the question

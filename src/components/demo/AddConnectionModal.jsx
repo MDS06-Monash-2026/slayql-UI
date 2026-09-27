@@ -20,6 +20,7 @@ const PROVIDERS = [
   { id: 'supabase', label: 'Supabase', hint: 'Use the direct database credentials' },
   { id: 'mysql', label: 'MySQL', hint: 'RDS, PlanetScale, or self-hosted' },
   { id: 'snowflake', label: 'Snowflake', hint: 'Warehouse account and role' },
+  { id: 'sqlserver', label: 'SQL Server', hint: 'AutoCount Accounting, SQL Server Express' },
 ];
 
 const SAMPLE_DATABASES = [
@@ -36,6 +37,13 @@ const SAMPLE_DATABASES = [
     filename: 'enterprise.db',
     path: '/enterprise.db',
     detail: '44 tables / finance, HR, CRM, support, and operations',
+  },
+  {
+    id: 'autocount',
+    name: 'Malaysian distributor (AutoCount-style)',
+    filename: 'autocount-sample.db',
+    path: '/autocount-sample.db',
+    detail: '10 tables / invoices, credit notes, receipts, e-invoice status (sample data)',
   },
 ];
 
@@ -181,14 +189,15 @@ export default function AddConnectionModal({ isOpen, onClose, onConnectionAdded 
           ) : (
             <>
               <div><label className={labelClass}>Provider</label><div className="grid grid-cols-2 gap-2">{PROVIDERS.map((item) => <button key={item.id} type="button" onClick={() => setProvider(item.id)} className={`text-left rounded-xl border px-3 py-2.5 transition ${provider === item.id ? 'border-indigo-500 bg-indigo-50/60 ring-2 ring-indigo-500/10' : 'border-slate-200 hover:border-slate-300'}`}><p className="text-xs font-bold text-slate-800 flex items-center gap-1.5">{item.id === 'snowflake' ? <Snowflake className="w-3.5 h-3.5 text-sky-600" /> : <Database className="w-3.5 h-3.5 text-indigo-500" />}{item.label}</p><p className="text-[10px] text-slate-500 mt-0.5">{item.hint}</p></button>)}</div></div>
-              {provider === 'snowflake' ? <div className="grid grid-cols-2 gap-3"><div><label className={labelClass}>Account identifier</label><input value={credentials.account} onChange={(e) => updateCredential('account', e.target.value)} placeholder="org-account" className={inputClass} /></div><div><label className={labelClass}>Warehouse</label><input value={credentials.warehouse} onChange={(e) => updateCredential('warehouse', e.target.value)} placeholder="ANALYTICS_WH" className={inputClass} /></div></div> : <div className="grid grid-cols-[1fr_100px] gap-3"><div><label className={labelClass}>Host</label><input value={credentials.host} onChange={(e) => updateCredential('host', e.target.value)} placeholder={provider === 'supabase' ? 'db.project.supabase.co' : 'db.example.com'} className={inputClass} /></div><div><label className={labelClass}>Port</label><input value={credentials.port} onChange={(e) => updateCredential('port', e.target.value)} placeholder={provider === 'mysql' ? '3306' : '5432'} className={inputClass} /></div></div>}
+              {provider === 'snowflake' ? <div className="grid grid-cols-2 gap-3"><div><label className={labelClass}>Account identifier</label><input value={credentials.account} onChange={(e) => updateCredential('account', e.target.value)} placeholder="org-account" className={inputClass} /></div><div><label className={labelClass}>Warehouse</label><input value={credentials.warehouse} onChange={(e) => updateCredential('warehouse', e.target.value)} placeholder="ANALYTICS_WH" className={inputClass} /></div></div> : <div className="grid grid-cols-[1fr_100px] gap-3"><div><label className={labelClass}>Host</label><input value={credentials.host} onChange={(e) => updateCredential('host', e.target.value)} placeholder={provider === 'supabase' ? 'db.project.supabase.co' : provider === 'sqlserver' ? 'SERVER\A2006 or 10.0.0.5' : 'db.example.com'} className={inputClass} /></div><div><label className={labelClass}>Port</label><input value={credentials.port} onChange={(e) => updateCredential('port', e.target.value)} placeholder={provider === 'mysql' ? '3306' : provider === 'sqlserver' ? '1433' : '5432'} className={inputClass} /></div></div>}
               <div className="grid grid-cols-2 gap-3"><div><label className={labelClass}>Database</label><input value={credentials.database} onChange={(e) => updateCredential('database', e.target.value)} placeholder="analytics" className={inputClass} /></div><div><label className={labelClass}>Username</label><input value={credentials.username} onChange={(e) => updateCredential('username', e.target.value)} placeholder="read_only_user" className={inputClass} /></div></div>
               <div><label className={labelClass}>{provider === 'snowflake' && credentials.private_key ? 'Password (optional)' : provider === 'snowflake' ? 'Password or private key' : 'Password'}</label><input type="password" value={credentials.password} onChange={(e) => updateCredential('password', e.target.value)} placeholder="Stored encrypted" className={inputClass} /></div>
               {provider === 'snowflake' && <div><label className={labelClass}>Private key (optional)</label><textarea value={credentials.private_key} onChange={(e) => updateCredential('private_key', e.target.value)} placeholder="Paste a PEM private key when password auth is disabled" rows={3} className={`${inputClass} font-mono`} /></div>}
               {provider === 'snowflake' && <div><label className={labelClass}>Provider auth JSON (optional)</label><textarea value={credentials.auth_json} onChange={(e) => updateCredential('auth_json', e.target.value)} placeholder='{"account":"org-account","user":"read_only_user","private_key":"-----BEGIN PRIVATE KEY----- ..."}' rows={3} className={`${inputClass} font-mono`} /></div>}
               <div className="grid grid-cols-2 gap-3"><div><label className={labelClass}>Schema {provider === 'snowflake' ? '' : '(optional)'}</label><input value={credentials.schema} onChange={(e) => updateCredential('schema', e.target.value)} placeholder={provider === 'snowflake' ? 'PUBLIC' : 'public'} className={inputClass} /></div><div><label className={labelClass}>Role {provider === 'snowflake' ? '(optional)' : ''}</label><input value={credentials.role} onChange={(e) => updateCredential('role', e.target.value)} placeholder="ANALYST" className={inputClass} /></div></div>
-              {provider !== 'snowflake' && <div><label className={labelClass}>TLS mode</label><select value={credentials.sslmode} onChange={(e) => updateCredential('sslmode', e.target.value)} className={inputClass}><option value="require">Require encrypted TLS</option><option value="verify-full">Verify certificate</option></select></div>}
+              {provider !== 'snowflake' && provider !== 'sqlserver' && <div><label className={labelClass}>TLS mode</label><select value={credentials.sslmode} onChange={(e) => updateCredential('sslmode', e.target.value)} className={inputClass}><option value="require">Require encrypted TLS</option><option value="verify-full">Verify certificate</option></select></div>}
               <div className="flex items-start gap-2 rounded-xl bg-indigo-50/70 border border-indigo-100 p-3 text-[10px] text-indigo-900"><LockKeyhole className="w-4 h-4 shrink-0 text-indigo-600" /><span>Credentials are encrypted before storage and are only used server-side for read-only catalog and query operations.</span></div>
+              {provider === 'sqlserver' && <div className="flex items-start gap-2 text-[10px] text-slate-500"><Info className="w-3.5 h-3.5 shrink-0" />For AutoCount, create a SQL login with read access (db_datareader) to the company database, for example AED_MYCOMPANY. Schema defaults to dbo.</div>}
               {provider === 'supabase' && <div className="flex items-start gap-2 text-[10px] text-slate-500"><Info className="w-3.5 h-3.5 shrink-0" />Use your Supabase database password from Project Settings. The anon/publishable API key is not a SQL database credential.</div>}
             </>
           )}

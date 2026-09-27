@@ -25,6 +25,7 @@ from backend.app.connections.store import connection_store
 from backend.app.connections.runtime import (
     get_external_catalog,
     invalidate_external_catalog,
+    sqlglot_dialect,
     test_external_connection,
 )
 from backend.app.connections.registry import (
@@ -625,7 +626,7 @@ async def create_connection(req: CreateConnectionRequest, request: Request):
     conn_id = f"conn_{uuid.uuid4().hex[:8]}"
     owner_id = _owner_id(request)
     db_engine = (req.provider or req.engine or "sqlite").lower()
-    if db_engine not in {"sqlite", "postgresql", "supabase", "mysql", "snowflake"}:
+    if db_engine not in {"sqlite", "postgresql", "supabase", "mysql", "snowflake", "sqlserver"}:
         raise HTTPException(status_code=400, detail="Unsupported database provider.")
     mode = req.mode.lower()
     if mode not in {"direct", "upload"}:
@@ -913,7 +914,7 @@ async def execute_workbench_query(connection_id: str, req: ExecuteSqlRequest, re
         catalog = _catalog_for_connection(conn, connection_id)
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Could not inspect this data source: {exc}") from exc
-    dialect = "sqlite" if conn["engine"] == "sqlite" else "postgres" if conn["engine"] in {"postgresql", "supabase"} else conn["engine"]
+    dialect = sqlglot_dialect(conn["engine"])
     validation = SqlValidator.validate_and_sanitize(req.sql, dialect=dialect, catalog=catalog, max_rows=settings.MAX_RESULT_ROWS)
     if not validation.is_valid:
         raise HTTPException(status_code=400, detail=validation.error_message or "SQL validation failed.")
@@ -934,7 +935,7 @@ async def assist_workbench_sql(connection_id: str, req: SqlAssistRequest, reques
     try:
         _ensure_workbench_credit(request)
         catalog = _catalog_for_connection(conn, connection_id)
-        dialect = "sqlite" if conn["engine"] == "sqlite" else "postgres" if conn["engine"] in {"postgresql", "supabase"} else conn["engine"]
+        dialect = sqlglot_dialect(conn["engine"])
         response = await gemini_workbench_agent.assist_sql(req.instruction, req.sql, req.cursor_position, dialect, _compact_catalog(catalog))
         response["credits_remaining"] = _consume_workbench_credit(request, "Gemini SQL assistance")
         return response
@@ -1346,7 +1347,7 @@ async def execute_edited_sql(run_id: str, req: ExecuteSqlRequest, request: Reque
             dialect = "sqlite"
         else:
             catalog = get_external_catalog(conn["engine"], get_credentials(connection_id))
-            dialect = "postgres" if conn["engine"] in {"postgresql", "supabase"} else conn["engine"]
+            dialect = sqlglot_dialect(conn["engine"])
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Could not inspect this data source: {exc}") from exc
     val = SqlValidator.validate_and_sanitize(req.sql, dialect=dialect, catalog=catalog)
@@ -1513,7 +1514,7 @@ async def create_saved_query(req: SaveQueryRequest):
 
 def _connection_dialect(conn: Dict[str, Any]) -> str:
     engine = conn.get("engine", "sqlite")
-    return "sqlite" if engine == "sqlite" else "postgres" if engine in {"postgresql", "supabase"} else engine
+    return sqlglot_dialect(engine)
 
 
 def _validate_for_connection(connection_id: str, sql: str):
