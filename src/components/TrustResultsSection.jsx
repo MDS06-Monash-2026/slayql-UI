@@ -34,6 +34,41 @@ function DatasetCard({ title, subtitle, data, note }) {
   );
 }
 
+function LearningCard({ learning }) {
+  const points = learning.points || [];
+  const start = points[0];
+  const at40 = points.find((point) => point.reviews === 40);
+  if (!start || !at40) return null;
+  return (
+    <div className="mt-6 grid gap-6 rounded-2xl border border-slate-200 bg-slate-50 p-6 lg:grid-cols-[1fr_1.2fr]">
+      <div>
+        <h3 className="text-lg font-bold text-slate-900">It learns from your analyst</h3>
+        <p className="mt-2 text-sm text-slate-700">
+          On an unfamiliar database, the default confidence model is too sure of itself: at the default setting it would state a wrong
+          answer as fact for {pct(start.silent_error_c4)} of questions. Each answer an analyst confirms or corrects in the review queue
+          recalibrates SlayQL for that database. After {at40.reviews} reviews that falls to {pct(at40.silent_error_c4)}, because SlayQL
+          has learned to hand these questions over.
+        </p>
+        <p className="mt-2 text-xs text-slate-500">
+          BIRD Mini-Dev, {learning.test} held-out questions; reviews drawn at random from the other half, averaged over {learning.repeats} orders.
+          Learning only from hand-offs gets there more slowly.
+        </p>
+      </div>
+      <div className="h-56">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={points} margin={{ top: 10, right: 16, bottom: 20, left: 0 }}>
+            <CartesianGrid vertical={false} stroke="#e2e8f0" />
+            <XAxis dataKey="reviews" type="number" domain={[0, 'dataMax']} tick={{ fontSize: 11, fill: '#64748b' }} label={{ value: 'Answers reviewed by an analyst', position: 'insideBottom', offset: -10, fontSize: 12 }} />
+            <YAxis domain={[0, 'auto']} tickFormatter={(v) => `${Math.round(v * 100)}%`} width={45} tick={{ fontSize: 11, fill: '#64748b' }} />
+            <Tooltip formatter={(v) => pct(v)} labelFormatter={(v) => `${v} reviews`} />
+            <Line type="monotone" dataKey="silent_error_c4" name="Wrong answers given as fact" stroke="#4f46e5" strokeWidth={2} dot={{ r: 3 }} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
 export default function TrustResultsSection() {
   const [summary, setSummary] = useState(null);
   const [error, setError] = useState('');
@@ -94,6 +129,8 @@ export default function TrustResultsSection() {
             </div>
           )}
         </div>
+
+        {summary?.learning && <LearningCard learning={summary.learning} />}
 
         <div className="mt-8 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
           <p className="font-semibold">Why accuracy alone was not enough</p>

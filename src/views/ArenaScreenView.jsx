@@ -31,12 +31,16 @@ export default function ArenaScreenView() {
   const code = (new URLSearchParams(window.location.search).get('code') || '').toUpperCase();
   const [state, setState] = useState(null);
   const [summary, setSummary] = useState(null);
+  const [trapSummary, setTrapSummary] = useState(null);
   const joinUrl = `${window.location.origin}/play?code=${code}`;
   const qr = useQr(code ? joinUrl : '');
 
   useEffect(() => (code ? subscribeArena(code, {}, setState) : undefined), [code]);
   useEffect(() => {
-    fetchEvalSummary().then((data) => setSummary(data.datasets.bird || data.datasets.trap || null)).catch(() => {});
+    fetchEvalSummary().then((data) => {
+      setSummary(data.datasets.bird || data.datasets.trap || null);
+      setTrapSummary(data.datasets.trap || null);
+    }).catch(() => {});
   }, []);
 
   const penaltyAgg = state?.step?.kind === 'penalty' ? state.aggregate : null;
@@ -88,10 +92,10 @@ export default function ArenaScreenView() {
                   <Bar label="Tool B" value={aggregate.counts.B || 0} total={aggregate.votes} tone="bg-emerald-500" />
                   {summary && (
                     <p className="text-3xl">
-                      Measured on {summary.n} test questions: Tool A (a plain AI tool) gave a wrong answer to{' '}
-                      <b>{Math.round((summary.configs.B0.silent_error_rate || 0) * 100)}%</b> of questions. Tool B (SlayQL) answered{' '}
-                      <b>{Math.round(summary.configs.B3.coverage * 100)}%</b> and gave a wrong answer to{' '}
-                      <b>{Math.round(summary.configs.B3.silent_error_rate * 100)}%</b>.
+                      Measured on {(trapSummary || summary).n} held-out business questions: Tool A (a plain AI tool) gave a wrong answer to{' '}
+                      <b>{Math.round(((trapSummary || summary).configs.B0.silent_error_rate || 0) * 100)}%</b> of questions. Tool B (SlayQL) answered{' '}
+                      <b>{Math.round((trapSummary || summary).configs.B3.coverage * 100)}%</b> and gave a wrong answer to{' '}
+                      <b>{Math.round((trapSummary || summary).configs.B3.silent_error_rate * 100)}%</b>.
                     </p>
                   )}
                 </div>
@@ -208,9 +212,20 @@ export default function ArenaScreenView() {
               </div>
               {summary && (
                 <p className="text-2xl text-slate-300">
-                  Benchmark ({summary.n} held-out questions, {summary.model}): silent wrong answers fell from{' '}
-                  {Math.round(summary.configs.B0.silent_error_rate * 100)}% to {Math.round(summary.configs.B3.silent_error_rate * 100)}%,
-                  answering {Math.round(summary.configs.B3.coverage * 100)}% of questions immediately.
+                  {trapSummary && (
+                    <>
+                      Business questions ({trapSummary.n} held out): wrong answers stated as fact fell from{' '}
+                      <b>{Math.round(trapSummary.configs.B0.silent_error_rate * 100)}%</b> to <b>{Math.round(trapSummary.configs.B3.silent_error_rate * 100)}%</b>,
+                      with {Math.round(trapSummary.configs.B3.coverage * 100)}% answered immediately.{' '}
+                    </>
+                  )}
+                  {summary.configs.B3_c1 && (
+                    <>
+                      Public BIRD benchmark ({summary.n} questions on unfamiliar databases, answering when at least 50% sure):{' '}
+                      <b>{Math.round(summary.configs.B0.silent_error_rate * 100)}%</b> to <b>{Math.round(summary.configs.B3_c1.silent_error_rate * 100)}%</b>,
+                      with {Math.round(summary.configs.B3_c1.coverage * 100)}% answered.
+                    </>
+                  )}
                 </p>
               )}
               <p className="text-xl text-slate-500">Small live sample; results are indicative, not conclusive.</p>

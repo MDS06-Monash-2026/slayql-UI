@@ -144,7 +144,23 @@ def eval_summary() -> Dict[str, Any]:
                 if item["split"] == "test"
             ],
         }
-    return {"datasets": datasets}
+    # How quickly analyst reviews recalibrate SlayQL on an unfamiliar database (learning_curve.py).
+    learning = None
+    learning_path = RESULTS_DIR / "learning-bird.json"
+    if learning_path.exists():
+        report = json.loads(learning_path.read_text(encoding="utf-8"))
+        learning = {
+            "dataset": report["dataset"], "test": report["test"], "repeats": report["repeats"],
+            "points": [
+                {key: point[key] for key in ("reviews", "ece", "silent_error_c4", "coverage_c4")}
+                for point in report["regimes"]["random"]
+            ],
+            "handoffs": [
+                {key: point[key] for key in ("reviews", "silent_error_c4")}
+                for point in report["regimes"].get("handoffs", [])
+            ],
+        }
+    return {"datasets": datasets, "learning": learning}
 
 
 def build_router(*, require_admin: Callable[[Request], Dict[str, Any]]) -> APIRouter:
