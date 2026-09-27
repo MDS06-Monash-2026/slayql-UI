@@ -33,6 +33,7 @@ async def run_checks(
     findings: List[Finding] = checks.check_sanity(result)
     if tree is None:
         return findings, [], []
+    findings += checks.check_grounding(tree, question, catalog, definitions)
     findings += await checks.check_grain(tree, catalog, run_sql)
     definition_findings, options, used = await checks.check_definitions(
         tree, question, catalog, run_sql, definitions or []

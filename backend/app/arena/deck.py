@@ -72,12 +72,12 @@ CARDS: List[Dict[str, Any]] = [
         "explanation": "Correct.",
     },
     {
-        "id": "salesperson-miss",
-        "question": "Which salesperson closed the most deals?",
-        "sql": "SELECT customer_id, COUNT(*) AS closed_deals FROM support_cases WHERE status = 'closed' GROUP BY customer_id ORDER BY closed_deals DESC LIMIT 1",
+        "id": "customers-ordering-miss",
+        "question": "How many customers have placed at least one order?",
+        "sql": "SELECT COUNT(customer_id) AS customers FROM orders",
         "correct": False,
         "verifier_miss": True,
-        "explanation": "Wrong: the data has no sales records per salesperson, so this counts closed support cases per customer instead. SlayQL's checks missed this one: they detect calculation errors, not questions the data cannot answer.",
+        "explanation": "Wrong: this counts orders (214), not customers, so a customer with several orders is counted several times. The correct figure is 60. SlayQL's checks missed this one: they look for known traps such as double counting from joins, not every counting mistake.",
     },
 ]
 

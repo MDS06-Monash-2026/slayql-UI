@@ -262,6 +262,144 @@ async def check_periods(
     return _dedupe(findings)
 
 
+# Words that describe how a figure is computed rather than what it is about.
+GENERIC_TERMS = {
+    "total", "totals", "sum", "count", "counts", "number", "numbers", "amount", "amounts", "average", "avg", "mean",
+    "median", "min", "max", "minimum", "maximum", "highest", "lowest", "largest", "smallest", "biggest", "most",
+    "least", "value", "values", "rate", "rates", "ratio", "percent", "percentage", "pct", "share", "each", "first",
+    "last", "latest", "earliest", "name", "names", "list", "growth", "change", "difference", "diff", "rank",
+    "ranking", "year", "years", "month", "months", "week", "weeks", "day", "days", "quarter", "quarters", "period",
+    "time", "times", "hour", "hours", "minutes", "result", "overall", "grand", "net", "gross", "revenue", "sales",
+    "sale", "income", "turnover", "earnings", "profit", "profits", "margin", "units", "unit", "sold", "spend",
+    "spent", "cost", "costs", "price", "prices", "many", "much", "distinct", "unique", "record", "records", "item",
+    "items", "entry", "entries", "frequency", "occurrences", "size", "level", "top", "bottom", "yearly", "monthly",
+    "weekly", "daily", "annual", "annually", "cumulative", "running", "status", "type", "category", "group",
+    "label", "flag", "jumlah", "purata", "bilangan", "ramai", "peratus", "tertinggi", "terendah", "hasil", "jualan",
+    "pendapatan", "full",
+    "january", "february", "march", "april", "june", "july", "august", "september", "october", "november",
+    "december", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday", "januari",
+    "februari", "mac", "julai", "ogos", "oktober", "disember",
+}
+
+
+def _describes_action(token: str) -> bool:
+    """Verb forms (placed, collected, shipping) describe a filter or event, not a missing thing."""
+    return len(token) > 5 and token.endswith(("ed", "ing"))
+
+
+def _stem(token: str) -> str:
+    if token.endswith("ies") and len(token) > 4:
+        return token[:-3] + "y"
+    if token.endswith("s") and not token.endswith("ss") and len(token) > 3:
+        return token[:-1]
+    return token
+
+
+def _abbreviates(short: str, word: str) -> bool:
+    """True when `short` abbreviates `word`: avg/average, qty/quantity, cust/customer.
+
+    A contiguous prefix only counts when little is cut off, so "sale" does not
+    stand for "salesperson".
+    """
+    if len(short) < 3 or len(short) >= len(word) or short[0] != word[0]:
+        return False
+    if word.startswith(short):
+        return len(word) - len(short) <= 5
+    remaining = iter(word)
+    return all(char in remaining for char in short)
+
+
+def schema_vocabulary(catalog: CatalogSchema, definitions: Optional[List[Dict[str, Any]]] = None) -> set:
+    """Every word that names something in this database: tables, columns, descriptions, sample values."""
+    from backend.app.agent.retrieval import tokenize
+
+    words: set = set()
+    for table in catalog.tables.values():
+        words.update(tokenize(table.name))
+        words.update(tokenize(table.description or ""))
+        for column in table.columns:
+            words.update(tokenize(column.name))
+            for value in column.sample_values or []:
+                if isinstance(value, str) and len(value) <= 80:
+                    words.update(tokenize(value))
+    for definition in definitions or []:
+        for term in [definition.get("term", "")] + list(definition.get("synonyms") or []):
+            words.update(tokenize(term))
+    return {_stem(word) for word in words if len(word) >= 2}
+
+
+def _grounded(term: str, vocabulary: set) -> bool:
+    from backend.app.agent.retrieval import MALAY_TERMS, QUERY_ALIASES
+
+    stem = _stem(term)
+    if term in GENERIC_TERMS or stem in GENERIC_TERMS or stem in vocabulary or term in vocabulary:
+        return True
+    related = QUERY_ALIASES.get(term, []) + QUERY_ALIASES.get(stem, []) + MALAY_TERMS.get(term, [])
+    if any(_stem(word) in vocabulary for word in related):
+        return True
+    # Schema words are often abbreviated (AvgScrMath) or split (sales_person for salesperson).
+    if any(_abbreviates(word, stem) for word in vocabulary):
+        return True
+    return any(
+        stem[:i] in vocabulary and stem[i:] in vocabulary for i in range(3, len(stem) - 2)
+    )
+
+
+def check_grounding(
+    tree: exp.Expression,
+    question: str,
+    catalog: CatalogSchema,
+    definitions: Optional[List[Dict[str, Any]]] = None,
+) -> List[Finding]:
+    """Detect a query that relabels unrelated data as something the database does not contain.
+
+    When a question asks for a concept the data lacks ("which salesperson closed the
+    most deals?"), a model tends to pick a nearby column and name the output after the
+    concept (customer_id AS salesperson_id). The label is then the only place the
+    concept appears. Flag labels whose words come from the question but match no
+    table, column, value or approved definition.
+    """
+    from backend.app.agent.retrieval import tokenize
+
+    question_words = {_stem(token) for token in tokenize(question) if len(token) >= 4}
+    if not question_words:
+        return []
+    vocabulary = schema_vocabulary(catalog, definitions)
+    missing: Dict[str, str] = {}
+    for alias in tree.find_all(exp.Alias):
+        label = alias.alias
+        if not label:
+            continue
+        # Coded values stand for the concept they abbreviate: element = 'cl' for chlorine.
+        codes = [str(literal.this).lower() for literal in alias.this.find_all(exp.Literal) if literal.is_string]
+        for token in tokenize(label):
+            stem = _stem(token)
+            if len(token) < 4 or stem not in question_words or stem in missing or _describes_action(token):
+                continue
+            if any(code and code[0] == token[0] and (len(code) <= 2 or _abbreviates(code, token)) for code in codes):
+                continue
+            if not _grounded(token, vocabulary):
+                missing[stem] = f"{alias.this.sql()} AS {label}"
+    if not missing:
+        return []
+    terms = ", ".join(f'"{term}"' for term in missing)
+    relabelled = "; ".join(missing.values())
+    return [Finding(
+        check="coverage",
+        severity="blocking",
+        title=f"The data has nothing about {terms}",
+        detail=(
+            f"No table, column or value in this database mentions {terms}. The query labels other data "
+            f"with that name ({relabelled}), so the figure would answer a different question."
+        ),
+        repair_hint=(
+            f"The database has no data about {terms}. Do not relabel an unrelated column as {terms}. "
+            "Use only columns that genuinely represent what the question asks for."
+        ),
+        data={"terms": list(missing), "relabelled": list(missing.values())},
+    )]
+
+
 def check_sanity(result: ExecutionResult) -> List[Finding]:
     findings: List[Finding] = []
     if result.error:

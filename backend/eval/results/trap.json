@@ -7,8 +7,8 @@
   "penalty": 4.0,
   "threshold": 0.8,
   "calibration": "default prior (not yet calibrated)",
-  "commit": "b9de3de",
-  "evaluated_at": "2026-09-24T12:24:02.455651+00:00",
+  "commit": "b2c98ba",
+  "evaluated_at": "2026-09-27T05:23:00.431273+00:00",
   "total_generation_cost_usd": 0.0215,
   "splits": {
     "test": {
@@ -591,19 +591,19 @@
         },
         "B1": {
           "n": 40,
-          "answered": 32,
+          "answered": 30,
           "correct_answers": 30,
-          "wrong_answers": 2,
+          "wrong_answers": 0,
           "clarified": 6,
-          "handed_off": 2,
-          "coverage": 0.8,
-          "selective_risk": 0.0625,
-          "silent_error_rate": 0.05,
+          "handed_off": 4,
+          "coverage": 0.75,
+          "selective_risk": 0.0,
+          "silent_error_rate": 0.0,
           "execution_accuracy": 0.9677,
-          "reliability_score_c1": 0.875,
-          "reliability_score_c4": 0.725,
-          "reliability_score_c9": 0.475,
-          "catch_rate": 0.7778,
+          "reliability_score_c1": 0.975,
+          "reliability_score_c4": 0.975,
+          "reliability_score_c9": 0.975,
+          "catch_rate": 1.0,
           "false_alarm_rate": 0.0
         },
         "B2": {
@@ -625,53 +625,53 @@
         },
         "B3": {
           "n": 40,
-          "answered": 31,
+          "answered": 30,
           "correct_answers": 30,
-          "wrong_answers": 1,
-          "clarified": 7,
-          "handed_off": 2,
-          "coverage": 0.775,
-          "selective_risk": 0.0323,
-          "silent_error_rate": 0.025,
+          "wrong_answers": 0,
+          "clarified": 6,
+          "handed_off": 4,
+          "coverage": 0.75,
+          "selective_risk": 0.0,
+          "silent_error_rate": 0.0,
           "execution_accuracy": 0.9677,
-          "reliability_score_c1": 0.925,
-          "reliability_score_c4": 0.85,
-          "reliability_score_c9": 0.725,
-          "catch_rate": 0.8889,
+          "reliability_score_c1": 0.975,
+          "reliability_score_c4": 0.975,
+          "reliability_score_c9": 0.975,
+          "catch_rate": 1.0,
           "false_alarm_rate": 0.0
         },
         "B3_c1": {
           "n": 40,
-          "answered": 31,
+          "answered": 30,
           "correct_answers": 30,
-          "wrong_answers": 1,
-          "clarified": 7,
-          "handed_off": 2,
-          "coverage": 0.775,
-          "selective_risk": 0.0323,
-          "silent_error_rate": 0.025,
+          "wrong_answers": 0,
+          "clarified": 6,
+          "handed_off": 4,
+          "coverage": 0.75,
+          "selective_risk": 0.0,
+          "silent_error_rate": 0.0,
           "execution_accuracy": 0.9677,
-          "reliability_score_c1": 0.925,
-          "reliability_score_c4": 0.85,
-          "reliability_score_c9": 0.725,
-          "catch_rate": 0.8889,
+          "reliability_score_c1": 0.975,
+          "reliability_score_c4": 0.975,
+          "reliability_score_c9": 0.975,
+          "catch_rate": 1.0,
           "false_alarm_rate": 0.0
         },
         "B3_c4": {
           "n": 40,
-          "answered": 31,
+          "answered": 30,
           "correct_answers": 30,
-          "wrong_answers": 1,
-          "clarified": 7,
-          "handed_off": 2,
-          "coverage": 0.775,
-          "selective_risk": 0.0323,
-          "silent_error_rate": 0.025,
+          "wrong_answers": 0,
+          "clarified": 6,
+          "handed_off": 4,
+          "coverage": 0.75,
+          "selective_risk": 0.0,
+          "silent_error_rate": 0.0,
           "execution_accuracy": 0.9677,
-          "reliability_score_c1": 0.925,
-          "reliability_score_c4": 0.85,
-          "reliability_score_c9": 0.725,
-          "catch_rate": 0.8889,
+          "reliability_score_c1": 0.975,
+          "reliability_score_c4": 0.975,
+          "reliability_score_c9": 0.975,
+          "catch_rate": 1.0,
           "false_alarm_rate": 0.0
         },
         "B3_c9": {
@@ -679,8 +679,8 @@
           "answered": 0,
           "correct_answers": 0,
           "wrong_answers": 0,
-          "clarified": 7,
-          "handed_off": 33,
+          "clarified": 6,
+          "handed_off": 34,
           "coverage": 0.0,
           "selective_risk": 0.0,
           "silent_error_rate": 0.0,
@@ -847,19 +847,19 @@
           },
           "B1": {
             "n": 3,
-            "answered": 2,
+            "answered": 0,
             "correct_answers": 0,
-            "wrong_answers": 2,
+            "wrong_answers": 0,
             "clarified": 0,
-            "handed_off": 1,
-            "coverage": 0.6667,
-            "selective_risk": 1.0,
-            "silent_error_rate": 0.6667,
+            "handed_off": 3,
+            "coverage": 0.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
             "execution_accuracy": null,
-            "reliability_score_c1": -0.3333,
-            "reliability_score_c4": -2.3333,
-            "reliability_score_c9": -5.6667,
-            "catch_rate": 0.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": 1.0,
             "false_alarm_rate": null
           },
           "B2": {
@@ -881,19 +881,19 @@
           },
           "B3": {
             "n": 3,
-            "answered": 1,
+            "answered": 0,
             "correct_answers": 0,
-            "wrong_answers": 1,
-            "clarified": 1,
-            "handed_off": 1,
-            "coverage": 0.3333,
-            "selective_risk": 1.0,
-            "silent_error_rate": 0.3333,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 3,
+            "coverage": 0.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
             "execution_accuracy": null,
-            "reliability_score_c1": 0.3333,
-            "reliability_score_c4": -0.6667,
-            "reliability_score_c9": -2.3333,
-            "catch_rate": 0.5,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": 1.0,
             "false_alarm_rate": null
           }
         },
@@ -3390,11 +3390,13 @@
         "preview": "20.00"
       },
       "B1": {
-        "outcome": "answer",
+        "outcome": "handoff",
         "correct": false,
         "sql": "SELECT ROUND(100.0 * COUNT(CASE WHEN status = 'resolved' THEN 1 END) / COUNT(*), 2) AS customer_satisfaction_score\nFROM support_cases;",
         "repaired": false,
-        "findings": []
+        "findings": [
+          "The data has nothing about \"satisfaction\""
+        ]
       },
       "B2": {
         "outcome": "clarify",
@@ -3402,42 +3404,42 @@
         "agreement": 0.5
       },
       "B3": {
-        "outcome": "clarify",
+        "outcome": "handoff",
         "correct": false,
         "sql": "SELECT ROUND(100.0 * COUNT(CASE WHEN status = 'resolved' THEN 1 END) / COUNT(*), 2) AS customer_satisfaction_score\nFROM support_cases;",
         "preview": "20.00",
-        "p": 0.475,
+        "p": 0.1301,
         "features": {
           "agreement": 0.5,
           "single_candidate": 0.0,
-          "unresolved_blocking": 0.0,
-          "ambiguity": 1.0,
+          "unresolved_blocking": 1.0,
+          "ambiguity": 0.0,
           "warnings": 0.0,
           "repairs": 0.0,
           "empty_result": 0.0,
           "semantic_invalid": 0.0
         },
-        "blocking": false,
-        "options": 2,
+        "blocking": true,
+        "options": 0,
         "findings": [
           {
-            "check": "consensus",
-            "severity": "ambiguity",
-            "title": "The question can be read in different ways"
+            "check": "coverage",
+            "severity": "blocking",
+            "title": "The data has nothing about \"satisfaction\""
           }
         ],
         "selected_correct": false
       },
       "B3_c1": {
-        "outcome": "clarify",
+        "outcome": "handoff",
         "correct": false
       },
       "B3_c4": {
-        "outcome": "clarify",
+        "outcome": "handoff",
         "correct": false
       },
       "B3_c9": {
-        "outcome": "clarify",
+        "outcome": "handoff",
         "correct": false
       }
     },
@@ -3528,11 +3530,13 @@
         "preview": "41, 3"
       },
       "B1": {
-        "outcome": "answer",
+        "outcome": "handoff",
         "correct": false,
         "sql": "SELECT customer_id, COUNT(*) AS closed_deals\nFROM support_cases\nWHERE status = 'closed'\nGROUP BY customer_id\nORDER BY closed_deals DESC\nLIMIT 1;",
         "repaired": false,
-        "findings": []
+        "findings": [
+          "The data has nothing about \"deal\""
+        ]
       },
       "B2": {
         "outcome": "answer",
@@ -3541,32 +3545,38 @@
         "sql": "SELECT customer_id, COUNT(*) AS closed_deals\nFROM support_cases\nWHERE status = 'closed'\nGROUP BY customer_id\nORDER BY closed_deals DESC\nLIMIT 1;"
       },
       "B3": {
-        "outcome": "confident",
+        "outcome": "handoff",
         "correct": false,
         "sql": "SELECT customer_id, COUNT(*) AS closed_deals\nFROM support_cases\nWHERE status = 'closed'\nGROUP BY customer_id\nORDER BY closed_deals DESC\nLIMIT 1;",
         "preview": "41, 3",
-        "p": 0.8808,
+        "p": 0.2689,
         "features": {
           "agreement": 1.0,
           "single_candidate": 0.0,
-          "unresolved_blocking": 0.0,
+          "unresolved_blocking": 1.0,
           "ambiguity": 0.0,
           "warnings": 0.0,
           "repairs": 0.0,
           "empty_result": 0.0,
           "semantic_invalid": 0.0
         },
-        "blocking": false,
+        "blocking": true,
         "options": 0,
-        "findings": [],
+        "findings": [
+          {
+            "check": "coverage",
+            "severity": "blocking",
+            "title": "The data has nothing about \"deal\""
+          }
+        ],
         "selected_correct": false
       },
       "B3_c1": {
-        "outcome": "confident",
+        "outcome": "handoff",
         "correct": false
       },
       "B3_c4": {
-        "outcome": "confident",
+        "outcome": "handoff",
         "correct": false
       },
       "B3_c9": {

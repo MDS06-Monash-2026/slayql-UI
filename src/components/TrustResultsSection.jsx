@@ -96,12 +96,17 @@ export default function TrustResultsSection() {
         </div>
 
         <div className="mt-8 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
-          <p className="font-semibold">Earlier result, reported honestly</p>
+          <p className="font-semibold">Why accuracy alone was not enough</p>
           <p className="mt-1">
-            SlayQL's earlier schema-retrieval pipeline scored 72/178 (40.45%) on Spider 2.0-Lite against 71/178 for the AutoLink baseline:
-            16 questions improved and 15 got worse, so no meaningful difference. Improving accuracy alone was not enough, which is why this project
-            focuses on knowing when an answer should not be trusted.
+            SlayQL's schema-retrieval engine answered 251 of 547 Spider 2.0-Lite enterprise questions correctly (45.89%), so more than half of its
+            answers on large real-world schemas were wrong. With the same model on 178 questions it scored 40.4% against 39.9% for the AutoLink
+            baseline, which is no meaningful difference.
           </p>
+          <p className="mt-2">
+            The errors are not mainly about finding the right tables. On BIRD dev, a correct query was among SlayQL's five candidates for 68.77% of
+            questions, but it picked that query for only 56.19%. The weak step is deciding which answer to trust, which is what this project addresses.
+          </p>
+          <p className="mt-2 text-xs text-amber-800/80">Source: C-CaSE research runs (run/log_spider2_full_slayql, run/bird_dev_v18_full), deepseek-v4-flash.</p>
         </div>
 
         {(trap || bird) && (

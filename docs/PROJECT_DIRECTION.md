@@ -28,7 +28,8 @@ The project has three deliverables, each measured:
 ### 2.1 AI answers on realistic schemas are often wrong and look the same as right ones
 
 - On Spider 2.0's 632 enterprise workflow tasks, an o1-preview-based agent solved 21.3%. The same approach scored 91.2% on Spider 1.0 and 73.0% on BIRD (Lei et al., 2024).
-- SlayQL's own run solved 72 of 178 Spider 2.0-Lite instances (40.45%), about six wrong answers in ten. Nothing in the answer tells the user which six.
+- SlayQL's own schema-retrieval engine (the C-CaSE research pipeline) solved 251 of 547 Spider 2.0-Lite instances (45.89%), so more than half of its answers were wrong. Nothing in the answer tells the user which ones.
+- The weak step is choosing, not finding. On BIRD dev, a correct query was among SlayQL's five candidates for 68.77% of questions, but it selected that query for only 56.19% (193 questions lost to selection), while schema-linking recall was close to 100%. Deciding which answer to trust is the gap this project addresses.
 - TrustSQL (Lee et al., 2024) argues that users need to know which questions a model can answer. Without abstention, wrong SQL goes unnoticed and erodes trust. The paper scores reliability with a user-chosen penalty for wrong answers. This project uses that metric (section 5.4).
 
 ### 2.2 The problem appears on our own demo data
@@ -219,7 +220,7 @@ Generate the *k* candidates once per question and cache them. Every configuratio
 - Every number on slides, the poster or the landing page is generated from `backend/eval/results/`, with dataset, sample size, date and commit.
 - Report failures and confirmed confident misses.
 - Set targets after measuring the baseline, and never present targets as results.
-- Report the existing 40.45% vs 39.89% AutoLink comparison as no meaningful difference: 16 questions improved and 15 degraded. Do not present it as a leaderboard win.
+- Report the same-model AutoLink comparison on 178 Spider 2.0-Lite questions (40.4% vs 39.9%) as no meaningful difference: 16 questions improved and 15 degraded. Do not present it as a leaderboard win. The headline Spider 2.0-Lite figure is 251/547 (45.89%), out of all 547 questions, not 47.63% out of the 527 that produced a result.
 
 ### 5.6 What the evaluation proves, and what it cannot
 
@@ -471,7 +472,7 @@ Calculator formulas, shown on screen next to the result. Weeks per month are tak
 
 | When | What can be said |
 | --- | --- |
-| Today | The errors are real and large on realistic data: up to three times the correct revenue in the demo database. AI-generated SQL is often wrong on realistic tasks: an o1-preview agent solved 21.3% of Spider 2.0 tasks, and our own run solved 40.45% of 178 Spider 2.0-Lite instances. |
+| Today | The errors are real and large on realistic data: up to three times the correct revenue in the demo database. AI-generated SQL is often wrong on realistic tasks: an o1-preview agent solved 21.3% of Spider 2.0 tasks, and our own engine solved 45.89% of 547 Spider 2.0-Lite instances. |
 | After the evaluation (weeks 2–3) | How much SlayQL reduces confident wrong answers, and what share of questions it still answers immediately |
 | After a pilot with a real company | Capacity released, errors avoided, adoption and willingness to pay. Until then, no ROI, savings or payback figures. |
 

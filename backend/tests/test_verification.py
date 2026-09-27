@@ -157,3 +157,30 @@ async def test_candidates_failing_a_blocking_check_do_not_outvote_a_correct_one(
     assert result.selected_candidate_id == "a"
     assert result.consensus["excluded_by_checks"] == 2
     assert result.outcome == "confident"
+
+
+@pytest.mark.asyncio
+async def test_relabelling_unrelated_data_as_a_missing_concept_is_blocking():
+    # The demo data has no salespeople or deals; this is what the model wrote.
+    sql = (
+        "SELECT customer_id AS salesperson_id, COUNT(*) AS deals_closed FROM support_cases "
+        "WHERE status = 'closed' GROUP BY customer_id ORDER BY deals_closed DESC LIMIT 1"
+    )
+    findings, _, _ = await _checks("Which salesperson closed the most deals?", sql)
+    coverage = [f for f in findings if f.check == "coverage"]
+    assert len(coverage) == 1 and coverage[0].severity == "blocking"
+    assert set(coverage[0].data["terms"]) == {"salesperson", "deal"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("question, sql", [
+    ("How many orders were placed in January 2026?",
+     "SELECT COUNT(*) AS orders_placed_in_january_2026 FROM orders WHERE order_date >= '2026-01-01' AND order_date < '2026-02-01'"),
+    ("What is the total tax collected on completed orders?",
+     "SELECT SUM(tax_amount) AS total_tax_collected FROM orders WHERE status = 'completed'"),
+    ("Berapa ramai pelanggan yang kita ada?", "SELECT COUNT(*) AS jumlah_pelanggan FROM customers"),
+    ("What is the average customer spend?", "SELECT AVG(total_amount) AS avg_customer_spend FROM orders"),
+])
+async def test_labels_that_describe_real_data_are_not_flagged(question, sql):
+    findings, _, _ = await _checks(question, sql)
+    assert not [f for f in findings if f.check == "coverage"]
