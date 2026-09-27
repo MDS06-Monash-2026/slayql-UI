@@ -177,7 +177,12 @@ export default function ArenaScreenView() {
               {state.reask?.status === 'done' && (
                 <div className="rounded-3xl bg-slate-900 p-8">
                   <p className="text-2xl text-slate-400">Asked again: "{state.reask.question}"</p>
-                  <p className="font-mono text-6xl font-black">{state.reask.preview}</p>
+                  {['confident', 'caveat'].includes(state.reask.outcome) ? (
+                    <p className="font-mono text-6xl font-black">{state.reask.preview}</p>
+                  ) : (
+                    // A figure SlayQL would not state as fact is never shown as the answer.
+                    <p className="mt-2 text-3xl text-slate-200">Not stated as fact at this room&apos;s setting; it goes to an analyst.</p>
+                  )}
                   <TrustBadge outcome={state.reask.outcome} approved={(state.reask.definitions_used || []).length > 0} isDark />
                 </div>
               )}

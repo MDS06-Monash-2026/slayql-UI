@@ -157,7 +157,7 @@ class WorkspaceLearning:
 
 def _clean_answer() -> Dict[str, float]:
     return {"agreement": 1.0, "single_candidate": 0.0, "unresolved_blocking": 0.0, "ambiguity": 0.0,
-            "warnings": 0.0, "repairs": 0.0, "empty_result": 0.0, "semantic_invalid": 0.0}
+            "warnings": 0.0, "repairs": 0.0, "empty_result": 0.0, "semantic_invalid": 0.0, "approved_definition": 0.0}
 
 
 workspace_learning = WorkspaceLearning(control_database)

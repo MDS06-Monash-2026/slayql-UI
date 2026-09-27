@@ -271,3 +271,10 @@ async def test_autocount_style_ledger_traps_are_caught():
                                   "SELECT SUM(i.NetTotal) FROM IV i JOIN IVDTL d ON d.DocKey = i.DocKey JOIN Item t ON t.ItemCode = d.ItemCode "
                                   "WHERE t.ItemGroup = 'BERAS' AND i.Cancelled = 'F'")
     assert any(f.check == "grain" and f.severity == "blocking" for f in findings)
+
+
+def test_an_approved_definition_lifts_confidence_above_strict_thresholds():
+    clean = {"agreement": 1.0, "single_candidate": 0.0, "unresolved_blocking": 0.0, "ambiguity": 0.0,
+             "warnings": 0.0, "repairs": 0.0, "empty_result": 0.0, "semantic_invalid": 0.0}
+    assert confidence.probability(clean) < confidence.threshold(9)
+    assert confidence.probability({**clean, "approved_definition": 1.0}) > confidence.threshold(9)

@@ -136,6 +136,7 @@ async def verify(
         repairs=repairs,
         empty_result=bool(selected and selected.result is not None and not selected.result.rows),
         semantic_invalid=semantic_invalid,
+        approved_definition=bool(used),
     )
     p = confidence.probability(feature_values, model)
     t = confidence.threshold(penalty)

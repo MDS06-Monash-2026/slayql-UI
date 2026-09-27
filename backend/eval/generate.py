@@ -29,6 +29,7 @@ from backend.eval.harness import MAX_ROWS, Item, cache_path, catalog_for, contex
 EFFORT = "medium"
 REASONING_EFFORT = "medium"
 MAX_TOKENS = 1500
+CALL_TIMEOUT_SECONDS = 180
 
 
 class Budget:
@@ -48,7 +49,9 @@ async def _one_sql(ctx: Dict[str, Any], model: str, feedback: str = "") -> Dict[
     usage: Dict[str, Any] = {}
     completed: Dict[str, Any] = {}
     started = time.perf_counter()
-    try:
+
+    async def consume() -> None:
+        nonlocal usage, completed
         async for event in openrouter_client.stream_sql(
             requested_model_id=model,
             question=ctx["question"],
@@ -64,6 +67,10 @@ async def _one_sql(ctx: Dict[str, Any], model: str, feedback: str = "") -> Dict[
                 usage = event.get("usage") or usage
             elif event["type"] == "completed":
                 completed = event
+
+    try:
+        # A provider stream can stall without closing; never let one call hang the run.
+        await asyncio.wait_for(consume(), timeout=CALL_TIMEOUT_SECONDS)
     except Exception as error:
         return {"sql": "", "usage": usage, "error": str(error)[:300], "latency_ms": int((time.perf_counter() - started) * 1000)}
     return {

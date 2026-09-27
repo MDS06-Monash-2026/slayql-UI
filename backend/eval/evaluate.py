@@ -190,7 +190,7 @@ async def main() -> None:
     # Calibration is domain-specific: a model fitted on BIRD does not transfer to a
     # company's own schema. Each dataset uses its own fitted calibration if one
     # exists, otherwise the default prior; the app's calibration.json is never written here.
-    calibration_file = RESULTS_DIR / f"calibration-{args.dataset}.json"
+    calibration_file = RESULTS_DIR / f"calibration-{args.dataset}{'-evidence' if args.with_evidence else ''}.json"
     model_used = json.loads(calibration_file.read_text(encoding="utf-8")) if calibration_file.exists() else confidence.DEFAULT_MODEL
     if args.fit:
         fit_rows = [r for r in scored if r["split"] == "fit" and r["expected"] == "answer"]

@@ -24,6 +24,7 @@ FEATURES = (
     "repairs",            # repair attempts used before the final SQL
     "empty_result",
     "semantic_invalid",   # the LLM semantic validator rejected the SQL
+    "approved_definition",  # the answer applies an analyst-approved business definition
 )
 
 DEFAULT_MODEL = {
@@ -37,6 +38,9 @@ DEFAULT_MODEL = {
         "repairs": -0.6,
         "empty_result": -1.0,
         "semantic_invalid": -1.5,
+        # An approved definition removes the ambiguity behind most wrong business figures.
+        # Like every weight here it is a prior, refitted per data source from reviews.
+        "approved_definition": 1.2,
     },
     "source": "default prior (not yet calibrated)",
 }
@@ -57,6 +61,7 @@ def features(
     repairs: int,
     empty_result: bool,
     semantic_invalid: bool,
+    approved_definition: bool = False,
 ) -> Dict[str, float]:
     return {
         "agreement": agreement if candidate_count > 1 else 0.0,
@@ -67,6 +72,7 @@ def features(
         "repairs": float(repairs),
         "empty_result": float(empty_result),
         "semantic_invalid": float(semantic_invalid),
+        "approved_definition": float(approved_definition),
     }
 
 
