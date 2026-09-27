@@ -236,6 +236,16 @@ class ControlDatabase:
             Column("updated_at", String, nullable=False),
         )
         Index("idx_review_items_status", self.review_items.c.status, self.review_items.c.created_at.desc())
+        # Confidence model refitted per data source from analysts' review decisions.
+        self.workspace_calibrations = Table(
+            "workspace_calibrations",
+            self.metadata,
+            Column("connection_id", String, primary_key=True),
+            Column("model", Text, nullable=False),
+            Column("labels", Integer, nullable=False, server_default="0"),
+            Column("correct", Integer, nullable=False, server_default="0"),
+            Column("fitted_at", String, nullable=False),
+        )
         # Trust or Bust study responses (consenting, anonymous participants only).
         self.arena_responses = Table(
             "arena_responses",

@@ -6,7 +6,7 @@ import pytest
 from backend.app.catalog.discovery import CatalogService
 from backend.app.config import settings
 from backend.app.queries.executor import QueryExecutor
-from backend.app.verification import candidate_from_result, confidence, run_checks, verify
+from backend.app.verification import candidate_from_result, confidence, consensus, run_checks, verify
 
 TODAY = date(2026, 9, 24)  # the demo data ends on 28 June 2026
 
@@ -184,3 +184,23 @@ async def test_relabelling_unrelated_data_as_a_missing_concept_is_blocking():
 async def test_labels_that_describe_real_data_are_not_flagged(question, sql):
     findings, _, _ = await _checks(question, sql)
     assert not [f for f in findings if f.check == "coverage"]
+
+
+@pytest.mark.asyncio
+async def test_extra_columns_do_not_count_as_disagreement():
+    narrow = await _candidate("a", "SELECT name FROM products ORDER BY unit_price DESC LIMIT 1")
+    wide = await _candidate("b", "SELECT id, name, sku, unit_price FROM products ORDER BY unit_price DESC LIMIT 1")
+    other = await _candidate("c", "SELECT name FROM products ORDER BY unit_price ASC LIMIT 1")
+    groups = consensus.cluster([narrow, wide, other])
+    assert [len(group) for group in groups] == [2, 1]
+    assert {c.candidate_id for c in groups[0]} == {"a", "b"}
+
+
+@pytest.mark.asyncio
+async def test_english_labels_on_a_malay_question_are_checked():
+    sql = (
+        "SELECT ROUND(100.0 * SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END) / COUNT(*), 2) "
+        "AS customer_satisfaction_score FROM support_cases"
+    )
+    findings, _, _ = await _checks("Berapakah skor kepuasan pelanggan kita?", sql)
+    assert [f.data["terms"] for f in findings if f.check == "coverage"] == [["satisfaction"]]

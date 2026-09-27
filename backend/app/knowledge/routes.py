@@ -7,7 +7,9 @@ from typing import Any, Callable, Dict, List, Optional
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
+from backend.app.config import settings
 from backend.app.knowledge.store import knowledge_store
+from backend.app.verification.learning import workspace_learning
 
 
 class DefinitionRequest(BaseModel):
@@ -137,7 +139,20 @@ def build_router(
                 sql=final_sql,
                 approved_by=actor(request),
             )
-        return {"item": resolved, "verified_query": verified}
+        # Every confirmed or corrected answer is a label for this data source's confidence model.
+        calibration = None
+        if item.get("connection_id") and req.resolution in {"confirmed", "corrected"}:
+            await asyncio.to_thread(workspace_learning.refit, item["connection_id"])
+            calibration = await asyncio.to_thread(
+                workspace_learning.status, item["connection_id"], settings.VERIFY_DEFAULT_PENALTY
+            )
+        return {"item": resolved, "verified_query": verified, "calibration": calibration}
+
+    @router.get("/connections/{connection_id}/calibration")
+    async def calibration_status(connection_id: str, request: Request):
+        """What SlayQL has learned about its own reliability on this data source."""
+        require_admin(request)
+        return await asyncio.to_thread(workspace_learning.status, connection_id, settings.VERIFY_DEFAULT_PENALTY)
 
     # --- Clarification choices --------------------------------------------
 

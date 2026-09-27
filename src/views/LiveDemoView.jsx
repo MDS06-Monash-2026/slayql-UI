@@ -445,17 +445,25 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
     }
   }, []);
 
+  // On a direct visit the reviewer sign-in finishes after this view mounts, so
+  // load workspace data once a session token exists, and again if it changes.
+  const sessionToken = session?.token || null;
   useEffect(() => {
+    if (!sessionToken) return undefined;
+    let active = true;
     async function init() {
       try {
-        const [modelsData, connsData, savedData] = await Promise.all([
+        const [modelsResult, connsResult, savedResult] = await Promise.allSettled([
           fetchModels(),
-          fetchConnections(),
+          fetchConnections({ force: true }),
           fetchSavedQueries(),
         ]);
-        setModels(modelsData);
-        setConnections(connsData);
-        setSavedQueries(savedData);
+        if (!active) return;
+        const modelsData = modelsResult.status === 'fulfilled' ? modelsResult.value : [];
+        const connsData = connsResult.status === 'fulfilled' ? connsResult.value : [];
+        if (modelsResult.status === 'fulfilled') setModels(modelsData);
+        if (connsResult.status === 'fulfilled') setConnections(connsData);
+        if (savedResult.status === 'fulfilled') setSavedQueries(savedResult.value);
         if (modelsData.length > 0 && !selectedModelId) {
           setSelectedModelId(modelsData[0].id);
         }
@@ -475,7 +483,8 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
       }
     }
     init();
-  }, [loadCatalog, loadExploreSuggestions, loadHistory]);
+    return () => { active = false; };
+  }, [sessionToken, loadCatalog, loadExploreSuggestions, loadHistory]);
 
   const activeConnection = connections.find((c) => c.id === selectedConnectionId) || {
     id: null,

@@ -25,7 +25,9 @@ BIRD_DIR = EVAL_DIR / "data" / "minidev" / "MINIDEV"
 BIRD_JSON = BIRD_DIR / "mini_dev_sqlite.json"
 
 # Bump when prompts or generation settings change: cached generations then miss.
-PROMPT_VERSION = "v1"
+# v2: the validator no longer rejects CTEs and capitalised table names, and
+# checks columns, so repair attempts respond to real errors only.
+PROMPT_VERSION = "v2"
 MAX_ROWS = 1000  # generous, so scoring compares complete results
 TIMEOUT_SECONDS = 10.0
 

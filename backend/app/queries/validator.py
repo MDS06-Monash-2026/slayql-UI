@@ -119,19 +119,17 @@ class SqlValidator:
                     error_message=f"Forbidden operation '{node.key.upper()}' detected."
                 )
 
-        # 5. Extract and verify tables
-        table_nodes = expression.find_all(exp.Table)
+        # 5. Extract and verify tables. Names defined by the query itself (CTEs)
+        # are not catalog tables; catalog lookups ignore case.
+        catalog_tables = {name.lower(): info for name, info in catalog.tables.items()}
+        cte_names = {cte.alias_or_name.lower() for cte in expression.find_all(exp.CTE) if cte.alias_or_name}
         ref_tables = set()
-        for t in table_nodes:
+        for t in expression.find_all(exp.Table):
             tbl_name = t.name.lower()
-            if tbl_name:
+            if tbl_name and tbl_name not in cte_names:
                 ref_tables.add(tbl_name)
 
-        invalid_tables = []
-        for tbl in ref_tables:
-            if tbl not in catalog.tables:
-                invalid_tables.append(tbl)
-
+        invalid_tables = sorted(tbl for tbl in ref_tables if tbl not in catalog_tables)
         if invalid_tables:
             checks.append(ValidationCheck(
                 code="unresolved_tables",
@@ -153,18 +151,32 @@ class SqlValidator:
             detail=f"All {len(ref_tables)} referenced tables verified against catalog."
         ))
 
-        # 6. Extract columns
-        col_nodes = expression.find_all(exp.Column)
-        ref_columns = set()
-        for c in col_nodes:
-            if c.name and c.name != "*":
-                ref_columns.add(c.name.lower())
+        # 6. Verify columns against the tables they can come from.
+        ref_columns, unknown_columns = SqlValidator._check_columns(expression, catalog_tables, cte_names)
+        if unknown_columns:
+            listed = ", ".join(unknown_columns)
+            hint = (
+                " Text values must use single quotes; double quotes name a column."
+                if any(not "." in name for name in unknown_columns) and '"' in sql_clean else ""
+            )
+            checks.append(ValidationCheck(
+                code="unresolved_columns",
+                label="Column Identifier Grounding",
+                status="failed",
+                detail=f"Columns not found in the referenced tables: {listed}.{hint}"
+            ))
+            return ValidationResult(
+                is_valid=False,
+                sanitized_sql=sql_clean,
+                checks=checks,
+                error_message=f"Unknown columns: {listed}.{hint}"
+            )
 
         checks.append(ValidationCheck(
             code="identifiers_grounded",
             label="Column Identifier Grounding",
             status="passed",
-            detail=f"Extracted and validated {len(ref_columns)} referenced column identifiers."
+            detail=f"All {len(ref_columns)} referenced columns exist in the referenced tables."
         ))
 
         # 7. Apply / enforce LIMIT
@@ -207,3 +219,56 @@ class SqlValidator:
             referenced_columns=list(ref_columns),
             checks=checks
         )
+
+    @staticmethod
+    def _check_columns(
+        expression: exp.Expression,
+        catalog_tables: Dict[str, Any],
+        cte_names: set,
+    ) -> Tuple[List[str], List[str]]:
+        """Return (referenced columns, unknown columns).
+
+        A qualified column (o.status) is checked against its table when the
+        qualifier names a catalog table. An unqualified column must exist in some
+        referenced table or be a name the query defines (an alias or a column of a
+        CTE or subquery). Columns of derived tables are not checked.
+        """
+        table_columns: Dict[str, set] = {}
+        qualifiers: Dict[str, str] = {}
+        derived: set = set(cte_names)
+        for table in expression.find_all(exp.Table):
+            name = table.name.lower()
+            if name in cte_names or name not in catalog_tables:
+                continue
+            columns = {column.name.lower() for column in catalog_tables[name].columns}
+            table_columns[name] = columns
+            qualifiers[name] = name
+            if table.alias:
+                qualifiers[table.alias.lower()] = name
+        for node in expression.find_all(exp.Subquery, exp.CTE):
+            if node.alias_or_name:
+                derived.add(node.alias_or_name.lower())
+        defined = {alias.alias.lower() for alias in expression.find_all(exp.Alias) if alias.alias}
+        for table_alias in expression.find_all(exp.TableAlias):
+            defined.update(column.name.lower() for column in table_alias.columns)
+        all_columns = set().union(*table_columns.values()) if table_columns else set()
+
+        referenced: set = set()
+        unknown: List[str] = []
+        for column in expression.find_all(exp.Column):
+            name = column.name.lower() if column.name else ""
+            if not name or name == "*" or isinstance(column.this, exp.Star):
+                continue
+            referenced.add(name)
+            qualifier = column.table.lower() if column.table else ""
+            if qualifier:
+                if qualifier in derived or qualifier not in qualifiers:
+                    continue
+                if name not in table_columns[qualifiers[qualifier]]:
+                    unknown.append(f"{column.table}.{column.name}")
+            elif name not in all_columns and name not in defined:
+                # Derived tables can supply columns we cannot see; only judge
+                # unqualified names when every source is a catalog table.
+                if not derived:
+                    unknown.append(column.name)
+        return sorted(referenced), sorted(set(unknown))

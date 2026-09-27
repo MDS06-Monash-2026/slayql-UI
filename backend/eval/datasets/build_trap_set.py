@@ -70,6 +70,20 @@ ITEMS = [
     ("ms-02", "ms", "fanout", "answer", "Berapa jumlah hasil daripada pesanan yang telah selesai?", COMPLETED_REVENUE),
     ("ms-03", "ms", "none", "answer", "Gudang mana yang penggunaannya melebihi 80 peratus?", "SELECT name FROM warehouses WHERE utilization_percent > 80"),
     ("ms-04", "ms", "definition", "clarify", "Berapa jumlah jualan kita?", "SELECT SUM(total_amount) FROM orders"),
+    ("ms-05", "ms", "none", "answer", "Berapa banyak pesanan yang dibuat pada tahun 2025?", "SELECT COUNT(*) FROM orders WHERE order_date >= '2025-01-01' AND order_date < '2026-01-01'"),
+    ("ms-06", "ms", "none", "answer", "Produk mana yang mempunyai harga seunit paling tinggi?", "SELECT name FROM products ORDER BY unit_price DESC LIMIT 1"),
+    ("ms-07", "ms", "none", "answer", "Berapa ramai pekerja yang masih aktif?", "SELECT COUNT(*) FROM employees WHERE status = 'active'"),
+    ("ms-08", "ms", "fanout", "answer", "Berapa jumlah nilai pesanan yang selesai dan dihantar menggunakan DHL?", "SELECT SUM(total_amount) FROM orders WHERE status = 'completed' AND id IN (SELECT order_id FROM shipments WHERE carrier = 'DHL')"),
+    ("ms-09", "ms", "fanout", "answer", "Berapa jumlah cukai daripada pesanan selesai yang sudah sampai kepada pelanggan?", "SELECT SUM(tax_amount) FROM orders WHERE status = 'completed' AND id IN (SELECT order_id FROM shipments WHERE status = 'delivered')"),
+    ("ms-10", "ms", "definition", "clarify", "Berapa jumlah jualan kita pada tahun 2025?", "SELECT SUM(total_amount) FROM orders WHERE order_date >= '2025-01-01' AND order_date < '2026-01-01'"),
+    ("ms-11", "ms", "definition", "clarify", "Berapa hasil bagi setiap segmen pelanggan?", "SELECT c.segment, SUM(o.total_amount) FROM orders o JOIN customers c ON c.id = o.customer_id GROUP BY c.segment"),
+    # The data ends in June 2026, so "bulan lepas" (last month) means May 2026 in the data.
+    ("ms-12", "ms", "period", "answer", "Berapa jumlah nilai pesanan yang selesai pada bulan lepas?", "SELECT SUM(total_amount) FROM orders WHERE status = 'completed' AND order_date >= '2026-05-01' AND order_date < '2026-06-01'"),
+    ("ms-13", "ms", "period", "answer", "Berapa banyak pesanan yang dibuat pada bulan Januari 2026?", "SELECT COUNT(*) FROM orders WHERE order_date >= '2026-01-01' AND order_date < '2026-02-01'"),
+    ("ms-14", "ms", "infeasible", "handoff", "Berapakah skor kepuasan pelanggan kita?", ""),
+    ("ms-15", "ms", "infeasible", "handoff", "Jurujual mana yang menutup paling banyak urus niaga?", ""),
+    # Mixed English and Bahasa Malaysia, as managers often ask.
+    ("mixed-01", "mixed", "period", "answer", "Berapa total revenue untuk completed orders bulan Mac 2026?", "SELECT SUM(total_amount) FROM orders WHERE status = 'completed' AND order_date >= '2026-03-01' AND order_date < '2026-04-01'"),
 ]
 
 # Readings of the ambiguous questions that must differ for "clarify" to be justified.
@@ -80,6 +94,8 @@ ALTERNATIVES = {
     "definition-04": ["SELECT SUM(total_amount) FROM orders WHERE status NOT IN ('cancelled', 'refunded') AND order_date >= '2026-01-01' AND order_date < '2026-04-01'"],
     "definition-05": ["SELECT SUM(o.total_amount) FROM orders o JOIN customers c ON c.id = o.customer_id WHERE c.segment = 'Enterprise' AND o.status NOT IN ('cancelled', 'refunded')"],
     "ms-04": ["SELECT SUM(total_amount) FROM orders WHERE status NOT IN ('cancelled', 'refunded')"],
+    "ms-10": ["SELECT SUM(total_amount) FROM orders WHERE status NOT IN ('cancelled', 'refunded') AND order_date >= '2025-01-01' AND order_date < '2026-01-01'"],
+    "ms-11": ["SELECT c.segment, SUM(o.total_amount) FROM orders o JOIN customers c ON c.id = o.customer_id WHERE o.status NOT IN ('cancelled', 'refunded') GROUP BY c.segment"],
 }
 
 

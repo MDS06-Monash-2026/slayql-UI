@@ -574,6 +574,10 @@ export function resolveReviewItem(itemId, { resolution, note = '', correctedSql 
   });
 }
 
+export function fetchCalibration(connectionId) {
+  return jsonRequest(`/connections/${encodeURIComponent(connectionId)}/calibration`);
+}
+
 export function fetchDefinitions(connectionId, status) {
   const query = status ? `?status=${encodeURIComponent(status)}` : '';
   return jsonRequest(`/connections/${connectionId}/definitions${query}`);

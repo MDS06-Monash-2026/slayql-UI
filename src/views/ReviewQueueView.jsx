@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Check, Loader2, Pencil, X } from 'lucide-react';
 import AnalystNav from '../components/trust/AnalystNav';
+import LearningPanel from '../components/trust/LearningPanel';
 import TrustBadge from '../components/trust/TrustBadge';
-import { fetchReviewItems, resolveReviewItem } from '../services/api';
+import { fetchCalibration, fetchConnections, fetchReviewItems, resolveReviewItem } from '../services/api';
 
 const SOURCE_LABELS = { handoff: 'Handed off', clarify: 'Needed clarification', flag: 'Flagged by a user' };
 
@@ -115,6 +116,29 @@ export default function ReviewQueueView({ setView, session }) {
 
   useEffect(() => { load(); }, [load]);
 
+  const [connections, setConnections] = useState([]);
+  const [connectionId, setConnectionId] = useState('');
+  const [calibration, setCalibration] = useState(null);
+
+  useEffect(() => {
+    fetchConnections().then((list) => {
+      setConnections(list);
+      setConnectionId((current) => current || (list.find((c) => c.is_default) || list[0])?.id || '');
+    }).catch(() => {});
+  }, []);
+
+  const loadCalibration = useCallback(() => {
+    if (!connectionId) return;
+    fetchCalibration(connectionId).then(setCalibration).catch(() => setCalibration(null));
+  }, [connectionId]);
+
+  useEffect(() => { loadCalibration(); }, [loadCalibration]);
+
+  const handleResolved = () => {
+    load();
+    loadCalibration();
+  };
+
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-[#0b0e16]">
       <AnalystNav current="review" setView={setView} session={session} />
@@ -130,10 +154,13 @@ export default function ReviewQueueView({ setView, session }) {
             <option value="dismissed">Dismissed</option>
           </select>
         </div>
+        {!error && (
+          <LearningPanel status={calibration} connections={connections} connectionId={connectionId} onConnectionChange={setConnectionId} />
+        )}
         {error && <p className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
         {loading ? <p className="flex items-center gap-2 text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading...</p> : (
           items.length === 0 ? <p className="text-slate-500">Nothing here.</p> : (
-            <ul className="space-y-3">{items.map((item) => <ReviewItem key={item.id} item={item} onResolved={load} />)}</ul>
+            <ul className="space-y-3">{items.map((item) => <ReviewItem key={item.id} item={item} onResolved={handleResolved} />)}</ul>
           )
         )}
       </div>

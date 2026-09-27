@@ -64,6 +64,7 @@ async def verify(
     repairs: int = 0,
     semantic_invalid: bool = False,
     today: Optional[date] = None,
+    model: Optional[Dict[str, Any]] = None,
 ) -> Verification:
     """Check every candidate, let only unblocked ones vote, and decide the outcome."""
     primary = next((c for c in candidates if c.candidate_id == primary_id), None)
@@ -135,7 +136,7 @@ async def verify(
         empty_result=bool(selected and selected.result is not None and not selected.result.rows),
         semantic_invalid=semantic_invalid,
     )
-    p = confidence.probability(feature_values)
+    p = confidence.probability(feature_values, model)
     t = confidence.threshold(penalty)
 
     if any(f.severity == "blocking" for f in findings):

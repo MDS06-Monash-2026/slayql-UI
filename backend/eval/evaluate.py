@@ -240,10 +240,16 @@ async def main() -> None:
         for group in sorted({r[group_key] for r in subset}):
             members = [r for r in subset if r[group_key] == group]
             by_group[group] = {config: metrics.summarize(members, config) for config in CONFIGS}
+        # Report each language separately before claiming multilingual support.
+        by_language = {
+            language: {config: metrics.summarize([r for r in subset if r["language"] == language], config) for config in CONFIGS}
+            for language in sorted({r["language"] for r in subset})
+        }
         report["splits"][split] = {
             "n": len(subset),
             "configs": {config: metrics.summarize(subset, config) for config in CONFIGS + tuple(f"B3_c{c}" for c in metrics.PENALTIES)},
             "by_" + group_key: by_group,
+            "by_language": by_language,
             "risk_coverage_B3": metrics.risk_coverage(confidence_points),
             "calibration_B3": metrics.expected_calibration_error(confidence_points),
         }
@@ -265,6 +271,13 @@ async def main() -> None:
             print(f"{config:6} {m['coverage']:>9.3f} {m['selective_risk']:>9.3f} {m['silent_error_rate']:>11.3f} "
                   f"{(m['execution_accuracy'] or 0):>7.3f} {m['reliability_score_c4']:>8.3f} "
                   f"{(m.get('catch_rate') or 0):>7.3f} {(m.get('false_alarm_rate') or 0):>12.3f}")
+    languages = report["splits"]["all"]["by_language"]
+    if len(languages) > 1:
+        print("\n[all, by language]  silent errors B0 -> B3, B3 coverage, B3 false alarms")
+        for language, configs in languages.items():
+            b0, b3 = configs["B0"], configs["B3"]
+            print(f"  {language:6} n={b3['n']:>3}  {b0['silent_error_rate']:.3f} -> {b3['silent_error_rate']:.3f}  "
+                  f"cov {b3['coverage']:.3f}  FA {(b3.get('false_alarm_rate') or 0):.3f}")
     print(f"\nWrote {out_path}")
 
 

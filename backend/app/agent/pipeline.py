@@ -31,6 +31,7 @@ from backend.app.providers.openrouter_client import (
 )
 from backend.app import privacy
 from backend.app.knowledge.store import knowledge_store
+from backend.app.verification.learning import workspace_learning
 from backend.app.queries.executor import ExecutionResult, QueryExecutor
 from backend.app.queries.validator import SqlValidator
 from backend.app.verification import (
@@ -977,6 +978,8 @@ class SlayQLPipeline:
             result = await SlayQLPipeline._execute_query(connection, connection_id, validation.sanitized_sql)
             candidates.append(candidate_from_result(candidate_id, validation.sanitized_sql, result))
 
+        # Each data source's confidence model is learned from its own review queue.
+        confidence_model = await asyncio.to_thread(workspace_learning.model_for, connection_id)
         verification = await verify(
             question=question,
             dialect=dialect,
@@ -988,6 +991,7 @@ class SlayQLPipeline:
             definitions=definitions,
             repairs=repairs,
             semantic_invalid=semantic_invalid,
+            model=confidence_model,
         )
         SlayQLPipeline._emit(run_id, "verification", "verification.consensus", verification.consensus)
         for finding in verification.findings:

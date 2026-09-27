@@ -117,3 +117,52 @@ async def test_clarify_runs_only_server_offered_options():
         assert chosen.json()["row_count"] == 1
         missing = await client.post(f"/api/v1/agent-runs/{run['run_id']}/clarify", json={"option_index": 3})
         assert missing.status_code == 404
+
+
+CLEAN = {"agreement": 1.0, "single_candidate": 0.0, "unresolved_blocking": 0.0, "ambiguity": 0.0,
+         "warnings": 0.0, "repairs": 0.0, "empty_result": 0.0, "semantic_invalid": 0.0}
+
+
+def test_learning_stays_at_the_prior_without_evidence_and_moves_with_it():
+    from backend.app.verification import confidence
+    from backend.app.verification.learning import fit_with_prior
+
+    prior = confidence.DEFAULT_MODEL
+    unchanged = fit_with_prior([], [], prior)
+    assert unchanged["weights"] == prior["weights"]
+    # On this data source, clean-looking answers are often wrong.
+    rows, labels = [CLEAN] * 40, [1] * 20 + [0] * 20
+    learned = fit_with_prior(rows, labels, prior)
+    assert confidence.probability(CLEAN, learned) < confidence.probability(CLEAN, prior) - 0.15
+
+
+@pytest.mark.asyncio
+async def test_review_decisions_recalibrate_that_data_source_only():
+    from backend.app.verification.learning import MIN_LABELS, workspace_learning
+
+    connection_id = "learning_test_source"
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        headers = await _reviewer(client)
+        before = (await client.get(f"/api/v1/connections/{connection_id}/calibration", headers=headers)).json()
+        assert before["active"] is False and before["needed"] == MIN_LABELS
+
+        # An analyst reviews answers that looked clean: half were right, half wrong.
+        last = None
+        for index in range(MIN_LABELS + 4):
+            item = knowledge_store.create_review_item(
+                source="flag", question=f"q{index}", sql="SELECT 1", connection_id=connection_id,
+                outcome="confident", verification={"features": CLEAN, "outcome": "confident"},
+            )
+            last = await client.post(
+                f"/api/v1/review-items/{item['id']}/resolve",
+                json={"resolution": "confirmed" if index % 2 else "corrected"},
+                headers=headers,
+            )
+            assert last.status_code == 200, last.text
+        status = last.json()["calibration"]
+        assert status["active"] is True
+        assert status["labels"] == MIN_LABELS + 4
+        assert status["reviewed_answers"] == {"n": MIN_LABELS + 4, "wrong": (MIN_LABELS + 4) // 2}
+        assert status["clean_answer_confidence"] < status["clean_answer_confidence_default"]
+        assert workspace_learning.model_for(connection_id)["source"].startswith("learned")
+        assert not workspace_learning.model_for("sqlite_demo").get("source", "").startswith("learned")

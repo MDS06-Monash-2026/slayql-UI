@@ -275,7 +275,7 @@ GENERIC_TERMS = {
     "items", "entry", "entries", "frequency", "occurrences", "size", "level", "top", "bottom", "yearly", "monthly",
     "weekly", "daily", "annual", "annually", "cumulative", "running", "status", "type", "category", "group",
     "label", "flag", "jumlah", "purata", "bilangan", "ramai", "peratus", "tertinggi", "terendah", "hasil", "jualan",
-    "pendapatan", "full",
+    "pendapatan", "full", "nilai", "banyak", "setiap", "seunit", "lepas", "paling", "kita", "yang",
     "january", "february", "march", "april", "june", "july", "august", "september", "october", "november",
     "december", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday", "januari",
     "februari", "mac", "julai", "ogos", "oktober", "disember",
@@ -283,8 +283,14 @@ GENERIC_TERMS = {
 
 
 def _describes_action(token: str) -> bool:
-    """Verb forms (placed, collected, shipping) describe a filter or event, not a missing thing."""
-    return len(token) > 5 and token.endswith(("ed", "ing"))
+    """Verb forms describe a filter or event, not a missing thing.
+
+    English: placed, collected, shipping. Bahasa Malaysia: dihantar, dikutip,
+    membeli, berjaya, terjual.
+    """
+    if len(token) <= 5:
+        return False
+    return token.endswith(("ed", "ing")) or (len(token) > 6 and token.startswith(("di", "mem", "men", "meng", "ber", "ter")))
 
 
 def _stem(token: str) -> str:
@@ -359,9 +365,12 @@ def check_grounding(
     concept appears. Flag labels whose words come from the question but match no
     table, column, value or approved definition.
     """
-    from backend.app.agent.retrieval import tokenize
+    from backend.app.agent.retrieval import MALAY_TERMS, tokenize
 
-    question_words = {_stem(token) for token in tokenize(question) if len(token) >= 4}
+    tokens = tokenize(question)
+    # A Malay question often gets English labels (kepuasan -> satisfaction_score).
+    translated = [word for token in tokens for word in MALAY_TERMS.get(token, [])]
+    question_words = {_stem(token) for token in tokens + translated if len(token) >= 4}
     if not question_words:
         return []
     vocabulary = schema_vocabulary(catalog, definitions)
@@ -374,11 +383,11 @@ def check_grounding(
         codes = [str(literal.this).lower() for literal in alias.this.find_all(exp.Literal) if literal.is_string]
         for token in tokenize(label):
             stem = _stem(token)
-            if len(token) < 4 or stem not in question_words or stem in missing or _describes_action(token):
+            if len(token) < 4 or stem not in question_words or stem in missing:
                 continue
             if any(code and code[0] == token[0] and (len(code) <= 2 or _abbreviates(code, token)) for code in codes):
                 continue
-            if not _grounded(token, vocabulary):
+            if not _grounded(token, vocabulary) and not _describes_action(token):
                 missing[stem] = f"{alias.this.sql()} AS {label}"
     if not missing:
         return []

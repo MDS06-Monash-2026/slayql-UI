@@ -75,6 +75,20 @@ MALAY_TERMS = {
     "kapasiti": ["capacity"],
     "peratus": ["percent"],
     "hutang": ["payment", "pending", "balance", "amount"],
+    "segmen": ["segment"],
+    "pengangkut": ["carrier", "shipment"],
+    "kurier": ["carrier", "shipment"],
+    "aktif": ["active", "status"],
+    "dihantar": ["shipped", "shipment", "delivered"],
+    "sampai": ["delivered"],
+    "dikutip": ["collected", "tax", "amount"],
+    "kepuasan": ["satisfaction"],
+    "skor": ["score", "rating"],
+    "penilaian": ["rating", "review"],
+    "jurujual": ["salesperson", "sales_rep"],
+    "niaga": ["deal", "deals"],
+    "pemasaran": ["marketing", "campaign"],
+    "kempen": ["campaign"],
 }
 
 

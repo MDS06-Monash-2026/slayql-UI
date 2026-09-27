@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+from itertools import product
 from typing import Any, Dict, List, Optional
 
 import sqlglot
@@ -31,16 +32,54 @@ def result_signature(result: ExecutionResult) -> str:
     return hashlib.sha1(repr(rows).encode("utf-8")).hexdigest()[:16]
 
 
+def results_agree(first: Optional[ExecutionResult], second: Optional[ExecutionResult]) -> bool:
+    """True when both results hold the same rows, allowing one to carry extra columns.
+
+    "SELECT name" and "SELECT id, name, unit_price" give the same answer; only
+    the presentation differs, so they should not count as a disagreement.
+    """
+    if first is None or second is None or len(first.rows) != len(second.rows):
+        return False
+    narrow, wide = sorted((first, second), key=lambda result: len(result.columns))
+    if not narrow.rows or not narrow.columns or len(wide.columns) > 12:
+        return False
+
+    def column(result: ExecutionResult, index: int) -> List[str]:
+        return sorted(normalize_value(row[index]) for row in result.rows)
+
+    wide_columns = [column(wide, j) for j in range(len(wide.columns))]
+    choices = [
+        [j for j, values in enumerate(wide_columns) if values == column(narrow, i)]
+        for i in range(len(narrow.columns))
+    ]
+    if any(not options for options in choices):
+        return False
+    target = sorted(tuple(normalize_value(value) for value in row) for row in narrow.rows)
+    for chosen in product(*choices):
+        if len(set(chosen)) == len(chosen):
+            projected = sorted(tuple(normalize_value(row[j]) for j in chosen) for row in wide.rows)
+            if projected == target:
+                return True
+    return False
+
+
 def cluster(candidates: List[CandidateResult]) -> List[List[CandidateResult]]:
-    """Group successful candidates with identical results, largest group first.
+    """Group successful candidates that return the same answer, largest group first.
 
     Ties keep the earlier group first, so the primary candidate wins a tie.
     """
-    groups: Dict[str, List[CandidateResult]] = {}
+    groups: List[List[CandidateResult]] = []
     for candidate in candidates:
-        if candidate.ok and candidate.signature:
-            groups.setdefault(candidate.signature, []).append(candidate)
-    return sorted(groups.values(), key=lambda group: -len(group))
+        if not (candidate.ok and candidate.signature):
+            continue
+        for group in groups:
+            representative = group[0]
+            if representative.signature == candidate.signature or results_agree(representative.result, candidate.result):
+                group.append(candidate)
+                break
+        else:
+            groups.append([candidate])
+    return sorted(groups, key=lambda group: -len(group))
 
 
 def summarize(candidates: List[CandidateResult]) -> Dict[str, Any]:

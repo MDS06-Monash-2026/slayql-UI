@@ -288,6 +288,39 @@ def test_sql_validator_block_unknown_table():
     assert result.is_valid is False
     assert "Unknown tables" in (result.error_message or "")
 
+def test_sql_validator_accepts_ctes_and_is_case_insensitive():
+    catalog = CatalogService.get_sqlite_catalog(settings.SQLITE_DEMO_PATH)
+    sql = (
+        "WITH per_customer AS (SELECT customer_id, SUM(total_amount) AS spend FROM Orders GROUP BY customer_id) "
+        "SELECT C.Full_Name, pc.spend FROM per_customer pc JOIN Customers C ON C.id = pc.customer_id ORDER BY spend DESC"
+    )
+    result = SqlValidator.validate_and_sanitize(sql, dialect="sqlite", catalog=catalog)
+    assert result.is_valid is True, result.error_message
+    assert set(result.referenced_tables) == {"orders", "customers"}
+
+def test_sql_validator_rejects_unknown_columns():
+    catalog = CatalogService.get_sqlite_catalog(settings.SQLITE_DEMO_PATH)
+    for sql, missing in [
+        ("SELECT o.revenue FROM orders o", "o.revenue"),
+        ("SELECT salesperson, COUNT(*) FROM orders GROUP BY salesperson", "salesperson"),
+        ('SELECT COUNT(*) FROM orders WHERE status = "completed"', "completed"),
+    ]:
+        result = SqlValidator.validate_and_sanitize(sql, dialect="sqlite", catalog=catalog)
+        assert result.is_valid is False
+        assert missing in (result.error_message or "")
+    quoted = SqlValidator.validate_and_sanitize('SELECT COUNT(*) FROM orders WHERE status = "completed"', dialect="sqlite", catalog=catalog)
+    assert "single quotes" in quoted.error_message
+
+def test_sql_validator_allows_aliases_and_subquery_columns():
+    catalog = CatalogService.get_sqlite_catalog(settings.SQLITE_DEMO_PATH)
+    for sql in [
+        "SELECT status, COUNT(*) AS n FROM orders GROUP BY status ORDER BY n DESC",
+        "SELECT t.segment, t.n FROM (SELECT segment, COUNT(*) AS n FROM customers GROUP BY segment) t",
+        "SELECT segment, n FROM (SELECT segment, COUNT(*) AS n FROM customers GROUP BY segment)",
+    ]:
+        result = SqlValidator.validate_and_sanitize(sql, dialect="sqlite", catalog=catalog)
+        assert result.is_valid is True, (sql, result.error_message)
+
 @pytest.mark.asyncio
 async def test_query_executor():
     sql = "SELECT c.segment, COUNT(o.id) AS total_orders FROM customers c JOIN orders o ON c.id = o.customer_id GROUP BY c.segment"
