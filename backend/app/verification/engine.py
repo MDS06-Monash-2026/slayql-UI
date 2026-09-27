@@ -35,6 +35,7 @@ async def run_checks(
         return findings, [], []
     findings += checks.check_grounding(tree, question, catalog, definitions)
     findings += await checks.check_grain(tree, catalog, run_sql)
+    findings += await checks.check_filter_values(tree, catalog, run_sql)
     definition_findings, options, used = await checks.check_definitions(
         tree, question, catalog, run_sql, definitions or []
     )

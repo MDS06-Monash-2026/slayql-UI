@@ -51,7 +51,7 @@ from backend.app.workbench.gemini_agent import (
     summarize_result,
 )
 from backend.app.workbench.health import inspect_sqlite_health
-from backend.app.workbench.report_agent import edit_report, generate_report
+from backend.app.workbench import trusted_report
 
 logger = logging.getLogger(__name__)
 
@@ -193,15 +193,20 @@ class DashboardAssistRequest(BaseModel):
     result: WorkbenchResultPayload
 
 
-class ReportGenerateRequest(BaseModel):
-    preference: Dict[str, Any] = Field(default_factory=dict)
-    result: WorkbenchResultPayload
+class TrustedReportRequest(BaseModel):
+    question: str = Field(default="", max_length=2000)
+    title: str = Field(default="", max_length=200)
 
 
-class ReportEditRequest(BaseModel):
+class ReportRefreshRequest(BaseModel):
     report: Dict[str, Any]
+
+
+class ReportReviseRequest(BaseModel):
+    report: Dict[str, Any] = Field(default_factory=dict)
     instruction: str = Field(min_length=1, max_length=2000)
-    selected_widget_id: Optional[str] = Field(default=None, max_length=128)
+    item: Optional[Dict[str, Any]] = None
+    kind: str = Field(default="panel", pattern="^(kpi|panel)$")
 
 
 def _session_from_request(request: Request, required: bool = False) -> Optional[Dict[str, Any]]:
@@ -974,69 +979,70 @@ async def build_workbench_dashboard(connection_id: str, req: DashboardAssistRequ
         raise HTTPException(status_code=502, detail=f"Gemini dashboard agent failed: {exc}") from exc
 
 
-@app.post("/api/v1/connections/{connection_id}/workbench/ai/report")
-async def generate_workbench_report(connection_id: str, req: ReportGenerateRequest, request: Request):
+async def _report_context(conn: Dict[str, Any], connection_id: str, request: Request):
+    catalog = _catalog_for_connection(conn, connection_id)
+
+    async def execute(sql: str):
+        return await SlayQLPipeline._execute_query(conn, connection_id, sql)
+
+    return await trusted_report.make_context(
+        connection_id=connection_id,
+        catalog=catalog,
+        dialect=SlayQLPipeline._dialect(conn.get("engine", "sqlite")),
+        execute=execute,
+        owner_id=_owner_id(request),
+    )
+
+
+@app.post("/api/v1/connections/{connection_id}/reports")
+async def create_trusted_report(connection_id: str, req: TrustedReportRequest, request: Request):
+    """Stream a trusted report as newline-delimited JSON events."""
     conn = _connection_metadata(connection_id, _owner_id(request))
     if not conn:
         raise HTTPException(status_code=404, detail="Database connection not found.")
-    try:
-        _ensure_openrouter_credit(request)
-        catalog = _catalog_for_connection(conn, connection_id)
+    _ensure_openrouter_credit(request)
+    ctx = await _report_context(conn, connection_id, request)
+    credits = _consume_openrouter_credit(request, "Trusted report generation")
 
-        result_cols = list(req.result.columns or [])
-        result_types = list(req.result.column_types or [])
-        result_rows = list(req.result.rows or [])
+    async def stream():
+        yield json.dumps({"type": "credits", "credits_remaining": credits}) + "\n"
+        try:
+            async for event in trusted_report.generate(req.question, req.title, ctx):
+                yield json.dumps(event, default=str) + "\n"
+        except Exception:
+            logger.exception("Trusted report failed for %s", connection_id)
+            yield json.dumps({"type": "error", "detail": "The report could not be built. Try a narrower question."}) + "\n"
 
-        # If no query result was provided from workbench, sample the first table from the catalog
-        if (not result_cols or not result_rows) and catalog.tables:
-            tables = list(catalog.tables.keys())
-            if tables:
-                first_table = tables[0]
-                dialect = "sqlite" if conn["engine"] == "sqlite" else "postgres" if conn["engine"] in {"postgresql", "supabase"} else conn["engine"]
-                sample_sql = f"SELECT * FROM {first_table} LIMIT 50"
-                validation = SqlValidator.validate_and_sanitize(sample_sql, dialect=dialect, catalog=catalog, max_rows=50)
-                if validation.is_valid:
-                    if conn["engine"] == "sqlite":
-                        db_res = await QueryExecutor.execute_sqlite(require_sqlite_path(connection_id), validation.sanitized_sql, 5.0, 50)
-                    else:
-                        db_res = await QueryExecutor.execute_external(conn["engine"], get_credentials(connection_id), validation.sanitized_sql, 5.0, 50)
-                    if db_res and not db_res.error and db_res.columns:
-                        result_cols = db_res.columns
-                        result_types = db_res.column_types
-                        result_rows = db_res.rows
-                        req.preference.setdefault("source_sql", sample_sql)
-
-        profile = summarize_result(result_cols, result_types, result_rows)
-        response = await generate_report(req.preference, profile, _compact_catalog(catalog))
-        response["data_profile"] = profile
-        response["result"] = {"columns": result_cols, "column_types": result_types, "rows": result_rows}
-        response["credits_remaining"] = _consume_openrouter_credit(request, "DeepSeek Power BI report generation")
-        return response
-    except HTTPException:
-        raise
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"DeepSeek report agent failed: {exc}") from exc
+    return StreamingResponse(stream(), media_type="application/x-ndjson")
 
 
-@app.post("/api/v1/connections/{connection_id}/workbench/ai/report/edit")
-async def edit_workbench_report(connection_id: str, req: ReportEditRequest, request: Request):
+@app.post("/api/v1/connections/{connection_id}/reports/refresh")
+async def refresh_trusted_report(connection_id: str, req: ReportRefreshRequest, request: Request):
+    """Re-run a saved report's checked SQL on current data. Uses no AI, so it is free."""
     conn = _connection_metadata(connection_id, _owner_id(request))
     if not conn:
         raise HTTPException(status_code=404, detail="Database connection not found.")
-    try:
-        _ensure_openrouter_credit(request)
-        report_profile = req.report.get("data_profile") if isinstance(req.report.get("data_profile"), dict) else {}
-        if not report_profile or not report_profile.get("columns"):
-            catalog = _catalog_for_connection(conn, connection_id)
-            report_profile = {"row_count": 0, "columns": []}
-        response = await edit_report(req.report, req.instruction, req.selected_widget_id, report_profile)
-        response["credits_remaining"] = _consume_openrouter_credit(request, "DeepSeek Power BI report edit")
-        return response
-    except HTTPException:
-        raise
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"DeepSeek report editor failed: {exc}") from exc
+    ctx = await _report_context(conn, connection_id, request)
+    ctx.llm = False
+    return await trusted_report.refresh(req.report, ctx)
 
+
+@app.post("/api/v1/connections/{connection_id}/reports/revise")
+async def revise_trusted_report_item(connection_id: str, req: ReportReviseRequest, request: Request):
+    """Change or add one figure from a plain-language instruction."""
+    conn = _connection_metadata(connection_id, _owner_id(request))
+    if not conn:
+        raise HTTPException(status_code=404, detail="Database connection not found.")
+    _ensure_openrouter_credit(request)
+    ctx = await _report_context(conn, connection_id, request)
+    if not ctx.llm:
+        raise HTTPException(status_code=503, detail="Changing a figure needs the AI provider, which is not configured.")
+    try:
+        response = await trusted_report.revise_item(req.report, req.instruction, req.item, req.kind, ctx)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    response["credits_remaining"] = _consume_openrouter_credit(request, "Trusted report figure edit")
+    return response
 
 
 @app.post("/api/v1/connections/{connection_id}/workbench/ai/health")

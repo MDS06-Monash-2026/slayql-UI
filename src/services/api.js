@@ -378,15 +378,50 @@ export function generateWorkbenchDashboard(connectionId, { preference, result })
   return workbenchRequest(`/connections/${connectionId}/workbench/ai/dashboard`, { preference, result });
 }
 
-export function generateReport(connectionId, { preference, result }) {
-  return workbenchRequest(`/connections/${connectionId}/workbench/ai/report`, { preference, result });
+// --- Trusted reports: every figure is a checked query on the full data ---
+
+/** Build a report, calling onEvent for each streamed event (stage, plan, item, report). */
+export async function streamReport(connectionId, { question, title = '' }, onEvent, { signal } = {}) {
+  const res = await fetch(`${API_BASE}/connections/${encodeURIComponent(connectionId)}/reports`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify({ question, title }),
+    signal,
+  });
+  if (!res.ok || !res.body) {
+    const err = await res.json().catch(() => ({}));
+    const error = new Error(err.detail || `Request failed (${res.status})`);
+    error.status = res.status;
+    throw error;
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let newline = buffer.indexOf('\n');
+    while (newline >= 0) {
+      const line = buffer.slice(0, newline).trim();
+      buffer = buffer.slice(newline + 1);
+      if (line) onEvent(JSON.parse(line));
+      newline = buffer.indexOf('\n');
+    }
+  }
+  if (buffer.trim()) onEvent(JSON.parse(buffer));
 }
 
-export function editReport(connectionId, { report, instruction, selected_widget_id }) {
-  return workbenchRequest(`/connections/${connectionId}/workbench/ai/report/edit`, {
-    report,
-    instruction,
-    selected_widget_id,
+/** Re-run a saved report's checked SQL on current data (no AI, no credits). */
+export function refreshReport(connectionId, report) {
+  return jsonRequest(`/connections/${encodeURIComponent(connectionId)}/reports/refresh`, { method: 'POST', body: { report } });
+}
+
+/** Change one figure, or add one, from a plain-language instruction. */
+export function reviseReportItem(connectionId, { report, instruction, item = null, kind = 'panel' }) {
+  return jsonRequest(`/connections/${encodeURIComponent(connectionId)}/reports/revise`, {
+    method: 'POST',
+    body: { report, instruction, item, kind },
   });
 }
 

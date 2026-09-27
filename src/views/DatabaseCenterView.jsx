@@ -22,7 +22,7 @@ import AddConnectionModal from '../components/demo/AddConnectionModal';
 import ConnectionSettingsModal from '../components/demo/ConnectionSettingsModal';
 import ConfirmationModal from '../components/demo/ConfirmationModal';
 import ERDiagram from '../components/demo/ERDiagram';
-import AIDashboardBuilder from '../components/workbench/AIDashboardBuilder';
+import ReportStudio from '../components/report/ReportStudio';
 import DatabaseHealthPanel from '../components/workbench/DatabaseHealthPanel';
 import SqlWorkbench from '../components/workbench/SqlWorkbench';
 import {
@@ -38,7 +38,7 @@ const NAV_ITEMS = [
   { id: 'workbench', label: 'SQL workbench', icon: Code2 },
   { id: 'tables', label: 'Tables and columns', icon: Table2 },
   { id: 'relationships', label: 'ER diagram', icon: Network },
-  { id: 'dashboard', label: 'AI report studio', icon: LayoutDashboard },
+  { id: 'dashboard', label: 'Report studio', icon: LayoutDashboard },
   { id: 'health', label: 'Health agent', icon: Activity },
 ];
 
@@ -619,10 +619,8 @@ export default function DatabaseCenterView({ setView, session, theme: propTheme,
                     )}
 
                     {activeSection === 'dashboard' && (
-                      <AIDashboardBuilder
+                      <ReportStudio
                         connectionId={selectedId}
-                        result={latestResult}
-                        sql={latestSql}
                         isDark={isDark}
                         onDirtyChange={setDashboardDirty}
                         onRegisterSave={(save) => { dashboardSaveRef.current = save; }}

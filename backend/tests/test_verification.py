@@ -204,3 +204,44 @@ async def test_english_labels_on_a_malay_question_are_checked():
     )
     findings, _, _ = await _checks("Berapakah skor kepuasan pelanggan kita?", sql)
     assert [f.data["terms"] for f in findings if f.check == "coverage"] == [["satisfaction"]]
+
+
+@pytest.mark.asyncio
+async def test_a_question_about_cancellations_does_not_ask_whether_to_exclude_them():
+    # "refunds" and "cancellations" in the question settle whether refunded and cancelled orders count.
+    findings, options, _ = await _checks("What is our revenue including refunds and cancellations?", ALL_STATUSES)
+    assert not [f for f in findings if f.check == "definition"]
+    assert options == []
+    # Labels such as "lost" describe the figure; they are not a missing concept.
+    findings, _, _ = await _checks(
+        "How much revenue did we lose to cancellations each month?",
+        "SELECT strftime('%Y-%m', order_date) AS month, SUM(total_amount) AS lost FROM orders "
+        "WHERE status = 'cancelled' GROUP BY month",
+    )
+    assert findings == []
+    # An unfiltered revenue question still asks.
+    findings, options, _ = await _checks("What is our total revenue?", ALL_STATUSES)
+    assert options
+
+
+@pytest.mark.asyncio
+async def test_a_filter_value_with_the_wrong_case_is_blocking_and_suggests_the_real_one():
+    findings, _, _ = await _checks(
+        "How many support cases are resolved?", "SELECT COUNT(*) FROM support_cases WHERE status = 'Resolved'"
+    )
+    wrong_case = [f for f in findings if f.check == "filter"]
+    assert wrong_case and wrong_case[0].severity == "blocking"
+    assert wrong_case[0].data["suggested"] == "resolved"
+
+
+@pytest.mark.asyncio
+async def test_a_filter_value_absent_from_the_data_is_a_warning_with_the_real_values():
+    findings, _, _ = await _checks(
+        "How much was refunded?", "SELECT SUM(amount) FROM payments WHERE status = 'reversed'"
+    )
+    missing = [f for f in findings if f.check == "filter"]
+    assert missing and missing[0].severity == "warning"
+    assert missing[0].data["values"]
+    # A filter that matches real rows is not flagged.
+    findings, _, _ = await _checks("How many orders were completed?", "SELECT COUNT(*) FROM orders WHERE status IN ('completed', 'shipped')")
+    assert not [f for f in findings if f.check == "filter"]

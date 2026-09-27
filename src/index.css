@@ -1847,3 +1847,12 @@ button:disabled,
 
 
 
+
+/* Report Studio: "Print / PDF" prints only the report canvas. */
+@media print {
+  @page { size: A4 landscape; margin: 10mm; }
+  body * { visibility: hidden; }
+  .report-print-root, .report-print-root * { visibility: visible; }
+  .report-print-root { position: absolute; inset: 0 auto auto 0; width: 100%; background: #fff !important; }
+  .report-print-root article { break-inside: avoid; }
+}

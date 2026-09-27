@@ -148,7 +148,8 @@ async def check_definitions(
                 if distribution.error or not distribution.rows or len(distribution.rows) > 12:
                     continue
                 negative = [row[0] for row in distribution.rows if row[0] is not None and NEGATIVE_STATUS.search(str(row[0]))]
-                if not negative or any(str(value).lower() in lowered_question for value in negative):
+                # A question that already names these statuses ("cancellations", "refunds") has decided.
+                if not negative or any(str(value).lower()[:6] in lowered_question for value in negative):
                     continue
                 counts = ", ".join(f"{row[0]} {row[1]:,}" for row in distribution.rows)
                 variant = select.copy()
@@ -275,7 +276,7 @@ GENERIC_TERMS = {
     "items", "entry", "entries", "frequency", "occurrences", "size", "level", "top", "bottom", "yearly", "monthly",
     "weekly", "daily", "annual", "annually", "cumulative", "running", "status", "type", "category", "group",
     "label", "flag", "jumlah", "purata", "bilangan", "ramai", "peratus", "tertinggi", "terendah", "hasil", "jualan",
-    "pendapatan", "full", "nilai", "banyak", "setiap", "seunit", "lepas", "paling", "kita", "yang",
+    "pendapatan", "full", "lost", "loss", "losses", "leakage", "gain", "gains", "paid", "bought", "made", "owed", "owing", "outstanding", "nilai", "banyak", "setiap", "seunit", "lepas", "paling", "kita", "yang",
     "january", "february", "march", "april", "june", "july", "august", "september", "october", "november",
     "december", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday", "januari",
     "februari", "mac", "julai", "ogos", "oktober", "disember",
@@ -407,6 +408,76 @@ def check_grounding(
         ),
         data={"terms": list(missing), "relabelled": list(missing.values())},
     )]
+
+
+async def check_filter_values(tree: exp.Expression, catalog: CatalogSchema, run_sql: SqlRunner) -> List[Finding]:
+    """Detect text filters that match nothing in the data, such as status = 'Refunded' when the data says 'refunded'.
+
+    A wrong filter value silently turns a total into zero or an empty list. When the value
+    exists with different letter case, the query is certainly wrong (blocking, with a repair
+    hint). When it does not exist at all and the column has few distinct values, the answer
+    carries a warning listing the values the data does use.
+    """
+    findings: List[Finding] = []
+    seen: set = set()
+    for select in tree.find_all(exp.Select):
+        where = select.args.get("where")
+        if where is None:
+            continue
+        select_sources = sql_scope.sources(select, catalog)
+        pairs: List[tuple[exp.Column, str]] = []
+        for node in where.find_all(exp.EQ, exp.In):
+            if isinstance(node, exp.EQ):
+                left, right = node.this, node.expression
+                if isinstance(right, exp.Column) and isinstance(left, exp.Literal):
+                    left, right = right, left
+                if isinstance(left, exp.Column) and isinstance(right, exp.Literal) and right.is_string:
+                    pairs.append((left, right.this))
+            elif isinstance(node.this, exp.Column) and not node.args.get("query"):
+                pairs += [(node.this, item.this) for item in node.expressions if isinstance(item, exp.Literal) and item.is_string]
+        for column, literal in pairs:
+            source = sql_scope.column_source(column, select_sources)
+            key = (source.table.name.lower(), column.name.lower(), literal) if source else None
+            if not source or key in seen:
+                continue
+            seen.add(key)
+            distinct = await run_sql(
+                f"SELECT DISTINCT {_q(column.name)} FROM {_q(source.table.name)} WHERE {_q(column.name)} IS NOT NULL LIMIT 41"
+            )
+            if distinct.error or not distinct.rows:
+                continue
+            values = [str(row[0]) for row in distinct.rows]
+            if literal in values:
+                continue
+            name = f"{source.table.name}.{column.name}"
+            # MySQL's default collations ignore case, so only an absent value matters there.
+            same_case = [] if catalog.engine == "mysql" else [value for value in values if value.lower() == literal.lower()]
+            if not same_case and len(values) <= 40:
+                # Only a complete list shows the value is absent; long lists may be truncated.
+                exact = await run_sql(
+                    f"SELECT COUNT(*) FROM {_q(source.table.name)} WHERE {_q(column.name)} = '{literal.replace(chr(39), chr(39) * 2)}'"
+                )
+                if exact.error or not exact.rows or exact.rows[0][0]:
+                    continue
+            if same_case:
+                findings.append(Finding(
+                    check="filter",
+                    severity="blocking",
+                    title=f"'{literal}' does not match the data's '{same_case[0]}'",
+                    detail=f"{name} stores '{same_case[0]}'; the filter '{literal}' matches no rows because the letter case differs.",
+                    repair_hint=f"In {name}, use '{same_case[0]}' instead of '{literal}'; text comparisons are case-sensitive.",
+                    data={"column": name, "value": literal, "suggested": same_case[0]},
+                ))
+            elif len(values) <= 40:
+                shown = ", ".join(f"'{value}'" for value in values[:12]) + (" ..." if len(values) > 12 else "")
+                findings.append(Finding(
+                    check="filter",
+                    severity="warning",
+                    title=f"No record has {column.name} = '{literal}'",
+                    detail=f"The filter on {name} matches nothing, so this figure may be zero or empty for that reason. Values in the data: {shown}.",
+                    data={"column": name, "value": literal, "values": values[:40]},
+                ))
+    return findings
 
 
 def check_sanity(result: ExecutionResult) -> List[Finding]:
