@@ -16,3 +16,8 @@ dist-ssr
 
 backend/data/slayql_control.sqlite3
 backend/data/connections
+
+# Evaluation data and caches (large; not needed at runtime)
+backend/eval/cache
+backend/eval/data
+interviews
