@@ -11,6 +11,9 @@ from sqlglot import exp
 from backend.app.queries.executor import ExecutionResult
 from backend.app.verification.models import CandidateResult, ClarifyOption
 
+# Column assignments tried when matching a narrow result against a wider one.
+MAX_PROJECTIONS = 256
+
 
 def normalize_value(value: Any) -> str:
     if value is None:
@@ -55,12 +58,26 @@ def results_agree(first: Optional[ExecutionResult], second: Optional[ExecutionRe
     if any(not options for options in choices):
         return False
     target = sorted(tuple(normalize_value(value) for value in row) for row in narrow.rows)
-    for chosen in product(*choices):
-        if len(set(chosen)) == len(chosen):
-            projected = sorted(tuple(normalize_value(row[j]) for j in chosen) for row in wide.rows)
-            if projected == target:
-                return True
-    return False
+
+    def matches(chosen: tuple) -> bool:
+        projected = sorted(tuple(normalize_value(row[j]) for j in chosen) for row in wide.rows)
+        return projected == target
+
+    combinations = 1
+    for options in choices:
+        combinations *= len(options)
+    if combinations > MAX_PROJECTIONS:
+        # Many interchangeable columns (flags, zero counts): try one greedy assignment
+        # rather than an exponential search that would stall the server.
+        chosen, used = [], set()
+        for options in choices:
+            pick = next((j for j in options if j not in used), None)
+            if pick is None:
+                return False
+            chosen.append(pick)
+            used.add(pick)
+        return matches(tuple(chosen))
+    return any(len(set(chosen)) == len(chosen) and matches(chosen) for chosen in product(*choices))
 
 
 def cluster(candidates: List[CandidateResult]) -> List[List[CandidateResult]]:

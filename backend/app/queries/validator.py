@@ -4,6 +4,10 @@ from typing import List, Dict, Any, Tuple, Optional
 from pydantic import BaseModel
 from backend.app.catalog.discovery import CatalogSchema
 
+# SQLite exposes these on every ordinary table without declaring them.
+SQLITE_PSEUDO_COLUMNS = {"rowid", "oid", "_rowid_"}
+
+
 class ValidationCheck(BaseModel):
     code: str
     label: str
@@ -152,7 +156,7 @@ class SqlValidator:
         ))
 
         # 6. Verify columns against the tables they can come from.
-        ref_columns, unknown_columns = SqlValidator._check_columns(expression, catalog_tables, cte_names)
+        ref_columns, unknown_columns = SqlValidator._check_columns(expression, catalog_tables, cte_names, dialect)
         if unknown_columns:
             listed = ", ".join(unknown_columns)
             hint = (
@@ -225,6 +229,7 @@ class SqlValidator:
         expression: exp.Expression,
         catalog_tables: Dict[str, Any],
         cte_names: set,
+        dialect: str = "",
     ) -> Tuple[List[str], List[str]]:
         """Return (referenced columns, unknown columns).
 
@@ -234,17 +239,11 @@ class SqlValidator:
         CTE or subquery). Columns of derived tables are not checked.
         """
         table_columns: Dict[str, set] = {}
-        qualifiers: Dict[str, str] = {}
         derived: set = set(cte_names)
         for table in expression.find_all(exp.Table):
             name = table.name.lower()
-            if name in cte_names or name not in catalog_tables:
-                continue
-            columns = {column.name.lower() for column in catalog_tables[name].columns}
-            table_columns[name] = columns
-            qualifiers[name] = name
-            if table.alias:
-                qualifiers[table.alias.lower()] = name
+            if name not in cte_names and name in catalog_tables:
+                table_columns[name] = {column.name.lower() for column in catalog_tables[name].columns}
         for node in expression.find_all(exp.Subquery, exp.CTE):
             if node.alias_or_name:
                 derived.add(node.alias_or_name.lower())
@@ -252,6 +251,36 @@ class SqlValidator:
         for table_alias in expression.find_all(exp.TableAlias):
             defined.update(column.name.lower() for column in table_alias.columns)
         all_columns = set().union(*table_columns.values()) if table_columns else set()
+        if dialect == "sqlite":
+            all_columns |= SQLITE_PSEUDO_COLUMNS
+
+        def select_sources(select: exp.Select) -> Dict[str, Optional[str]]:
+            """Alias -> catalog table read directly by this SELECT (None for derived tables)."""
+            found: Dict[str, Optional[str]] = {}
+            from_clause = select.args.get("from") or select.args.get("from_")
+            nodes = [from_clause.this] if from_clause is not None else []
+            nodes += [join.this for join in select.args.get("joins") or []]
+            for node in nodes:
+                alias = (node.alias_or_name or "").lower()
+                if isinstance(node, exp.Table) and node.name.lower() in table_columns:
+                    found[alias or node.name.lower()] = node.name.lower()
+                    found.setdefault(node.name.lower(), node.name.lower())
+                elif alias:
+                    found[alias] = None
+            return found
+
+        def resolve(column: exp.Column, qualifier: str) -> Optional[str]:
+            """The catalog table a qualifier names, looking outwards for correlated references.
+
+            Aliases are scoped: two branches of a UNION may both call different tables "t".
+            """
+            select = column.find_ancestor(exp.Select)
+            while select is not None:
+                sources = select_sources(select)
+                if qualifier in sources:
+                    return sources[qualifier]
+                select = select.find_ancestor(exp.Select)
+            return None
 
         referenced: set = set()
         unknown: List[str] = []
@@ -262,9 +291,8 @@ class SqlValidator:
             referenced.add(name)
             qualifier = column.table.lower() if column.table else ""
             if qualifier:
-                if qualifier in derived or qualifier not in qualifiers:
-                    continue
-                if name not in table_columns[qualifiers[qualifier]]:
+                table = None if qualifier in derived and qualifier not in table_columns else resolve(column, qualifier)
+                if table and name not in table_columns[table] and not (dialect == "sqlite" and name in SQLITE_PSEUDO_COLUMNS):
                     unknown.append(f"{column.table}.{column.name}")
             elif name not in all_columns and name not in defined:
                 # Derived tables can supply columns we cannot see; only judge

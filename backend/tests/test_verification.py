@@ -278,3 +278,19 @@ def test_an_approved_definition_lifts_confidence_above_strict_thresholds():
              "warnings": 0.0, "repairs": 0.0, "empty_result": 0.0, "semantic_invalid": 0.0}
     assert confidence.probability(clean) < confidence.threshold(9)
     assert confidence.probability({**clean, "approved_definition": 1.0}) > confidence.threshold(9)
+
+
+@pytest.mark.asyncio
+async def test_review_fixes_for_checks():
+    # A derived-metric label is not a missing concept.
+    findings, _, _ = await _checks(
+        "How many repeat customers do we have?",
+        "SELECT COUNT(*) AS repeat_customers FROM (SELECT customer_id FROM orders GROUP BY customer_id HAVING COUNT(*) > 1)",
+    )
+    assert not [f for f in findings if f.check == "coverage"]
+    # A subquery's filter is checked against its own table, not the outer one.
+    findings, _, _ = await _checks(
+        "How many customers have a shipped order?",
+        "SELECT COUNT(*) FROM customers WHERE id IN (SELECT customer_id FROM orders WHERE status = 'shipped')",
+    )
+    assert not [f for f in findings if f.check == "filter"]

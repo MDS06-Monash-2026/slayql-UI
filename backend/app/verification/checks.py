@@ -22,6 +22,7 @@ STATUS_COLUMN = re.compile(r"(^|_)(status|state|stage)($|_)", re.I)
 # Yes/no flags that mark rows most totals leave out, e.g. AutoCount's Cancelled = 'T'.
 FLAG_COLUMN = re.compile(r"^(is_?)?(cancel+ed|void(ed)?|deleted|rejected)$", re.I)
 TRUE_VALUES = {"t", "y", "1", "true", "yes"}
+CASE_INSENSITIVE_ENGINES = {"mysql", "sqlserver", "mssql"}
 FLAG_VALUES = TRUE_VALUES | {"f", "n", "0", "false", "no"}
 # Measures whose business meaning depends on which statuses count.
 MEASURE_TERMS = re.compile(
@@ -158,7 +159,7 @@ async def check_definitions(
                     if not values or not values <= FLAG_VALUES:
                         continue
                     negative = [row[0] for row in distribution.rows if row[0] is not None and str(row[0]).strip().lower() in TRUE_VALUES]
-                    named = column.name.lower()[:6] in lowered_question
+                    named = re.sub(r"^is_?", "", column.name.lower())[:6] in lowered_question
                 else:
                     negative = [row[0] for row in distribution.rows if row[0] is not None and NEGATIVE_STATUS.search(str(row[0]))]
                     # A question that already names these statuses ("cancellations", "refunds") has decided.
@@ -292,7 +293,7 @@ GENERIC_TERMS = {
     "items", "entry", "entries", "frequency", "occurrences", "size", "level", "top", "bottom", "yearly", "monthly",
     "weekly", "daily", "annual", "annually", "cumulative", "running", "status", "type", "category", "group",
     "label", "flag", "jumlah", "purata", "bilangan", "ramai", "peratus", "tertinggi", "terendah", "hasil", "jualan",
-    "pendapatan", "full", "lost", "loss", "losses", "leakage", "gain", "gains", "paid", "bought", "made", "owed", "owing", "outstanding", "nilai", "banyak", "setiap", "seunit", "lepas", "paling", "kita", "yang",
+    "pendapatan", "full", "lost", "loss", "losses", "leakage", "gain", "gains", "paid", "bought", "made", "owed", "owing", "outstanding", "repeat", "returning", "new", "active", "inactive", "churned", "churn", "retained", "retention", "loyal", "recurring", "lapsed", "dormant", "frequent", "conversion", "nilai", "banyak", "setiap", "seunit", "lepas", "paling", "kita", "yang",
     "january", "february", "march", "april", "june", "july", "august", "september", "october", "november",
     "december", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday", "januari",
     "februari", "mac", "julai", "ogos", "oktober", "disember",
@@ -443,6 +444,8 @@ async def check_filter_values(tree: exp.Expression, catalog: CatalogSchema, run_
         select_sources = sql_scope.sources(select, catalog)
         pairs: List[tuple[exp.Column, str]] = []
         for node in where.find_all(exp.EQ, exp.In):
+            if sql_scope.owning_select(node) is not select:
+                continue  # a subquery's filters are checked with its own tables
             if isinstance(node, exp.EQ):
                 left, right = node.this, node.expression
                 if isinstance(right, exp.Column) and isinstance(left, exp.Literal):
@@ -466,8 +469,8 @@ async def check_filter_values(tree: exp.Expression, catalog: CatalogSchema, run_
             if literal in values:
                 continue
             name = f"{source.table.name}.{column.name}"
-            # MySQL's default collations ignore case, so only an absent value matters there.
-            same_case = [] if catalog.engine == "mysql" else [value for value in values if value.lower() == literal.lower()]
+            # MySQL's and SQL Server's default collations ignore case, so only an absent value matters there.
+            same_case = [] if catalog.engine in CASE_INSENSITIVE_ENGINES else [value for value in values if value.lower() == literal.lower()]
             if not same_case and len(values) <= 40:
                 # Only a complete list shows the value is absent; long lists may be truncated.
                 exact = await run_sql(

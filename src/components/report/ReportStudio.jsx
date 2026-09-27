@@ -30,6 +30,9 @@ const STAGES = [
   { id: 'findings', label: 'Compute findings and summary' },
 ];
 
+// Matches MAX_PANELS in backend/app/workbench/trusted_report.py.
+const MAX_PANELS = 6;
+
 const storageKey = (connectionId) => `slayql:trusted-reports:${connectionId}`;
 
 function loadSaved(connectionId) {
@@ -163,8 +166,18 @@ export default function ReportStudio({ connectionId, isDark = false, onDirtyChan
     refresh(next, `Using "${option.label}". To make every report and answer use it, approve it once in Definitions.`);
   };
 
+  const remove = (item, kind) => {
+    const key = kind === 'kpi' ? 'kpis' : 'panels';
+    setEditing(null);
+    refresh({ ...report, [key]: report[key].filter((i) => i.id !== item.id) }, 'Removed. Findings recomputed.');
+  };
+
   const revise = async () => {
     if (!editing?.instruction.trim()) return;
+    if (!editing.item && editing.kind === 'panel' && report.panels.length >= MAX_PANELS) {
+      setError(`A report holds up to ${MAX_PANELS} charts. Remove one before adding another.`);
+      return;
+    }
     setBusy('revise');
     setError('');
     try {
@@ -175,10 +188,17 @@ export default function ReportStudio({ connectionId, isDark = false, onDirtyChan
         kind: editing.kind,
       });
       const key = editing.kind === 'kpi' ? 'kpis' : 'panels';
-      const exists = report[key].some((i) => i.id === response.item.id);
+      let item = response.item;
+      if (!editing.item) {
+        // An added figure must never replace an existing one that happens to share its id.
+        const taken = new Set([...report.kpis, ...report.panels].map((i) => i.id));
+        let id = item.id;
+        for (let n = 2; taken.has(id); n += 1) id = `${item.id}-${n}`;
+        item = { ...item, id };
+      }
       const next = {
         ...report,
-        [key]: exists ? report[key].map((i) => (i.id === response.item.id ? response.item : i)) : [...report[key], response.item],
+        [key]: editing.item ? report[key].map((i) => (i.id === item.id ? item : i)) : [...report[key], item],
       };
       setEditing(null);
       // Refresh recomputes the findings and summary for the changed figure (free).
@@ -198,7 +218,7 @@ export default function ReportStudio({ connectionId, isDark = false, onDirtyChan
     setMessage(`Opened "${entry.title}". Refresh to run it on today's data.`);
   };
 
-  const remove = (id) => {
+  const removeSaved = (id) => {
     const next = saved.filter((item) => item.id !== id);
     localStorage.setItem(storageKey(connectionId), JSON.stringify(next));
     setSaved(next);
@@ -246,7 +266,7 @@ export default function ReportStudio({ connectionId, isDark = false, onDirtyChan
                       <p className="truncate text-xs font-semibold text-slate-800 dark:text-slate-100">{entry.title}</p>
                       <p className="text-[11px] text-slate-500">Saved {new Date(entry.savedAt).toLocaleString()}</p>
                     </button>
-                    <button type="button" onClick={() => remove(entry.id)} title="Delete saved report" className="rounded p-2 text-slate-400 hover:text-rose-600">
+                    <button type="button" onClick={() => removeSaved(entry.id)} title="Delete saved report" className="rounded p-2 text-slate-400 hover:text-rose-600">
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
@@ -358,7 +378,15 @@ export default function ReportStudio({ connectionId, isDark = false, onDirtyChan
               {busy === 'revise' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} Apply and check
             </button>
           </div>
-          <p className="mt-1.5 text-[11px] text-slate-500">The new query is checked like every other figure before it appears.</p>
+          <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[11px] text-slate-500">The new query is checked like every other figure before it appears.</p>
+            {editing.item && (
+              <button type="button" onClick={() => remove(editing.item, editing.kind)} disabled={Boolean(busy)}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-rose-600 hover:text-rose-700 disabled:opacity-40">
+                <Trash2 className="h-3.5 w-3.5" /> Remove this figure
+              </button>
+            )}
+          </div>
         </div>
       )}
 

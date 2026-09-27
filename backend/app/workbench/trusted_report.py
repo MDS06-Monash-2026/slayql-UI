@@ -320,14 +320,14 @@ def fallback_plan(ctx: ReportContext, tables: List[str], question: str = "") -> 
     kpis = [
         {"id": "total", "label": f"Total {measure_label}{scope}", "question": f"What is the total {measure_label} of {completed + ' ' if completed else ''}{noun}?", "format": "currency", "sql": f"SELECT SUM({q(measure)}) AS value FROM {q(fact)}{where}"},
         {"id": "latest-month", "label": f"{measure_label.capitalize()}, latest month", "question": f"What was the {measure_label} per month{scope}?", "format": "currency",
-         "sql": f"SELECT {month(date_col)} AS period, SUM({q(measure)}) AS value FROM {q(fact)}{where} GROUP BY 1 ORDER BY 1"},
+         "sql": f"SELECT {month(date_col)} AS period, SUM({q(measure)}) AS value FROM {q(fact)}{where} GROUP BY {month(date_col)} ORDER BY {month(date_col)}"},
         {"id": "count", "label": f"{noun.capitalize()}{scope}", "question": f"How many {completed + ' ' if completed else ''}{noun} are there?", "sql": f"SELECT COUNT(*) AS value FROM {q(fact)}{where}"},
         {"id": "average", "label": f"Average {measure_label}", "question": f"What is the average {measure_label} per {noun}{scope}?", "format": "currency", "sql": f"SELECT AVG({q(measure)}) AS value FROM {q(fact)}{where}"},
     ]
     panels = [{
         "id": "trend", "title": f"{measure_label.capitalize()} by month", "question": f"How has {measure_label} changed month by month{scope}?",
         "purpose": "trend", "chart": "area", "x": "period", "y": measure, "format": "currency", "span": 2,
-        "sql": f"SELECT {month(date_col)} AS period, SUM({q(measure)}) AS {q(measure)} FROM {q(fact)}{where} GROUP BY 1 ORDER BY 1",
+        "sql": f"SELECT {month(date_col)} AS period, SUM({q(measure)}) AS {q(measure)} FROM {q(fact)}{where} GROUP BY {month(date_col)} ORDER BY {month(date_col)}",
     }]
     if status:
         panels.append({

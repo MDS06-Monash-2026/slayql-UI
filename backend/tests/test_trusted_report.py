@@ -117,8 +117,11 @@ async def test_report_api_streams_events_and_refreshes_without_ai():
         response = await client.post("/api/v1/connections/sqlite_demo/reports", json={"question": "Revenue overview"}, headers=headers)
         assert response.status_code == 200
         events = [json.loads(line) for line in response.text.splitlines() if line.strip()]
-        report = events[-1]["report"]
-        assert events[-1]["type"] == "report" and report["kpis"]
+        types = [event["type"] for event in events]
+        # The credit is charged only once the report exists.
+        assert types.index("credits") > types.index("report")
+        report = next(event["report"] for event in events if event["type"] == "report")
+        assert report["kpis"]
 
         refreshed = await client.post("/api/v1/connections/sqlite_demo/reports/refresh", json={"report": report}, headers=headers)
         assert refreshed.status_code == 200, refreshed.text

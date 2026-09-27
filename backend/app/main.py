@@ -1002,14 +1002,21 @@ async def create_trusted_report(connection_id: str, req: TrustedReportRequest, r
     if not conn:
         raise HTTPException(status_code=404, detail="Database connection not found.")
     _ensure_openrouter_credit(request)
-    ctx = await _report_context(conn, connection_id, request)
-    credits = _consume_openrouter_credit(request, "Trusted report generation")
+    try:
+        ctx = await _report_context(conn, connection_id, request)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Could not read this data source's structure: {exc}") from exc
 
     async def stream():
-        yield json.dumps({"type": "credits", "credits_remaining": credits}) + "\n"
         try:
             async for event in trusted_report.generate(req.question, req.title, ctx):
                 yield json.dumps(event, default=str) + "\n"
+                if event.get("type") == "report":
+                    # Charge only for a report that was actually built.
+                    credits = _consume_openrouter_credit(request, "Trusted report generation")
+                    yield json.dumps({"type": "credits", "credits_remaining": credits}) + "\n"
+        except HTTPException as exc:
+            yield json.dumps({"type": "error", "detail": exc.detail}) + "\n"
         except Exception:
             logger.exception("Trusted report failed for %s", connection_id)
             yield json.dumps({"type": "error", "detail": "The report could not be built. Try a narrower question."}) + "\n"

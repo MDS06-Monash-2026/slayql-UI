@@ -354,3 +354,28 @@ def test_sqlite_catalog_resolves_foreign_keys_without_a_target_column(tmp_path):
     catalog = CatalogService.get_sqlite_catalog(str(db))
     fk = catalog.tables["child"].foreign_keys[0]
     assert (fk.to_table, fk.to_column) == ("parent", "id")
+
+def test_sql_validator_scopes_aliases_per_select():
+    catalog = CatalogService.get_sqlite_catalog(settings.SQLITE_DEMO_PATH)
+    for sql in [
+        "SELECT t.status FROM orders t UNION ALL SELECT t.segment FROM customers t",
+        "SELECT (SELECT COUNT(*) FROM orders t WHERE t.status = 'completed') AS a, (SELECT COUNT(*) FROM customers t WHERE t.segment = 'SMB') AS b",
+        "SELECT c.full_name FROM customers c WHERE EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.id AND o.status = 'refunded')",
+        "SELECT rowid, id FROM orders",
+    ]:
+        result = SqlValidator.validate_and_sanitize(sql, dialect="sqlite", catalog=catalog)
+        assert result.is_valid is True, (sql, result.error_message)
+    wrong = SqlValidator.validate_and_sanitize("SELECT t.segment FROM orders t UNION ALL SELECT t.segment FROM customers t", dialect="sqlite", catalog=catalog)
+    assert wrong.is_valid is False and "t.segment" in wrong.error_message
+
+
+def test_consensus_projection_search_is_bounded():
+    import time
+    from backend.app.queries.executor import ExecutionResult
+    from backend.app.verification.consensus import results_agree
+
+    narrow = ExecutionResult(columns=[f"n{i}" for i in range(7)], column_types=[], rows=[[0] * 7, [1] * 7], row_count=2, execution_time_ms=0)
+    wide = ExecutionResult(columns=[f"w{i}" for i in range(12)], column_types=[], rows=[[i % 2 for i in range(12)], [(i + 1) % 2 for i in range(12)]], row_count=2, execution_time_ms=0)
+    started = time.perf_counter()
+    results_agree(narrow, wide)
+    assert time.perf_counter() - started < 1.0
