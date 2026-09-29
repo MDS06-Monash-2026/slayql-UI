@@ -34,7 +34,10 @@ async def run_checks(
     if tree is None:
         return findings, [], []
     findings += checks.check_grounding(tree, question, catalog, definitions)
+    if not any(f.check == "coverage" for f in findings):
+        findings += checks.check_answer_subject(question, catalog, definitions)
     findings += await checks.check_grain(tree, catalog, run_sql)
+    findings += await checks.check_entity_count(tree, question, catalog, run_sql)
     findings += await checks.check_filter_values(tree, catalog, run_sql)
     definition_findings, options, used = await checks.check_definitions(
         tree, question, catalog, run_sql, definitions or []

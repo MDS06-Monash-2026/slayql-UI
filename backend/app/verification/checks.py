@@ -295,7 +295,7 @@ GENERIC_TERMS = {
     "items", "entry", "entries", "frequency", "occurrences", "size", "level", "top", "bottom", "yearly", "monthly",
     "weekly", "daily", "annual", "annually", "cumulative", "running", "status", "type", "category", "group",
     "label", "flag", "jumlah", "purata", "bilangan", "ramai", "peratus", "tertinggi", "terendah", "hasil", "jualan",
-    "pendapatan", "full", "lost", "loss", "losses", "leakage", "gain", "gains", "paid", "bought", "made", "owed", "owing", "outstanding", "faster", "slower", "higher", "lower", "greater", "bigger", "smaller", "larger", "longer", "shorter", "older", "younger", "earlier", "later", "better", "worse", "increase", "decrease", "decline", "rise", "drop", "delta", "repeat", "returning", "new", "active", "inactive", "churned", "churn", "retained", "retention", "loyal", "recurring", "lapsed", "dormant", "frequent", "conversion", "nilai", "banyak", "setiap", "seunit", "lepas", "paling", "kita", "yang",
+    "pendapatan", "full", "lost", "loss", "losses", "leakage", "gain", "gains", "paid", "bought", "made", "owed", "owing", "outstanding", "fund", "funds", "money", "spending", "faster", "slower", "higher", "lower", "greater", "bigger", "smaller", "larger", "longer", "shorter", "older", "younger", "earlier", "later", "better", "worse", "increase", "decrease", "decline", "rise", "drop", "delta", "repeat", "returning", "new", "active", "inactive", "churned", "churn", "retained", "retention", "loyal", "recurring", "lapsed", "dormant", "frequent", "conversion", "nilai", "banyak", "setiap", "seunit", "lepas", "paling", "kita", "yang",
     "january", "february", "march", "april", "june", "july", "august", "september", "october", "november",
     "december", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday", "januari",
     "februari", "mac", "julai", "ogos", "oktober", "disember",
@@ -395,12 +395,14 @@ def check_grounding(
         return []
     vocabulary = schema_vocabulary(catalog, definitions)
     missing: Dict[str, str] = {}
+    all_codes = [str(literal.this).lower() for literal in tree.find_all(exp.Literal) if literal.is_string]
     for alias in tree.find_all(exp.Alias):
         label = alias.alias
         if not label:
             continue
         # Coded values stand for the concept they abbreviate: element = 'cl' for chlorine.
-        codes = [str(literal.this).lower() for literal in alias.this.find_all(exp.Literal) if literal.is_string]
+        # Coded filter values anywhere in the query (gender = 'M') stand for what they abbreviate.
+        codes = all_codes
         for token in tokenize(label):
             stem = _stem(token)
             if len(token) < 4 or token.isdigit() or stem not in question_words or stem in missing:
@@ -499,6 +501,128 @@ async def check_filter_values(tree: exp.Expression, catalog: CatalogSchema, run_
                     data={"column": name, "value": literal, "values": values[:40]},
                 ))
     return findings
+
+
+COUNT_QUESTION = re.compile(
+    r"\b(?:how many|number of|count of|berapa\s+(?:ramai|banyak)|bilangan)\s+((?:[\w&-]+\s+){0,3}[\w&-]+)", re.I
+)
+SUBJECT_QUESTION = re.compile(r"\b(?:which|what)\s+([a-z][\w-]*)|\b([a-z][\w-]*)\s+mana\b", re.I)
+NOT_SUBJECTS = {"is", "are", "was", "were", "of", "one", "ones", "do", "does", "did", "has", "have", "the", "a", "an",
+                "kind", "type", "types", "percentage", "percent", "proportion", "ratio", "amount", "number", "total", "yang",
+                "time", "year", "month", "day", "date"}
+
+
+def _entity_table(words: List[str], catalog: CatalogSchema) -> Optional[Any]:
+    """The catalog table a question noun names (customers, pelanggan), if any."""
+    from backend.app.agent.retrieval import MALAY_TERMS, tokenize
+
+    by_stem: Dict[str, Any] = {}
+    for table in catalog.tables.values():
+        parts = tokenize(table.name)
+        if parts:
+            by_stem.setdefault(_stem(parts[-1]), table)
+            by_stem.setdefault(_stem("".join(parts)), table)
+    for word in words:
+        for candidate in [word] + MALAY_TERMS.get(word, []):
+            table = by_stem.get(_stem(candidate.lower()))
+            if table:
+                return table
+    return None
+
+
+async def check_entity_count(tree: exp.Expression, question: str, catalog: CatalogSchema, run_sql: SqlRunner) -> List[Finding]:
+    """Detect a count of rows where the question asks how many distinct things.
+
+    "How many customers have ordered?" answered with COUNT(customer_id) FROM orders
+    counts orders; and COUNT(p.id) after a join can count each patient several times.
+    A probe compares rows with distinct keys, so a one-to-one count is never flagged.
+    """
+    from backend.app.agent.retrieval import tokenize
+
+    match = COUNT_QUESTION.search(question or "")
+    entity = _entity_table(tokenize(match.group(1)), catalog) if match else None
+    if entity is None:
+        return []
+    findings: List[Finding] = []
+    for select in sql_scope.aggregate_selects(tree):
+        select_sources = sql_scope.sources(select, catalog)
+        returned = [node for expression in select.expressions for node in expression.find_all(exp.Count)]
+        for count in returned:  # counts in HAVING or ORDER BY filter groups; they are not the answer
+            if sql_scope.owning_select(count) is not select:
+                continue
+            if count.args.get("distinct") or isinstance(count.this, exp.Distinct):
+                continue
+            if count.this is None or isinstance(count.this, exp.Star):
+                if len(select_sources) != 1:
+                    continue
+                source = next(iter(select_sources.values()))
+            else:
+                column = count.find(exp.Column)
+                source = sql_scope.column_source(column, select_sources) if column is not None else None
+            if source is None:
+                continue
+            if source.table.name.lower() == entity.name.lower():
+                key = sql_scope.primary_key(entity)
+                if not key or not sql_scope.has_joins(select):
+                    continue
+                key_sql = exp.column(key, table=source.alias)
+            else:
+                link = next((fk for fk in source.table.foreign_keys if fk.to_table.lower() == entity.name.lower()), None)
+                if link is None:
+                    continue
+                key_sql = exp.column(link.from_column, table=source.alias)
+            probe = sql_scope.strip_shape(sql_scope.with_root_ctes(select, tree))
+            probe.set("expressions", [
+                exp.alias_(exp.Count(this=exp.Star()), "n_rows"),
+                exp.alias_(exp.Count(this=exp.Distinct(expressions=[key_sql.copy()])), "n_distinct"),
+            ])
+            result = await run_sql(probe.sql())
+            if result.error or not result.rows:
+                continue
+            n_rows, n_distinct = result.rows[0][0] or 0, result.rows[0][1] or 0
+            if n_distinct and n_rows > n_distinct:
+                noun = entity.name.replace("_", " ")
+                findings.append(Finding(
+                    check="grain",
+                    severity="blocking",
+                    title=f"Counts {n_rows:,} rows, not {n_distinct:,} distinct {noun}",
+                    detail=(
+                        f"The question asks how many {noun}, but {count.sql()} counts {source.table.name} rows, "
+                        f"so some {noun} are counted more than once."
+                    ),
+                    repair_hint=f"Count distinct {noun}: use COUNT(DISTINCT {key_sql.sql()}) instead of {count.sql()}.",
+                    probe_sql=probe.sql(),
+                    data={"rows": n_rows, "distinct": n_distinct, "entity": entity.name},
+                ))
+                return findings
+    return findings
+
+
+def check_answer_subject(question: str, catalog: CatalogSchema, definitions: Optional[List[Dict[str, Any]]] = None) -> List[Finding]:
+    """Hand off "which X" questions when nothing in the database represents X.
+
+    "Which salesperson closed the most deals?" (or "Jurujual mana ...") cannot be answered
+    from data with no salespeople, whatever the SQL returns.
+    """
+    from backend.app.agent.retrieval import MALAY_TERMS
+
+    vocabulary = schema_vocabulary(catalog, definitions)
+    for match in SUBJECT_QUESTION.finditer(question or ""):
+        word = (match.group(1) or match.group(2) or "").lower()
+        if len(word) < 4 or word in NOT_SUBJECTS or word in GENERIC_TERMS:
+            continue
+        translations = MALAY_TERMS.get(word, [])
+        if _grounded(word, vocabulary) or any(_grounded(t, vocabulary) for t in translations):
+            continue
+        shown = translations[0] if translations else word
+        return [Finding(
+            check="coverage",
+            severity="blocking",
+            title=f"The data has nothing about \"{shown}\"",
+            detail=f"The question asks which {shown}, but no table, column or value in this database represents one.",
+            data={"terms": [shown]},
+        )]
+    return []
 
 
 def check_sanity(result: ExecutionResult) -> List[Finding]:

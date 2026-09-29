@@ -4,14 +4,14 @@ Written 27 September 2026 for the team, to adapt into the final report, poster a
 
 ## 1. The one-paragraph story
 
-We set out to make an AI analyst more accurate on enterprise databases, and found that accuracy was not the bottleneck we could fix. Our schema-linking engine (C-CaSE) answers 45.89% of Spider 2.0-Lite questions correctly, and a correct query is often generated but not chosen. The practical problem for a business is that it cannot tell the right half from the wrong half. So SlayQL checks every answer for the mistakes that distort business figures, compares independently written queries, and decides from a calibrated confidence whether to answer, add a caveat, ask which definition is meant, or hand the question to an analyst. On business questions this cuts wrong answers stated as fact from 26.9% to 1.9% of questions. It also learns from the analyst's review decisions how far it can be trusted on each database.
+We set out to make an AI analyst more accurate on enterprise databases, and found that accuracy was not the bottleneck we could fix. Our schema-linking engine (C-CaSE) answers 45.89% of Spider 2.0-Lite questions correctly, and a correct query is often generated but not chosen. The practical problem for a business is that it cannot tell the right half from the wrong half. So SlayQL checks every answer for the mistakes that distort business figures, compares independently written queries, and decides from a calibrated confidence whether to answer, add a caveat, ask which definition is meant, or hand the question to an analyst. On business questions this cuts wrong answers stated as fact from 26.9% of questions to none, while answering 73% immediately. It also learns from the analyst's review decisions how far it can be trusted on each database.
 
 ## 2. How the two repositories fit together
 
 | Part | Repository | Question it answers | Headline result |
 | --- | --- | --- | --- |
 | Engine: schema linking and SQL generation | `C-CaSE` | Can an agent find the right tables in a large schema and write the SQL? | 251/547 (45.89%) on Spider 2.0-Lite with deepseek-v4-flash |
-| Product: trust layer, review queue, reports | `slayql-UI` | Can a business tell which answers to trust? | Silent wrong answers 26.9% → 1.9% on the business trap set |
+| Product: trust layer, review queue, reports | `slayql-UI` | Can a business tell which answers to trust? | Silent wrong answers 26.9% → 0% on the business trap set |
 
 The bridge between them is a finding from the engine work.
 
@@ -50,7 +50,8 @@ Every answer passes through the trust layer (`backend/app/verification/`):
 | Definition | Business terms computed with the wrong filter, or with no agreed definition (unfiltered cancelled statuses, or AutoCount-style `Cancelled = 'T'` flags) |
 | Period | Relative dates past the end of the data; date-only upper bounds on timestamps |
 | Filter value | A text filter that matches nothing, or that differs from the data only in letter case |
-| Coverage | A query that relabels unrelated data as something the database does not contain (`customer_id AS salesperson_id`) |
+| Coverage | A query that relabels unrelated data as something the database does not contain (`customer_id AS salesperson_id`), or a "which X" question about something no table represents |
+| Entity count | "How many customers" answered by counting order rows; measured with a probe of rows against distinct entities |
 | Sanity | Empty or all-NULL results; totals over truncated results |
 | Consensus | Independently written queries that disagree |
 
@@ -66,19 +67,19 @@ A logistic confidence score is then compared with the threshold c / (1 + c), whe
 | --- | --- | --- | --- |
 | B0: plain pipeline | 94.2% | 26.9% | — |
 | B1: deterministic checks | 75.0% | 1.9% | 0% |
-| B3: full trust layer | 75.0% | 1.9% | 0% |
+| B3: full trust layer | 73.1% | 0% | 0% |
 
-On the 30 held-out questions: 33.3% → 3.3%, with 70% answered and no false alarms.
+On the 30 held-out questions: 33.3% → 0%, with 66.7% answered and no false alarms. All five questions the data cannot answer (three English, two Malay) are handed off.
 
 By language (all items):
 
 | Language | Questions | Wrong answers stated as fact |
 | --- | --- | --- |
 | English | 36 | 27.8% → 0% |
-| Bahasa Malaysia | 15 | 26.7% → 6.7% |
+| Bahasa Malaysia | 15 | 26.7% → 0% |
 | Mixed | 1 | 0% → 0% |
 
-The one remaining miss is a Malay question about salespeople that the data cannot answer: the generated SQL silently drops the concept, which no check detects. Report it as a limitation.
+The last miss before 29 September, a Malay question about salespeople whose SQL silently dropped the concept, is now caught by the answer-subject check.
 
 Caveat: the team wrote this set, so it may favour our checks. `backend/eval/datasets/external_items.jsonl` accepts held-out questions written by outsiders, reported separately (see `docs/HELD_OUT_QUESTIONS.md`).
 
@@ -89,17 +90,17 @@ Caveat: the team wrote this set, so it may favour our checks. `backend/eval/data
 | Configuration | Answered | Wrong answers stated as fact | Wrong answers caught | Right answers withheld |
 | --- | --- | --- | --- | --- |
 | B0: plain pipeline | 88.0% | 59.7% | — | — |
-| B1: checks | 76.8% | 48.9% | 18.0% | 3.0% |
-| B3 at c = 1 (answer if ≥ 50% sure) | 40.3% | 15.0% | 75.5% | 10.6% |
+| B1: checks | 77.7% | 48.9% | 18.0% | 0% |
+| B3 at c = 1 (answer if ≥ 50% sure) | 42.1% | 15.9% | 74.1% | 7.6% |
 | B3 at c = 4 (≥ 80%) | 0% | 0% | — | — |
 
-The plain pipeline is right on only about 28% of these questions. The calibrated confidence never reaches 80%, so at the default setting SlayQL declines everything. On a database where it is usually wrong, that is the correct behaviour. Calibration error (ECE) is 0.07.
+The plain pipeline is right on only about 28% of these questions. The calibrated confidence never reaches 80%, so at the default setting SlayQL declines everything. On a database where it is usually wrong, that is the correct behaviour. Calibration error (ECE) is 0.08.
 
 **With BIRD's evidence hints** (a sentence of domain knowledge per question, as in the published benchmark setting). Source: `backend/eval/results/bird-evidence.json`.
 
 - The plain pipeline is right on 49.0% of all 500 questions, and 42.9% of the test half.
-- At c = 1, the trust layer answers 52.8% of the test half. Wrong answers stated as fact fall from 48.1% to 20.6% of questions, with 24% of right answers withheld.
-- At c = 4 it answered 4 questions confidently (1.7%), and all 4 were wrong. That calibration was fitted on 267 questions, so treat strict thresholds on this run as noisy. The hints add derived concepts, such as rates and differences, that the checks were not designed around.
+- At c = 1, the trust layer answers 67.4% of the test half. Wrong answers stated as fact fall from 48.1% to 27.9% of questions, with 10% of right answers withheld.
+- At c = 4 it answers none. The calibration was fitted on 267 questions, so treat strict thresholds on this run as noisy. The hints add derived concepts, such as rates and differences, that the checks were not designed around.
 
 ### 5.3 It learns from the analyst
 
@@ -109,12 +110,13 @@ Simulated on BIRD, reviews come from the fit half and scoring is on the test hal
 
 | Analyst reviews | Wrong answers stated as fact at c = 4 | Calibration error |
 | --- | --- | --- |
-| 0 (default prior) | 34.3% | 0.39 |
-| 20 | 8.8% | 0.29 |
-| 40 | 0.8% | 0.22 |
+| 0 (default prior) | 34.8% | 0.39 |
+| 20 | 8.7% | 0.29 |
+| 40 | 1.6% | 0.22 |
+| 80 | 0% | 0.18 |
 | 267 | 0% | 0.11 |
 
-Learning only from hand-offs, which is the realistic case because analysts mainly see what SlayQL escalates, reaches 2.3% after 40 reviews.
+Learning only from hand-offs, which is the realistic case because analysts mainly see what SlayQL escalates, reaches 5.6% after 40 reviews and 0% after 80.
 
 This is the product's clearest differentiator: the tools we compared ship curated verified queries but do not recalibrate automatically from review decisions.
 
@@ -136,18 +138,18 @@ This is worth a paragraph in the report: an evaluation harness that exercises th
 1. The trap set is small and team-written; external items are pending.
 2. The main BIRD results are without evidence hints, which is harder than the published setting. With hints (section 5.2), accuracy rises to 49%, but calibration at strict settings is noisy.
 3. Consensus adds little on its own (B2): independently written queries share the same business assumptions, so the deterministic checks do most of the work.
-4. The confidence prior tops out at 88% without an approved definition. At a room penalty of 9 or more, SlayQL answers nothing until the workspace has learned from reviews or approved definitions.
+4. The confidence prior tops out at 88% without an approved definition. At a penalty of 9 or more, SlayQL answers nothing until the data source has learned from reviews or has approved definitions.
 5. No user study results or company pilot yet. The business value is argued from measured error rates, not from observed time or money saved.
-6. The SQL Server connector is tested up to the network layer, not against a live AutoCount server.
+6. The SQL Server connector is tested up to the network layer, not against a live AutoCount server. There is no Firebird connector for SQL Account; its data can be exported and uploaded.
 
 ## 8. Suggested slide order (10 minutes)
 
 1. The Monday meeting: three plausible revenue figures (section 3).
 2. "AI is often wrong, and you can't tell when": 45.89% on Spider 2.0-Lite; right answers generated but not chosen.
 3. What SlayQL does: four outcomes, with one live example.
-4. Results on business questions: 26.9% → 1.9%.
+4. Results on business questions: 26.9% → 0%.
 5. Honest results on BIRD: the dial between coverage and risk.
-6. It learns from your analyst: 34.3% → 0.8% after 40 reviews.
+6. It learns from your analyst: 34.8% → 1.6% after 40 reviews, 0% after 80.
 7. Report Studio: a checked management report in about 30 seconds.
 8. Malaysia: AutoCount, Bahasa Malaysia, PDPA.
 9. Trust or Bust (live).

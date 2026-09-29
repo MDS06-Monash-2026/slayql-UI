@@ -6,9 +6,9 @@ Prepared 24 September 2026 for the SlayQL FYP team. This document replaces the p
 
 Measured results, their sources and the report storyline are in [`REPORT_NARRATIVE.md`](REPORT_NARRATIVE.md); the current build state is in [`HANDOFF.md`](HANDOFF.md). In short:
 
-- **Business trap set** (52 questions): wrong answers stated as fact fall from 26.9% to 1.9% of questions, with 75% answered immediately and no false alarms.
-- **BIRD Mini-Dev** (233 held-out questions): at c = 1, from 59.7% to 15.0%, with 40% answered. At the default c = 4, SlayQL answers none, because the model is right on only about 28%.
-- **Review-queue learning:** after 40 analyst reviews, confident wrong answers at c = 4 fall from 34.3% to 0.8%.
+- **Business trap set** (52 questions): wrong answers stated as fact fall from 26.9% of questions to none, with 73% answered immediately and no false alarms.
+- **BIRD Mini-Dev** (233 held-out questions): at c = 1, from 59.7% to 15.9%, with 42% answered. At the default c = 4, SlayQL answers none, because the model is right on only about 28%.
+- **Review-queue learning:** after 40 analyst reviews, confident wrong answers at c = 4 fall from 34.8% to 1.6%, and to 0% after 80.
 - **New since the direction was written:** Report Studio rebuilt on checked queries; coverage, filter-value and flag checks; SQL Server connector; Bahasa Malaysia test items; per-workspace learning.
 - **Still open:** interviews, external held-out questions, the user study at demo day, and a pilot. Business-value claims about time and money remain hypotheses (section 6.10).
 
@@ -486,7 +486,7 @@ Calculator formulas, shown on screen next to the result. Weeks per month are tak
 | When | What can be said |
 | --- | --- |
 | Today | The errors are real and large on realistic data: up to three times the correct revenue in the demo database. AI-generated SQL is often wrong on realistic tasks: an o1-preview agent solved 21.3% of Spider 2.0 tasks, and our own engine solved 45.89% of 547 Spider 2.0-Lite instances. |
-| Now (measured 27 September 2026, `docs/REPORT_NARRATIVE.md`) | Business trap set: wrong answers stated as fact 26.9% → 1.9% of questions, 75% answered immediately, no false alarms. BIRD at c = 1: 59.7% → 15.0%, 40% answered. Learning: 34.3% → 0.8% after 40 analyst reviews. Always state that the trap set is team-written and small. |
+| Now (measured 27 September 2026, `docs/REPORT_NARRATIVE.md`) | Business trap set: wrong answers stated as fact 26.9% → 0% of questions, 73% answered immediately, no false alarms. BIRD at c = 1: 59.7% → 15.9%, 42% answered. Learning: 34.8% → 1.6% after 40 analyst reviews. Always state that the trap set is team-written and small. |
 | After a pilot with a real company | Capacity released, errors avoided, adoption and willingness to pay. Until then, no ROI, savings or payback figures. |
 
 **Pitch lines by audience:**

@@ -85,7 +85,7 @@ MALAY_TERMS = {
     "kepuasan": ["satisfaction"],
     "skor": ["score", "rating"],
     "penilaian": ["rating", "review"],
-    "jurujual": ["salesperson", "sales_rep"],
+    "jurujual": ["salesperson"],
     "niaga": ["deal", "deals"],
     "pemasaran": ["marketing", "campaign"],
     "kempen": ["campaign"],

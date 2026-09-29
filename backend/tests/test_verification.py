@@ -304,3 +304,29 @@ async def test_todays_date_in_select_is_not_a_period_problem():
         "SELECT full_name, julianday('now') - julianday(created_at) AS account_age_days FROM customers WHERE created_at >= '2025-01-01'",
     )
     assert not [f for f in findings if f.check == "period"]
+
+
+@pytest.mark.asyncio
+async def test_counting_rows_instead_of_distinct_entities_is_blocking():
+    findings, _, _ = await _checks("How many customers have placed at least one order?", "SELECT COUNT(customer_id) AS customers FROM orders")
+    counted = [f for f in findings if f.check == "grain"]
+    assert counted and counted[0].data == {"rows": 214, "distinct": 60, "entity": "customers"}
+    # Correct forms pass.
+    for sql in ["SELECT COUNT(DISTINCT customer_id) FROM orders",
+                "SELECT COUNT(*) FROM customers WHERE id IN (SELECT customer_id FROM orders)"]:
+        findings, _, _ = await _checks("How many customers have placed at least one order?", sql)
+        assert not [f for f in findings if f.check == "grain"], sql
+    # Counting orders when the question asks about orders is fine.
+    findings, _, _ = await _checks("How many orders were placed in 2025?", "SELECT COUNT(*) FROM orders WHERE order_date >= '2025-01-01' AND order_date < '2026-01-01'")
+    assert not [f for f in findings if f.check == "grain"]
+
+
+@pytest.mark.asyncio
+async def test_which_questions_about_things_the_data_lacks_are_handed_off():
+    for question in ["Which salesperson closed the most deals?", "Jurujual mana yang menutup paling banyak urus niaga?"]:
+        # The SQL answers with customers, and never names the salesperson concept.
+        findings, _, _ = await _checks(question, "SELECT customer_id, COUNT(*) AS transaction_count FROM orders GROUP BY customer_id ORDER BY 2 DESC LIMIT 1")
+        assert [f for f in findings if f.check == "coverage" and f.severity == "blocking"], question
+    for question in ["Which product has the highest unit price?", "Gudang mana yang penggunaannya melebihi 80 peratus?", "Which carrier handled the most shipments?"]:
+        findings, _, _ = await _checks(question, "SELECT name FROM products ORDER BY unit_price DESC LIMIT 1")
+        assert not [f for f in findings if f.check == "coverage"], question
