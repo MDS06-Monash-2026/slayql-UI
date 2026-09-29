@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  KeyRound,
   Building2,
   Mail,
   Shield,
@@ -28,6 +29,7 @@ export default function LoginView({ setView, onLoginSuccess }) {
   const [email, setEmail] = useState('');
   const [orgName, setOrgName] = useState('');
   const [role, setRole] = useState('Data Architect');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStage, setLoadingStage] = useState('');
   const [error, setError] = useState(null);
@@ -86,6 +88,7 @@ export default function LoginView({ setView, onLoginSuccess }) {
       const session = await loginOrganization({
         email: email.trim(),
         organization_name: detectedOrg,
+        password,
         role,
         is_reviewer: false,
       });
@@ -204,6 +207,27 @@ export default function LoginView({ setView, onLoginSuccess }) {
                 </div>
               </div>
 
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Password
+                </label>
+                <div className="relative">
+                  <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="At least 8 characters"
+                    autoComplete="current-password"
+                    minLength={8}
+                    required
+                    disabled={isLoading}
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                  />
+                </div>
+                <p className="mt-1 text-[10px] text-slate-500">First time here? The password you enter now becomes your password.</p>
+              </div>
+
               {detectedOrg && (
                 <div className="p-3 rounded-xl bg-indigo-50/70 border border-indigo-100 flex items-center justify-between slide-in-up">
                   <div className="flex items-center gap-2">
@@ -221,7 +245,7 @@ export default function LoginView({ setView, onLoginSuccess }) {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Your Role
+                  Job title
                 </label>
                 <select
                   value={role}
@@ -233,13 +257,16 @@ export default function LoginView({ setView, onLoginSuccess }) {
                   <option value="VP of Engineering">VP of Engineering</option>
                   <option value="Senior Data Analyst">Senior Data Analyst</option>
                   <option value="Product Manager">Product Manager / Business User</option>
-                  <option value="Workspace Owner">Workspace Owner</option>
+                  <option value="Finance / Accounts">Finance / Accounts</option>
                 </select>
+                <p className="mt-1 text-[10px] text-slate-500">
+                  Access is separate: the first person from your organisation becomes its owner, and owners grant analyst access.
+                </p>
               </div>
 
               <button
                 type="submit"
-                disabled={isLoading || !email.trim()}
+                disabled={isLoading || !email.trim() || password.length < 8}
                 className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-200 transition-all"
               >
                 {isLoading ? (

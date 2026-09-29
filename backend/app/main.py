@@ -21,6 +21,7 @@ from backend.app.agent.effort import DEFAULT_THINKING_EFFORT, ThinkingEffort
 from backend.app.agent.pipeline import SlayQLPipeline, RUN_METADATA_STORE
 from backend.app.queries.validator import SqlValidator
 from backend.app.queries.executor import QueryExecutor
+from backend.app.accounts.access import MIN_PASSWORD_LENGTH, RANK as ACCESS_RANK, access_store
 from backend.app.connections.store import connection_store
 from backend.app.connections.runtime import (
     get_external_catalog,
@@ -42,7 +43,7 @@ from backend.app.feedback.store import chat_report_store
 from backend.app.arena.routes import build_router as build_arena_router
 from backend.app.knowledge.routes import build_router as build_knowledge_router
 from backend.app.knowledge.store import knowledge_store
-from backend.app.accounts.store import account_store
+from backend.app.accounts.store import account_store, stable_user_id
 from backend.app.accounts.session_store import session_store
 from backend.app.workbench.gemini_agent import (
     _fallback_chat_intent,
@@ -135,9 +136,15 @@ _CONNECTION_METADATA_CACHE_TTL_SECONDS = 30.0
 
 class LoginRequest(BaseModel):
     email: Optional[str] = None
+    password: Optional[str] = Field(default=None, max_length=200)
     organization_name: Optional[str] = None
     is_reviewer: bool = False
-    role: Optional[str] = "Admin"
+    # Job title shown on the profile; it grants no permissions (see accounts/access.py).
+    role: Optional[str] = None
+
+
+class MemberRoleRequest(BaseModel):
+    access_role: str = Field(pattern="^(owner|analyst|viewer)$")
 
 class CreateRunRequest(BaseModel):
     question: str
@@ -231,12 +238,18 @@ def _owner_id(request: Request) -> str:
     return session["user"]["id"] if session else "anonymous_demo"
 
 
-def _require_admin(request: Request) -> Dict[str, Any]:
+def _require_role(request: Request, minimum: str) -> Dict[str, Any]:
+    """Allow the request only if the user's organisation role is at least `minimum`."""
     session = _session_from_request(request, required=True)
-    role = str(session.get("user", {}).get("role") or "").casefold()
-    if "admin" not in role and "owner" not in role:
-        raise HTTPException(status_code=403, detail="Administrator access is required.")
+    role = session.get("user", {}).get("access_role") or "viewer"
+    if ACCESS_RANK.get(role, 0) < ACCESS_RANK[minimum]:
+        raise HTTPException(status_code=403, detail=f"This needs the {minimum} role. Ask an owner of your organisation.")
     return session
+
+
+def _require_admin(request: Request) -> Dict[str, Any]:
+    """Analyst work: approving definitions, the review queue, hosting the arena."""
+    return _require_role(request, "analyst")
 
 
 def _refresh_session_profile(user_id: str, profile: Dict[str, Any]) -> None:
@@ -248,7 +261,7 @@ def _refresh_session_profile(user_id: str, profile: Dict[str, Any]) -> None:
 def _build_session(token: str, profile: Dict[str, Any], authenticated_at: str) -> Dict[str, Any]:
     return {
         "token": token,
-        "user": profile,
+        "user": {**profile, "access_role": access_store.role_for(profile)},
         "organization": {
             "id": f"org_{profile['id'].replace('usr_', '')}",
             "name": profile["organization_name"],
@@ -337,6 +350,14 @@ async def login(req: LoginRequest):
         org_name = req.organization_name or f"{domain} Enterprise Analytics"
         user_name = user_email.split("@")[0].replace(".", " ").capitalize()
         user_role = req.role or "Data Architect"
+        # Real accounts need a password: set on first sign-in, checked on every later one.
+        # It is checked before the profile is touched, so a wrong password changes nothing.
+        user_id = stable_user_id(user_email)
+        if access_store.has_password(user_id):
+            if not access_store.verify_password(user_id, req.password or ""):
+                raise HTTPException(status_code=401, detail="Incorrect email or password.")
+        elif len(req.password or "") < MIN_PASSWORD_LENGTH:
+            raise HTTPException(status_code=400, detail=f"Choose a password of at least {MIN_PASSWORD_LENGTH} characters.")
 
     profile = account_store.upsert_login(
         email=user_email,
@@ -344,6 +365,11 @@ async def login(req: LoginRequest):
         role=user_role,
         organization_name=org_name,
     )
+    if req.is_reviewer:
+        # The public demo workspace: its shared reviewer account owns it.
+        access_store.role_for(profile, default="owner")
+    elif not access_store.has_password(profile["id"]):
+        access_store.set_password(profile["id"], req.password or "")
     session_token = f"sess_{uuid.uuid4().hex}"
     authenticated_at = datetime.now(timezone.utc).isoformat()
     session_data = _build_session(session_token, profile, authenticated_at)
@@ -368,6 +394,34 @@ async def get_current_session(request: Request):
             "role": "Owner"
         }
     }
+
+@app.get("/api/v1/organization/members")
+async def list_organization_members(request: Request):
+    """Everyone in the caller's organisation and their access role (analysts and owners)."""
+    session = _require_role(request, "analyst")
+    return {
+        "organization": session["user"]["organization_name"],
+        "your_role": session["user"].get("access_role"),
+        "members": await asyncio.to_thread(access_store.list_members, session["user"]["organization_name"]),
+    }
+
+
+@app.patch("/api/v1/organization/members/{user_id}")
+async def update_organization_member(user_id: str, req: MemberRoleRequest, request: Request):
+    """Owners set who is an owner, analyst or viewer."""
+    session = _require_role(request, "owner")
+    try:
+        result = await asyncio.to_thread(
+            access_store.set_role, session["user"]["organization_name"], user_id, req.access_role, session["user"]["id"])
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    for active in ACTIVE_SESSIONS.values():
+        if active.get("user", {}).get("id") == user_id:
+            active["user"]["access_role"] = req.access_role
+    return result
+
 
 @app.post("/api/v1/auth/logout")
 async def logout(request: Request):

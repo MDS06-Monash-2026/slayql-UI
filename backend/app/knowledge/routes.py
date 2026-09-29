@@ -7,6 +7,7 @@ from typing import Any, Callable, Dict, List, Optional
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
+from backend.app.accounts.access import access_store
 from backend.app.config import settings
 from backend.app.knowledge.store import knowledge_store
 from backend.app.verification.learning import workspace_learning
@@ -47,6 +48,10 @@ def build_router(
 ) -> APIRouter:
     """Routes receive main.py's auth and execution helpers to avoid import cycles."""
     router = APIRouter(prefix="/api/v1")
+
+    async def organization_ids(session: Dict[str, Any]) -> List[str]:
+        """Users in the caller's organisation, so each organisation sees only its own review items."""
+        return await asyncio.to_thread(access_store.member_ids, session["user"]["organization_name"])
 
     def actor(request: Request) -> Optional[str]:
         session = session_from_request(request)
@@ -97,21 +102,24 @@ def build_router(
 
     @router.get("/review-items")
     async def list_review_items(request: Request, status: Optional[str] = Query(default="open"), limit: int = Query(default=100, ge=1, le=200)):
-        require_admin(request)
+        session = require_admin(request)
         try:
-            return await asyncio.to_thread(knowledge_store.list_review_items, status or None, limit)
+            return await asyncio.to_thread(knowledge_store.list_review_items, status or None, limit, await organization_ids(session))
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @router.get("/review-items/count")
     async def count_review_items(request: Request):
-        require_admin(request)
-        return {"open": await asyncio.to_thread(knowledge_store.count_open)}
+        session = require_admin(request)
+        return {"open": await asyncio.to_thread(knowledge_store.count_open, await organization_ids(session))}
 
     @router.post("/review-items/{item_id}/resolve")
     async def resolve_review_item(item_id: str, req: ReviewResolveRequest, request: Request):
-        require_admin(request)
+        session = require_admin(request)
         item = await asyncio.to_thread(knowledge_store.get_review_item, item_id)
+        # Another organisation's item is treated as missing.
+        if item and item.get("owner_id") and item["owner_id"] not in await organization_ids(session):
+            item = None
         if not item:
             raise HTTPException(status_code=404, detail="Review item not found.")
         if req.corrected_sql and item.get("connection_id"):

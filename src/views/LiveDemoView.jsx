@@ -1061,6 +1061,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
                 <span className="flex-1 text-left font-bold">AI Database Lab</span>
               </button>
 
+              {['owner', 'analyst'].includes(session?.user?.access_role) && (
               <button
                 onClick={() => setView('review')}
                 className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-200/60 transition-all"
@@ -1068,6 +1069,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
                 <ShieldCheck className="w-3.5 h-3.5 text-slate-500" />
                 <span className="flex-1 text-left">Review queue</span>
               </button>
+              )}
 
               <button
                 onClick={() => setView('definitions')}

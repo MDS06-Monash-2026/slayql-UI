@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import and_, insert, select, update
+from sqlalchemy import and_, insert, or_, select, update
 
 from backend.app.control_database import ControlDatabase, control_database
 
@@ -223,17 +223,22 @@ class KnowledgeStore:
             conn.execute(insert(self.reviews).values(**record))
         return self._review(record)
 
-    def list_review_items(self, status: Optional[str] = "open", limit: int = 100) -> List[Dict[str, Any]]:
+    def list_review_items(self, status: Optional[str] = "open", limit: int = 100,
+                          owner_ids: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+        """Review items, newest first. With owner_ids, only items raised by those users
+        (one organisation) and system items with no owner."""
         statement = select(self.reviews).order_by(self.reviews.c.created_at.desc()).limit(limit)
         if status:
             if status not in REVIEW_STATUSES:
                 raise ValueError("Unsupported review status.")
             statement = statement.where(self.reviews.c.status == status)
+        if owner_ids is not None:
+            statement = statement.where(or_(self.reviews.c.owner_id.in_(owner_ids), self.reviews.c.owner_id.is_(None)))
         with self.database.engine.connect() as conn:
             return [self._review(row) for row in conn.execute(statement).mappings()]
 
-    def count_open(self) -> int:
-        return len(self.list_review_items(status="open", limit=500))
+    def count_open(self, owner_ids: Optional[List[str]] = None) -> int:
+        return len(self.list_review_items(status="open", limit=500, owner_ids=owner_ids))
 
     def get_review_item(self, item_id: str) -> Optional[Dict[str, Any]]:
         with self.database.engine.connect() as conn:

@@ -32,7 +32,7 @@ One page for the team, supervisor and examiners. It maps every part of the probl
 | 11 | **Reports built on unchecked or sampled numbers** | Report Studio: every KPI and chart is its own checked query on full data; the summary may only restate computed facts; free refresh | Live on OpenTK: 9/9 figures checked, 0 sentences removed | Export limited to PDF (print) and JSON |
 | 12 | **Malaysian systems** | SQL Server connector (AutoCount); AutoCount-style sample; Bahasa Malaysia questions | Connector tested to the network layer; Malay items 26.7% → 0% | Not yet run against a live AutoCount server; **no Firebird connector** (SQL Account uses export) |
 | 13 | **PDPA: data leaving Malaysia** | Privacy mode masks personal columns; every answer and report lists what was sent | Built and tested | AI providers are still outside Malaysia |
-| 14 | **Who may approve and review** | Admin-only approval of definitions and the review queue | Built | Roles are admin or not; no analyst/viewer split or SSO yet |
+| 14 | **Who may approve and review** | Password sign-in; owner, analyst and viewer roles per organisation that users cannot grant themselves; the review queue shows only your organisation's items | Tested (API and browser): wrong passwords refused, self-promotion refused, last owner protected, queues separated | No SSO or password reset by email yet; the public demo account is shared by design |
 
 ## What is not yet shown
 

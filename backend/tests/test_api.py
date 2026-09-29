@@ -22,6 +22,7 @@ async def test_api_auth_and_session():
         # 1. Organization email sign-in
         login_resp = await client.post("/api/v1/auth/login", json={
             "email": "alex.chen@stripe.com",
+            "password": "correct horse 1",
             "role": "Data Architect"
         })
         assert login_resp.status_code == 200
@@ -498,7 +499,7 @@ async def test_query_history_is_persisted():
 @pytest.mark.asyncio
 async def test_profiles_credits_and_connection_ownership():
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
-        first_login = (await client.post("/api/v1/auth/login", json={"email": "owner@example.com"})).json()
+        first_login = (await client.post("/api/v1/auth/login", json={"email": "owner@example.com", "password": "owner-password"})).json()
         first_headers = {"Authorization": f"Bearer {first_login['token']}"}
 
         profile_resp = await client.patch(
@@ -534,7 +535,7 @@ async def test_profiles_credits_and_connection_ownership():
         connection_id = connection_resp.json()["id"]
         assert any(item["id"] == connection_id for item in (await client.get("/api/v1/connections", headers=first_headers)).json())
 
-        second_login = (await client.post("/api/v1/auth/login", json={"email": "other@example.com"})).json()
+        second_login = (await client.post("/api/v1/auth/login", json={"email": "other@example.com", "password": "other-password"})).json()
         second_headers = {"Authorization": f"Bearer {second_login['token']}"}
         assert not any(item["id"] == connection_id for item in (await client.get("/api/v1/connections", headers=second_headers)).json())
         assert (await client.delete(f"/api/v1/connections/{connection_id}", headers=second_headers)).status_code == 404
@@ -574,3 +575,51 @@ async def test_agent_run_attaches_a_verification_outcome():
         # medium effort compares three candidate queries
         assert verification["consensus"]["candidates"] == 3
         assert 0.0 <= verification["probability"] <= 1.0
+
+
+
+@pytest.mark.asyncio
+async def test_passwords_roles_and_organisation_scoping():
+    from backend.app.knowledge.store import knowledge_store
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        async def login(email, password, **extra):
+            return await client.post("/api/v1/auth/login", json={"email": email, "password": password, **extra})
+
+        # A password is required, set on first sign-in and checked afterwards.
+        assert (await login("founder@roles-test.my", "short")).status_code == 400
+        first = await login("founder@roles-test.my", "founder-pass-1")
+        assert first.status_code == 200 and first.json()["user"]["access_role"] == "owner"
+        assert (await login("founder@roles-test.my", "wrong-password")).status_code == 401
+        # Claiming "Admin" as a title grants nothing: later members join as viewers.
+        staff = await login("staff@roles-test.my", "staff-pass-12", role="Admin")
+        assert staff.json()["user"]["access_role"] == "viewer"
+        owner_h = {"Authorization": f"Bearer {first.json()['token']}"}
+        staff_h = {"Authorization": f"Bearer {staff.json()['token']}"}
+
+        # Viewers cannot do analyst work or change roles, including their own.
+        assert (await client.get("/api/v1/review-items", headers=staff_h)).status_code == 403
+        staff_id = staff.json()["user"]["id"]
+        assert (await client.patch(f"/api/v1/organization/members/{staff_id}", json={"access_role": "owner"}, headers=staff_h)).status_code == 403
+        profile = await client.patch("/api/v1/profile", json={"role": "Owner"}, headers=staff_h)
+        assert profile.status_code == 200
+        assert (await client.get("/api/v1/review-items", headers=staff_h)).status_code == 403
+
+        # The owner promotes them to analyst, which takes effect in their live session.
+        promoted = await client.patch(f"/api/v1/organization/members/{staff_id}", json={"access_role": "analyst"}, headers=owner_h)
+        assert promoted.status_code == 200
+        assert (await client.get("/api/v1/review-items", headers=staff_h)).status_code == 200
+        # The last owner cannot be demoted.
+        founder_id = first.json()["user"]["id"]
+        assert (await client.patch(f"/api/v1/organization/members/{founder_id}", json={"access_role": "viewer"}, headers=owner_h)).status_code == 400
+        members = (await client.get("/api/v1/organization/members", headers=owner_h)).json()["members"]
+        assert {m["email"]: m["access_role"] for m in members} == {"founder@roles-test.my": "owner", "staff@roles-test.my": "analyst"}
+
+        # Review items stay inside their organisation.
+        mine = knowledge_store.create_review_item(source="flag", question="ours", owner_id=founder_id)
+        outsider = await login("boss@elsewhere-test.my", "elsewhere-pass")
+        other = knowledge_store.create_review_item(source="flag", question="theirs", owner_id=outsider.json()["user"]["id"])
+        visible = {item["id"] for item in (await client.get("/api/v1/review-items", headers=owner_h)).json()}
+        assert mine["id"] in visible and other["id"] not in visible
+        resolved = await client.post(f"/api/v1/review-items/{other['id']}/resolve", json={"resolution": "dismissed"}, headers=owner_h)
+        assert resolved.status_code == 404

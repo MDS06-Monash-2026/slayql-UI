@@ -108,7 +108,7 @@ export default function ReviewQueueView({ setView, session }) {
     try {
       setItems(await fetchReviewItems(status));
     } catch (err) {
-      setError(err.status === 401 || err.status === 403 ? 'The review queue needs an analyst or admin account.' : err.message);
+      setError(err.status === 401 || err.status === 403 ? 'The review queue needs the analyst or owner role. Ask an owner of your organisation.' : err.message);
     } finally {
       setLoading(false);
     }

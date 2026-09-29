@@ -93,11 +93,11 @@ async def test_update_external_connection_merges_and_verifies_credentials(monkey
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
         owner_session = (await client.post(
             "/api/v1/auth/login",
-            json={"email": "connection-update-owner@example.com"},
+            json={"email": "connection-update-owner@example.com", "password": "update-test-pass"},
         )).json()
         other_session = (await client.post(
             "/api/v1/auth/login",
-            json={"email": "connection-update-other@example.com"},
+            json={"email": "connection-update-other@example.com", "password": "update-test-pass"},
         )).json()
         owner_headers = {"Authorization": f"Bearer {owner_session['token']}"}
         other_headers = {"Authorization": f"Bearer {other_session['token']}"}

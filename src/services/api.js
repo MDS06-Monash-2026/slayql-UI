@@ -41,11 +41,12 @@ function getAuthHeaders() {
 
 // --- Auth Endpoints ---
 
-export async function loginOrganization({ email, organization_name, is_reviewer = false, role = 'Admin' }) {
+export async function loginOrganization({ email, password, organization_name, is_reviewer = false, role = null }) {
   const res = await fetch(`${API_BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, organization_name, is_reviewer, role }),
+    // `role` is a job title only; access roles are granted by organisation owners.
+    body: JSON.stringify({ email, password, organization_name, is_reviewer, role }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: 'Authentication failed' }));
@@ -607,6 +608,14 @@ export function resolveReviewItem(itemId, { resolution, note = '', correctedSql 
     method: 'POST',
     body: { resolution, note, corrected_sql: correctedSql, save_verified_query: saveVerifiedQuery },
   });
+}
+
+export function fetchMembers() {
+  return jsonRequest('/organization/members');
+}
+
+export function updateMemberRole(userId, accessRole) {
+  return jsonRequest(`/organization/members/${encodeURIComponent(userId)}`, { method: 'PATCH', body: { access_role: accessRole } });
 }
 
 export function fetchCalibration(connectionId) {

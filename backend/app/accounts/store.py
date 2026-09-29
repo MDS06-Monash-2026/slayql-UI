@@ -95,7 +95,9 @@ class AccountStore:
         return self._profile(row) if row else None
 
     def update(self, user_id: str, fields: Dict[str, str]) -> Optional[Dict[str, Any]]:
-        allowed = {"name", "role", "organization_name", "bio", "timezone"}
+        # The organisation is fixed at sign-up: changing it would move someone between
+        # organisations and their access roles.
+        allowed = {"name", "role", "bio", "timezone"}
         updates = {key: value.strip() for key, value in fields.items() if key in allowed and isinstance(value, str)}
         if updates:
             with self.database.engine.begin() as conn:

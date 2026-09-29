@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Camera, Coins, Database, Loader2, LogOut, Moon, Save, Sun, UserRound } from 'lucide-react';
 import ConfirmationModal from '../components/demo/ConfirmationModal';
+import TeamAccessPanel from '../components/TeamAccessPanel';
 import { addCredits, fetchCredits, fetchProfile, updateProfile, uploadProfileAvatar } from '../services/api';
 
 export default function ProfileView({ setView, session, onSessionUpdate, onLogout }) {
@@ -35,7 +36,7 @@ export default function ProfileView({ setView, session, onSessionUpdate, onLogou
 
   const syncProfile = (nextProfile) => {
     setProfile(nextProfile);
-    onSessionUpdate?.({ ...session, user: nextProfile, organization: { ...session.organization, name: nextProfile.organization_name } });
+    onSessionUpdate?.({ ...session, user: { ...session.user, ...nextProfile }, organization: { ...session.organization, name: nextProfile.organization_name } });
   };
 
   const handleSave = async (event) => {
@@ -124,8 +125,8 @@ export default function ProfileView({ setView, session, onSessionUpdate, onLogou
           <div className="grid lg:grid-cols-[1fr_320px] gap-8 items-start">
             <form onSubmit={handleSave} className="space-y-5">
               <div><h2 className="text-sm font-bold text-slate-900">Personal information</h2><p className="text-xs text-slate-500 mt-1">Used across your workspace and shared database access.</p></div>
-              <div className="grid sm:grid-cols-2 gap-4"><label className="text-xs font-bold text-slate-700">Name<input className={`${inputClass} mt-1.5`} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label><label className="text-xs font-bold text-slate-700">Role<input className={`${inputClass} mt-1.5`} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} /></label></div>
-              <label className="block text-xs font-bold text-slate-700">Organization<input className={`${inputClass} mt-1.5`} value={form.organization_name} onChange={(e) => setForm({ ...form, organization_name: e.target.value })} /></label>
+              <div className="grid sm:grid-cols-2 gap-4"><label className="text-xs font-bold text-slate-700">Name<input className={`${inputClass} mt-1.5`} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label><label className="text-xs font-bold text-slate-700">Job title<input className={`${inputClass} mt-1.5`} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} /></label></div>
+              <label className="block text-xs font-bold text-slate-700">Organization<input className={`${inputClass} mt-1.5 bg-slate-100 text-slate-500`} value={form.organization_name} readOnly style={{ opacity: 0.7, cursor: "not-allowed" }} title="Set when you first sign in; it decides which team and access roles you belong to." /></label>
               <label className="block text-xs font-bold text-slate-700">Bio<textarea rows={4} className={`${inputClass} mt-1.5 resize-none`} value={form.bio} onChange={(e) => setForm({ ...form, bio: e.target.value })} placeholder="Your responsibilities and data interests" /></label>
               <label className="block text-xs font-bold text-slate-700">Timezone<select className={`${inputClass} mt-1.5`} value={form.timezone} onChange={(e) => setForm({ ...form, timezone: e.target.value })}><option>Asia/Kuala_Lumpur</option><option>UTC</option><option>America/New_York</option><option>Europe/London</option><option>Asia/Singapore</option></select></label>
               <div className="flex items-center gap-3"><button disabled={saving} className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold inline-flex items-center gap-2 disabled:opacity-50">{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}Save changes</button>{notice && <span className="text-xs text-slate-500">{notice}</span>}</div>
@@ -138,6 +139,7 @@ export default function ProfileView({ setView, session, onSessionUpdate, onLogou
               <div className="pt-4 border-t border-slate-200"><p className="text-xs font-bold text-slate-700 mb-3">Recent usage</p><div className="space-y-3 max-h-64 overflow-y-auto">{credits.transactions?.length ? credits.transactions.map((item) => <div key={item.id} className="flex justify-between gap-3 text-[11px]"><div><p className="font-semibold text-slate-700">{item.reason}</p><p className="text-slate-400">{new Date(item.created_at).toLocaleDateString()}</p></div><span className={item.amount > 0 ? 'text-emerald-600 font-bold' : 'text-slate-600 font-bold'}>{item.amount > 0 ? '+' : ''}{item.amount}</span></div>) : <p className="text-xs text-slate-400">No credit activity yet.</p>}</div></div>
             </section>
           </div>
+          <TeamAccessPanel accessRole={session?.user?.access_role} />
         </div>
       </main>
 

@@ -236,6 +236,24 @@ class ControlDatabase:
             Column("updated_at", String, nullable=False),
         )
         Index("idx_review_items_status", self.review_items.c.status, self.review_items.c.created_at.desc())
+        # Access roles per organisation (owner, analyst, viewer), set by owners only.
+        self.workspace_members = Table(
+            "workspace_members",
+            self.metadata,
+            Column("organization_key", String, primary_key=True),
+            Column("user_id", String, primary_key=True),
+            Column("access_role", String, nullable=False),
+            Column("updated_by", String),
+            Column("updated_at", String, nullable=False),
+        )
+        # Password hashes (scrypt) for real accounts; the public demo reviewer has none.
+        self.user_credentials = Table(
+            "user_credentials",
+            self.metadata,
+            Column("user_id", String, primary_key=True),
+            Column("password_hash", String, nullable=False),
+            Column("updated_at", String, nullable=False),
+        )
         # Confidence model refitted per data source from analysts' review decisions.
         self.workspace_calibrations = Table(
             "workspace_calibrations",
