@@ -77,12 +77,12 @@ def build(path: Path = OUT) -> Path:
         SalesAgent TEXT REFERENCES SalesAgent(SalesAgent), CreditTerm TEXT, CreditLimit REAL, TIN TEXT);
     CREATE TABLE IV (DocKey INTEGER PRIMARY KEY, DocNo TEXT NOT NULL, DocDate TEXT NOT NULL, DueDate TEXT NOT NULL,
         DebtorCode TEXT REFERENCES Debtor(AccNo), SalesAgent TEXT REFERENCES SalesAgent(SalesAgent),
-        Total REAL, Tax REAL, NetTotal REAL, Cancelled TEXT NOT NULL, EInvoiceUUID TEXT, EInvoiceStatus TEXT);
+        TotalExTax REAL, Tax REAL, TotalIncTax REAL, Cancelled TEXT NOT NULL, EInvoiceUUID TEXT, EInvoiceStatus TEXT);
     CREATE TABLE IVDTL (DtlKey INTEGER PRIMARY KEY, DocKey INTEGER REFERENCES IV(DocKey), Seq INTEGER,
         ItemCode TEXT REFERENCES Item(ItemCode), Qty REAL, UnitPrice REAL, Discount REAL, SubTotal REAL);
     CREATE TABLE CN (DocKey INTEGER PRIMARY KEY, DocNo TEXT NOT NULL, DocDate TEXT NOT NULL,
         DebtorCode TEXT REFERENCES Debtor(AccNo), InvoiceDocKey INTEGER REFERENCES IV(DocKey),
-        Reason TEXT, NetTotal REAL, Cancelled TEXT NOT NULL);
+        Reason TEXT, TotalIncTax REAL, Cancelled TEXT NOT NULL);
     CREATE TABLE ARPayment (DocKey INTEGER PRIMARY KEY, DocNo TEXT NOT NULL, DocDate TEXT NOT NULL,
         DebtorCode TEXT REFERENCES Debtor(AccNo), PaymentMethod TEXT, PaymentAmt REAL, Cancelled TEXT NOT NULL);
     CREATE TABLE ARPaymentKnockOff (KnockOffKey INTEGER PRIMARY KEY, PaymentDocKey INTEGER REFERENCES ARPayment(DocKey),
@@ -141,7 +141,7 @@ def build(path: Path = OUT) -> Path:
             invoices.append({
                 "DocKey": doc_key, "DocNo": f"I-{doc_key:06d}", "DocDate": day.isoformat(),
                 "DueDate": (day + timedelta(days=debtor["days"])).isoformat(), "DebtorCode": debtor["AccNo"],
-                "SalesAgent": debtor["SalesAgent"], "Total": total, "Tax": tax, "NetTotal": round(total + tax, 2),
+                "SalesAgent": debtor["SalesAgent"], "TotalExTax": total, "Tax": tax, "TotalIncTax": round(total + tax, 2),
                 "Cancelled": cancelled, "EInvoiceUUID": str(uuid.UUID(int=rng.getrandbits(128))) if einvoice else None,
                 "EInvoiceStatus": ("Cancelled" if cancelled == "T" else rng.choices(["Valid", "Submitted", "Rejected"], weights=[94, 4, 2])[0]) if einvoice else None,
                 "days": debtor["days"],
@@ -156,7 +156,7 @@ def build(path: Path = OUT) -> Path:
             if cn_date <= END:
                 credit_notes.append((cn_key, f"CN-{cn_key:05d}", cn_date.isoformat(), invoice["DebtorCode"], invoice["DocKey"],
                                      rng.choice(["Goods returned", "Damaged goods", "Price adjustment", "Short delivery"]),
-                                     round(invoice["NetTotal"] * rng.uniform(0.05, 0.35), 2), "F"))
+                                     round(invoice["TotalIncTax"] * rng.uniform(0.05, 0.35), 2), "F"))
                 cn_key += 1
 
     # Receipts: most invoices are paid around their due date; some stay outstanding.
@@ -175,14 +175,14 @@ def build(path: Path = OUT) -> Path:
         open_by_debtor.setdefault((invoice["DebtorCode"], paid_on.isocalendar()[:2]), []).append((invoice, paid_on))
     for (debtor_code, _), batch in sorted(open_by_debtor.items(), key=lambda item: min(p for _, p in item[1])):
         paid_on = max(p for _, p in batch)
-        amount = round(sum(i["NetTotal"] for i, _ in batch), 2)
+        amount = round(sum(i["TotalIncTax"] for i, _ in batch), 2)
         payments.append((pay_key, f"OR-{pay_key:06d}", paid_on.isoformat(), debtor_code, rng.choice(PAYMENT_METHODS), amount, "F"))
         for invoice, _ in batch:
-            knockoffs.append((ko_key, pay_key, invoice["DocKey"], invoice["NetTotal"]))
+            knockoffs.append((ko_key, pay_key, invoice["DocKey"], invoice["TotalIncTax"]))
             ko_key += 1
         pay_key += 1
 
-    db.executemany("INSERT INTO IV VALUES (:DocKey, :DocNo, :DocDate, :DueDate, :DebtorCode, :SalesAgent, :Total, :Tax, :NetTotal, :Cancelled, :EInvoiceUUID, :EInvoiceStatus)", invoices)
+    db.executemany("INSERT INTO IV VALUES (:DocKey, :DocNo, :DocDate, :DueDate, :DebtorCode, :SalesAgent, :TotalExTax, :Tax, :TotalIncTax, :Cancelled, :EInvoiceUUID, :EInvoiceStatus)", invoices)
     db.executemany("INSERT INTO IVDTL VALUES (?, ?, ?, ?, ?, ?, ?, ?)", lines)
     db.executemany("INSERT INTO CN VALUES (?, ?, ?, ?, ?, ?, ?, ?)", credit_notes)
     db.executemany("INSERT INTO ARPayment VALUES (?, ?, ?, ?, ?, ?, ?)", payments)

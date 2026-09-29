@@ -30,7 +30,7 @@ from backend.app.verification.consensus import cluster, normalize_value
 from backend.app.verification.models import result_preview
 from backend.eval import metrics
 from backend.eval.harness import (
-    PROMPT_VERSION, RESULTS_DIR, Item, cache_path, catalog_for, load_items, make_runner, run_gold, split_of,
+    PROMPT_VERSION, RESULTS_DIR, Item, cache_path, catalog_for, load_items, make_runner, run_readings, split_of,
 )
 
 CONFIGS = ("B0", "B1", "B2", "B3")
@@ -72,10 +72,10 @@ def _decide(features: Dict[str, float], blocking: bool, options: int, model: Dic
     return "handoff", p
 
 
-async def score_item(item: Item, record: Dict[str, Any], gold: Optional[ExecutionResult]) -> Dict[str, Any]:
+async def score_item(item: Item, record: Dict[str, Any], golds: List[ExecutionResult]) -> Dict[str, Any]:
     catalog = catalog_for(str(item.db_path))
     run = make_runner(item.db_path, catalog)
-    lenient = item.dataset == "trap"
+    lenient = item.dataset in ("trap", "distributor")
 
     async def execute(sql: str) -> Optional[ExecutionResult]:
         return await run(sql) if sql else None
@@ -89,9 +89,12 @@ async def score_item(item: Item, record: Dict[str, Any], gold: Optional[Executio
         "cost_usd": record.get("cost_usd", 0.0), "calls": record.get("calls", 0),
     }
 
+    def matches(result: Optional[ExecutionResult]) -> bool:
+        return any(same_result(result, gold, lenient) for gold in golds)
+
     def verdict(result: Optional[ExecutionResult], outcome: str) -> Dict[str, Any]:
         answered = metrics.is_answered(outcome)
-        return {"outcome": outcome, "correct": bool(answered and item.expected == "answer" and same_result(result, gold, lenient))}
+        return {"outcome": outcome, "correct": bool(answered and item.expected == "answer" and matches(result))}
 
     # B0: always answer the primary candidate.
     out["B0"] = {**verdict(primary_result, "answer" if primary_ok else "handoff"), "sql": primary_sql, "preview": result_preview(primary_result)}
@@ -147,7 +150,10 @@ async def score_item(item: Item, record: Dict[str, Any], gold: Optional[Executio
         "options": len(verification.clarify_options),
         "findings": [{"check": f.check, "severity": f.severity, "title": f.title} for f in verification.findings],
         # correctness of the selected answer, regardless of outcome (for calibration)
-        "selected_correct": bool(item.expected == "answer" and selected is not None and same_result(selected.result, gold, lenient)),
+        "selected_correct": bool(item.expected == "answer" and selected is not None and matches(selected.result)),
+        # A question with several meanings answered with one valid reading, its assumption stated.
+        "reading_match": bool(item.expected == "clarify" and selected is not None and matches(selected.result)),
+        "warning": any(f.severity == "warning" for f in verification.findings),
     }
     return out
 
@@ -161,7 +167,7 @@ def _git_commit() -> str:
 
 async def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--dataset", choices=["trap", "bird"], required=True)
+    parser.add_argument("--dataset", choices=["trap", "bird", "distributor"], required=True)
     parser.add_argument("--limit", type=int)
     parser.add_argument("--k", type=int, default=3)
     parser.add_argument("--with-evidence", action="store_true")
@@ -178,8 +184,8 @@ async def main() -> None:
             missing += 1
             continue
         record = json.loads(path.read_text(encoding="utf-8"))
-        gold = await run_gold(item) if item.expected == "answer" else None
-        scored.append(await score_item(item, record, gold))
+        golds = await run_readings(item) if item.expected in ("answer", "clarify") else []
+        scored.append(await score_item(item, record, golds))
         if len(scored) % 50 == 0 or len(scored) == len(items):
             print(f"  {len(scored)}/{len(items)} scored", flush=True)
     if missing:
@@ -210,14 +216,22 @@ async def main() -> None:
     # Re-decide B3 with the model in use, so reported outcomes reflect the (fitted) calibration.
     for record in scored:
         b3 = record["B3"]
-        outcome, p = _decide(b3["features"], b3["blocking"], b3["options"], model_used, penalty)
+        def settle(outcome: str) -> tuple:
+            # A confident answer with a warning is shown as a caveat; a caveat that states its
+            # assumption and matches a valid reading is a correct answer, not a silent error.
+            if outcome == "confident" and b3.get("warning"):
+                outcome = "caveat"
+            correct = metrics.is_answered(outcome) and (b3["selected_correct"] or (outcome == "caveat" and b3.get("reading_match", False)))
+            return outcome, bool(correct)
+
+        decided, p = _decide(b3["features"], b3["blocking"], b3["options"], model_used, penalty)
         b3["p"] = round(p, 4)
-        b3["outcome"] = outcome
-        b3["correct"] = bool(metrics.is_answered(outcome) and b3["selected_correct"])
+        b3["outcome"], b3["correct"] = settle(decided)
         # The same decision at each penalty's own threshold c / (1 + c).
         for c in metrics.PENALTIES:
-            outcome_c, _ = _decide(b3["features"], b3["blocking"], b3["options"], model_used, c)
-            record[f"B3_c{c}"] = {"outcome": outcome_c, "correct": bool(metrics.is_answered(outcome_c) and b3["selected_correct"])}
+            decided_c, _ = _decide(b3["features"], b3["blocking"], b3["options"], model_used, c)
+            outcome_c, correct_c = settle(decided_c)
+            record[f"B3_c{c}"] = {"outcome": outcome_c, "correct": correct_c}
 
     report: Dict[str, Any] = {
         "dataset": args.dataset,
@@ -237,7 +251,7 @@ async def main() -> None:
         subset = scored if split == "all" else [r for r in scored if r["split"] == "test"]
         confidence_points = [{"p": r["B3"]["p"], "correct": r["B3"]["selected_correct"]} for r in subset if r["expected"] == "answer"]
         by_group: Dict[str, Any] = {}
-        group_key = "trap" if args.dataset == "trap" else "difficulty"
+        group_key = "difficulty" if args.dataset == "bird" else "trap"
         for group in sorted({r[group_key] for r in subset}):
             members = [r for r in subset if r[group_key] == group]
             by_group[group] = {config: metrics.summarize(members, config) for config in CONFIGS}

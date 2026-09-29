@@ -235,13 +235,13 @@ async def test_a_filter_value_with_the_wrong_case_is_blocking_and_suggests_the_r
 
 
 @pytest.mark.asyncio
-async def test_a_filter_value_absent_from_the_data_is_a_warning_with_the_real_values():
-    findings, _, _ = await _checks(
-        "How much was refunded?", "SELECT SUM(amount) FROM payments WHERE status = 'reversed'"
-    )
-    missing = [f for f in findings if f.check == "filter"]
-    assert missing and missing[0].severity == "warning"
-    assert missing[0].data["values"]
+async def test_a_filter_value_absent_from_the_data_is_reported_with_the_real_values():
+    # A status nobody has is a warning (it may truly be zero); a misspelled one blocks.
+    findings, _, _ = await _checks("How much was reversed?", "SELECT SUM(amount) FROM payments WHERE status = 'reversed'")
+    assert [f.severity for f in findings if f.check == "filter"] == ["warning"]
+    findings, _, _ = await _checks("How many orders were cancelled?", "SELECT COUNT(*) FROM orders WHERE status = 'canceled'")
+    misspelled = [f for f in findings if f.check == "filter"]
+    assert misspelled and misspelled[0].severity == "blocking" and "'cancelled'" in misspelled[0].repair_hint
     # A filter that matches real rows is not flagged.
     findings, _, _ = await _checks("How many orders were completed?", "SELECT COUNT(*) FROM orders WHERE status IN ('completed', 'shipped')")
     assert not [f for f in findings if f.check == "filter"]
@@ -263,12 +263,12 @@ async def test_autocount_style_ledger_traps_are_caught():
 
     # Cancelled invoices are marked with a flag, not a status: SlayQL still asks.
     findings, options, _ = await checks("What were our total sales in 2025?",
-                                        "SELECT SUM(NetTotal) FROM IV WHERE DocDate >= '2025-01-01' AND DocDate < '2026-01-01'")
+                                        "SELECT SUM(TotalIncTax) FROM IV WHERE DocDate >= '2025-01-01' AND DocDate < '2026-01-01'")
     assert any(f.check == "definition" and "Cancelled" in f.title for f in findings)
     assert options and "Cancelled" in options[0].label
     # Invoice lines multiply invoice totals.
     findings, _, _ = await checks("What were our total sales from rice?",
-                                  "SELECT SUM(i.NetTotal) FROM IV i JOIN IVDTL d ON d.DocKey = i.DocKey JOIN Item t ON t.ItemCode = d.ItemCode "
+                                  "SELECT SUM(i.TotalIncTax) FROM IV i JOIN IVDTL d ON d.DocKey = i.DocKey JOIN Item t ON t.ItemCode = d.ItemCode "
                                   "WHERE t.ItemGroup = 'BERAS' AND i.Cancelled = 'F'")
     assert any(f.check == "grain" and f.severity == "blocking" for f in findings)
 
@@ -330,3 +330,78 @@ async def test_which_questions_about_things_the_data_lacks_are_handed_off():
     for question in ["Which product has the highest unit price?", "Gudang mana yang penggunaannya melebihi 80 peratus?", "Which carrier handled the most shipments?"]:
         findings, _, _ = await _checks(question, "SELECT name FROM products ORDER BY unit_price DESC LIMIT 1")
         assert not [f for f in findings if f.check == "coverage"], question
+
+
+
+@pytest.mark.asyncio
+async def test_exclusions_that_remove_nothing_are_blocking_on_autocount_flags():
+    from pathlib import Path
+    from backend.data.seed_autocount_sample import build
+
+    path = str(build(Path(settings.CONNECTION_DATA_DIR) / "autocount-filters.db"))
+    catalog = CatalogService.get_sqlite_catalog(path)
+
+    async def run(sql):
+        return await QueryExecutor.execute_sqlite(path, sql)
+
+    async def checks(sql):
+        result = await run(sql)
+        return await run_checks(question="What were total non-cancelled sales in 2025?", sql=sql, dialect="sqlite",
+                                catalog=catalog, run_sql=run, result=result, today=TODAY)
+
+    # The model guessed a Y/N flag; AutoCount stores T/F, so nothing is excluded.
+    for sql in ["SELECT SUM(TotalIncTax) FROM IV WHERE Cancelled <> 'Y'",
+                "SELECT SUM(TotalIncTax) FROM IV WHERE COALESCE(Cancelled, '') NOT IN ('Y', 'YES', '1')",
+                "SELECT SUM(TotalIncTax) FROM IV WHERE UPPER(Cancelled) <> 'Y'"]:
+        findings, _, _ = await checks(sql)
+        blocked = [f for f in findings if f.check == "filter" and f.severity == "blocking"]
+        assert blocked and "'T'" in blocked[0].repair_hint, sql
+    # The right exclusion passes, including on credit notes where nothing is cancelled yet.
+    findings, _, _ = await checks("SELECT SUM(TotalIncTax) FROM IV WHERE Cancelled <> 'T'")
+    assert not [f for f in findings if f.check == "filter"]
+    findings, _, _ = await checks("SELECT SUM(TotalIncTax) FROM CN WHERE Cancelled != 'T'")
+    assert not [f for f in findings if f.check == "filter"]
+    # An EXISTS that never refers to the invoice filters nothing.
+    findings, _, _ = await checks("SELECT SUM(i.TotalIncTax) FROM IV i WHERE i.Cancelled = 'F' AND EXISTS "
+                                  "(SELECT 1 FROM ItemGroup g WHERE g.Description = 'Rice')")
+    assert [f for f in findings if "EXISTS" in f.title and f.severity == "blocking"]
+    findings, _, _ = await checks("SELECT SUM(i.TotalIncTax) FROM IV i WHERE i.Cancelled = 'F' AND EXISTS "
+                                  "(SELECT 1 FROM IVDTL d JOIN Item t ON t.ItemCode = d.ItemCode WHERE d.DocKey = i.DocKey AND t.ItemGroup = 'BERAS')")
+    assert not [f for f in findings if "EXISTS" in f.title]
+
+
+@pytest.mark.asyncio
+async def test_refusals_written_as_sql_and_unstated_assumptions():
+    # A query that reads no table is a refusal, not an answer.
+    findings, _, _ = await _checks("Which delivery driver made the most deliveries?",
+                                   "SELECT 'No delivery driver information is available' AS message")
+    assert [f for f in findings if f.check == "coverage" and f.severity == "blocking"]
+    # The subject may be the second word: "which delivery driver".
+    findings, _, _ = await _checks("Which delivery driver made the most deliveries?",
+                                   "SELECT carrier, COUNT(*) FROM shipments GROUP BY carrier ORDER BY 2 DESC LIMIT 1")
+    assert any(f.severity == "blocking" for f in findings if f.check == "coverage")
+    # "Revenue" with a status filter the user did not ask for: answered, but the assumption is stated.
+    findings, options, _ = await _checks("What is our total revenue?",
+                                         "SELECT SUM(total_amount) FROM orders WHERE status NOT IN ('cancelled', 'refunded')")
+    assumption = [f for f in findings if f.check == "definition"]
+    assert assumption and assumption[0].severity == "warning" and not options
+
+
+
+@pytest.mark.asyncio
+async def test_admissions_in_comments_and_what_is_our_x_questions():
+    sql = ("-- The schema has no product category table, so this cannot filter by category;\n"
+           "-- it returns the total of all completed orders instead.\n"
+           "SELECT SUM(total_amount) FROM orders WHERE status = 'completed'")
+    findings, _, _ = await _checks("What is the revenue from Developer Tools orders?", sql)
+    assert [f for f in findings if f.check == "coverage" and "could not answer" in f.title]
+    # Ordinary comments are fine.
+    findings, _, _ = await _checks("What is total revenue from completed orders?",
+                                   "-- completed orders only\nSELECT SUM(total_amount) FROM orders WHERE status = 'completed'")
+    assert not [f for f in findings if f.check == "coverage"]
+    # "What is our X": X must exist in the data.
+    findings, _, _ = await _checks("What is our current stock balance for each warehouse?",
+                                   "SELECT name, capacity_units FROM warehouses")
+    assert findings == [] or not [f for f in findings if f.check == "coverage" and "warehouse" in f.title]
+    findings, _, _ = await _checks("What is our carbon footprint?", "SELECT COUNT(*) FROM support_cases")
+    assert [f for f in findings if f.check == "coverage" and f.severity == "blocking"]

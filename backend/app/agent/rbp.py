@@ -62,7 +62,15 @@ class RBPGraphEngine:
         if ranked_tables:
             anchor = ranked_tables[0]
             expanded_chain.append(anchor)
-            for target in ranked_tables[1:]:
+            # Tables holding a value the question names ("rice", "Klang Valley") come next, with the
+            # join path to them (invoices -> invoice lines -> items -> item groups), so the model can
+            # filter on them even when BM25 ranks them low.
+            value_tables = []
+            for value in retrieval["grounded_values"]:
+                table = value.get("table")
+                if table and table not in value_tables:
+                    value_tables.append(table)
+            for target in value_tables + ranked_tables[1:]:
                 path = self.find_shortest_path(anchor, target)
                 if not path:
                     if target not in expanded_chain:

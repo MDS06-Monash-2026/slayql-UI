@@ -110,17 +110,42 @@ Simulated on BIRD, reviews come from the fit half and scoring is on the test hal
 
 | Analyst reviews | Wrong answers stated as fact at c = 4 | Calibration error |
 | --- | --- | --- |
-| 0 (default prior) | 34.8% | 0.39 |
-| 20 | 8.7% | 0.29 |
+| 0 (default prior) | 33.9% | 0.39 |
+| 20 | 9.3% | 0.29 |
 | 40 | 1.6% | 0.22 |
 | 80 | 0% | 0.18 |
 | 267 | 0% | 0.11 |
 
-Learning only from hand-offs, which is the realistic case because analysts mainly see what SlayQL escalates, reaches 5.6% after 40 reviews and 0% after 80.
+Learning only from hand-offs, which is the realistic case because analysts mainly see what SlayQL escalates, reaches 10.3% after 40 reviews and 0% after 80.
 
 This is the product's clearest differentiator: the tools we compared ship curated verified queries but do not recalibrate automatically from review decisions.
 
-### 5.4 A validator bug the evaluation exposed
+### 5.4 A Malaysian distributor set (AutoCount-style)
+
+22 questions a distributor's finance team would ask of an AutoCount-style database: invoices and invoice lines, items and item groups, debtors and areas, sales agents, credit notes, receipts and knock-offs, e-invoice status. Three are in Bahasa Malaysia; three cannot be answered from the data; three depend on an unstated definition. The data is invented and the questions are team-written. Candidates were generated on OpenTK (`deepseek-v4.1-flash`, k = 3). Source: `backend/eval/results/distributor.json`, built by `backend/eval/datasets/build_distributor_set.py`.
+
+| | Plain pipeline (B0) | Trust layer at c = 4 | Trust layer at c = 1 |
+| --- | --- | --- | --- |
+| Wrong answers stated as fact | 45.5% | 0% | 0% |
+| Answered immediately | 100% | 40.9% | 77.3% |
+| Right answers withheld (false alarms) | — | 25.0% | 8.3% |
+
+Every infeasible question (delivery drivers, stock balance, and customer satisfaction asked in Malay) was handed off, and every definition question was clarified or handed off.
+
+The set exposed six real weaknesses, each now fixed and covered by tests:
+
+- yes/no flags written in the wrong coding (`Cancelled = 'Y'` on a column that holds `'T'`/`'F'`), which excluded nothing;
+- customer and supplier questions that did not reach tables named `Debtor` and `Creditor`;
+- a refusal returned as SQL that read no table;
+- `EXISTS` conditions that never referred to the invoice being tested;
+- item-group questions ("invoices that include rice") whose join path was not retrieved;
+- the model admitting in a SQL comment that it could not apply a filter, and answering anyway.
+
+The admission check matched 8 of 5,357 previously generated queries across all three sets, and all 8 were genuine admissions.
+
+The false alarms at c = 4 have one main cause. When the other attempts are excluded for a mistake and only the repaired query remains, there is nothing to cross-check it against, so confidence stays at 75%, just below the 80% threshold. This is deliberate caution on a new data source; the review queue (section 5.3) is how each source earns more coverage.
+
+### 5.5 A validator bug the evaluation exposed
 
 Re-running BIRD showed that the SQL validator rejected 126 of 443 generated queries (28%) before they ran. It treated CTE names as unknown tables, and it lowercased table names that the catalog stores in their original case. After the fix only 11 are rejected, all for real errors. Every BIRD figure above uses the fixed validator (harness version v2).
 
@@ -140,7 +165,8 @@ This is worth a paragraph in the report: an evaluation harness that exercises th
 3. Consensus adds little on its own (B2): independently written queries share the same business assumptions, so the deterministic checks do most of the work.
 4. The confidence prior tops out at 88% without an approved definition. At a penalty of 9 or more, SlayQL answers nothing until the data source has learned from reviews or has approved definitions.
 5. No user study results or company pilot yet. The business value is argued from measured error rates, not from observed time or money saved.
-6. The SQL Server connector is tested up to the network layer, not against a live AutoCount server. There is no Firebird connector for SQL Account; its data can be exported and uploaded.
+6. The distributor set is small (22 questions), team-written and on invented data.
+7. The SQL Server connector is tested up to the network layer, not against a live AutoCount server. There is no Firebird connector for SQL Account; its data can be exported and uploaded.
 
 ## 8. Suggested slide order (10 minutes)
 
@@ -149,8 +175,8 @@ This is worth a paragraph in the report: an evaluation harness that exercises th
 3. What SlayQL does: four outcomes, with one live example.
 4. Results on business questions: 26.9% → 0%.
 5. Honest results on BIRD: the dial between coverage and risk.
-6. It learns from your analyst: 34.8% → 1.6% after 40 reviews, 0% after 80.
+6. It learns from your analyst: 33.9% → 1.6% after 40 reviews, 0% after 80.
 7. Report Studio: a checked management report in about 30 seconds.
-8. Malaysia: AutoCount, Bahasa Malaysia, PDPA.
+8. Malaysia: AutoCount-style distributor questions 45.5% → 0% wrong answers stated as fact; Bahasa Malaysia; PDPA.
 9. Trust or Bust (live).
 10. Limits and next steps: pilot, interviews, external questions.

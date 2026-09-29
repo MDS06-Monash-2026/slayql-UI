@@ -22,6 +22,25 @@ STATUS_COLUMN = re.compile(r"(^|_)(status|state|stage)($|_)", re.I)
 # Yes/no flags that mark rows most totals leave out, e.g. AutoCount's Cancelled = 'T'.
 FLAG_COLUMN = re.compile(r"^(is_?)?(cancel+ed|void(ed)?|deleted|rejected)$", re.I)
 TRUE_VALUES = {"t", "y", "1", "true", "yes"}
+FLAG_FAMILIES = [{"t", "f"}, {"y", "n"}, {"1", "0"}, {"true", "false"}, {"yes", "no"}]
+
+
+def _flag_family(values: List[str]) -> set:
+    """The coding a yes/no column uses ({'t','f'} for AutoCount), judged from its values."""
+    present = {v.strip().lower() for v in values}
+    return next((family for family in FLAG_FAMILIES if present and present <= family), present)
+
+
+def _similar(literal: str, values: List[str]) -> Optional[str]:
+    """A real value the literal is probably a misspelling of (canceled / cancelled)."""
+    import difflib
+
+    lowered = literal.lower()
+    for value in values:
+        if len(lowered) >= 4 and value.lower()[:4] == lowered[:4] and value.lower() != lowered:
+            return value
+    close = difflib.get_close_matches(lowered, [v.lower() for v in values], n=1, cutoff=0.8)
+    return next((v for v in values if close and v.lower() == close[0]), None)
 CASE_INSENSITIVE_ENGINES = {"mysql", "sqlserver", "mssql"}
 FLAG_VALUES = TRUE_VALUES | {"f", "n", "0", "false", "no"}
 # Measures whose business meaning depends on which statuses count.
@@ -138,6 +157,23 @@ async def check_definitions(
             continue
         # A deliberate filter on any status column settles the table's status question.
         settled_tables = {table for table, column in filtered if STATUS_COLUMN.search(column) or FLAG_COLUMN.search(column)}
+        where = select.args.get("where")
+        literals = [str(node.this).lower() for node in where.find_all(exp.Literal) if node.is_string] if where is not None else []
+        assumed = sorted(f"{table}.{column}" for table, column in filtered
+                         if table in settled_tables and (STATUS_COLUMN.search(column) or FLAG_COLUMN.search(column)))
+        # "Revenue from completed orders" or "non-cancelled invoices": the user chose the filter.
+        named_filter = any(len(value) >= 4 and value[:6] in lowered_question for value in literals) or any(
+            re.sub(r"^is_?", "", name.split(".")[1].lower())[:6] in lowered_question for name in assumed)
+        if settled_tables and not named_filter and not any(f.check == "definition" for f in findings):
+            term = MEASURE_TERMS.search(question).group(0)
+            findings.append(Finding(
+                check="definition",
+                severity="warning",
+                title=f"Assumes which records count as \"{term}\"",
+                detail=(f"There is no approved definition of \"{term}\", so this answer uses its own filter on "
+                        f"{', '.join(assumed)}. Approve a definition so every answer uses the same one."),
+                data={"assumed": assumed, "term": term},
+            ))
         for source in select_sources.values():
             if source.table.name.lower() in settled_tables:
                 continue
@@ -295,7 +331,7 @@ GENERIC_TERMS = {
     "items", "entry", "entries", "frequency", "occurrences", "size", "level", "top", "bottom", "yearly", "monthly",
     "weekly", "daily", "annual", "annually", "cumulative", "running", "status", "type", "category", "group",
     "label", "flag", "jumlah", "purata", "bilangan", "ramai", "peratus", "tertinggi", "terendah", "hasil", "jualan",
-    "pendapatan", "full", "lost", "loss", "losses", "leakage", "gain", "gains", "paid", "bought", "made", "owed", "owing", "outstanding", "fund", "funds", "money", "spending", "faster", "slower", "higher", "lower", "greater", "bigger", "smaller", "larger", "longer", "shorter", "older", "younger", "earlier", "later", "better", "worse", "increase", "decrease", "decline", "rise", "drop", "delta", "repeat", "returning", "new", "active", "inactive", "churned", "churn", "retained", "retention", "loyal", "recurring", "lapsed", "dormant", "frequent", "conversion", "nilai", "banyak", "setiap", "seunit", "lepas", "paling", "kita", "yang",
+    "pendapatan", "full", "lost", "loss", "losses", "leakage", "gain", "gains", "paid", "bought", "made", "owed", "owing", "outstanding", "owes", "owe", "unpaid", "overdue", "due", "settled", "fund", "funds", "money", "spending", "faster", "slower", "higher", "lower", "greater", "bigger", "smaller", "larger", "longer", "shorter", "older", "younger", "earlier", "later", "better", "worse", "increase", "decrease", "decline", "rise", "drop", "delta", "repeat", "returning", "new", "active", "inactive", "churned", "churn", "retained", "retention", "loyal", "recurring", "lapsed", "dormant", "frequent", "conversion", "nilai", "banyak", "setiap", "seunit", "lepas", "paling", "kita", "yang",
     "january", "february", "march", "april", "june", "july", "august", "september", "october", "november",
     "december", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday", "januari",
     "februari", "mac", "julai", "ogos", "oktober", "disember",
@@ -431,13 +467,25 @@ def check_grounding(
     )]
 
 
-async def check_filter_values(tree: exp.Expression, catalog: CatalogSchema, run_sql: SqlRunner) -> List[Finding]:
-    """Detect text filters that match nothing in the data, such as status = 'Refunded' when the data says 'refunded'.
+def _filtered_column(node: exp.Expression) -> tuple[Optional[exp.Column], bool]:
+    """The column a filter compares, looking through COALESCE/UPPER/LOWER/TRIM.
 
-    A wrong filter value silently turns a total into zero or an empty list. When the value
-    exists with different letter case, the query is certainly wrong (blocking, with a repair
-    hint). When it does not exist at all and the column has few distinct values, the answer
-    carries a warning listing the values the data does use.
+    Returns (column, case_insensitive)."""
+    folded = False
+    while isinstance(node, (exp.Coalesce, exp.Upper, exp.Lower, exp.Trim)):
+        folded = folded or isinstance(node, (exp.Upper, exp.Lower))
+        node = node.this
+    return (node if isinstance(node, exp.Column) else None), folded
+
+
+async def check_filter_values(tree: exp.Expression, catalog: CatalogSchema, run_sql: SqlRunner) -> List[Finding]:
+    """Detect text filters whose values do not occur in the data.
+
+    status = 'Refunded' when the data says 'refunded' silently turns a total into zero,
+    and Cancelled <> 'Y' when the flag is 'T'/'F' silently excludes nothing, so
+    cancelled invoices are counted. A value that differs only in letter case, or a
+    missing value on a status or flag column, is blocking, and the repair is told the
+    real values. Other missing values carry a warning listing the values in the data.
     """
     findings: List[Finding] = []
     seen: set = set()
@@ -446,59 +494,107 @@ async def check_filter_values(tree: exp.Expression, catalog: CatalogSchema, run_
         if where is None:
             continue
         select_sources = sql_scope.sources(select, catalog)
-        pairs: List[tuple[exp.Column, str]] = []
-        for node in where.find_all(exp.EQ, exp.In):
+        # (column, literal, excludes, case_insensitive)
+        filters: List[tuple] = []
+        for node in where.find_all(exp.EQ, exp.NEQ, exp.In):
             if sql_scope.owning_select(node) is not select:
                 continue  # a subquery's filters are checked with its own tables
-            if isinstance(node, exp.EQ):
+            if isinstance(node, (exp.EQ, exp.NEQ)):
                 left, right = node.this, node.expression
-                if isinstance(right, exp.Column) and isinstance(left, exp.Literal):
+                if isinstance(left, exp.Literal):
                     left, right = right, left
-                if isinstance(left, exp.Column) and isinstance(right, exp.Literal) and right.is_string:
-                    pairs.append((left, right.this))
-            elif isinstance(node.this, exp.Column) and not node.args.get("query"):
-                pairs += [(node.this, item.this) for item in node.expressions if isinstance(item, exp.Literal) and item.is_string]
-        for column, literal in pairs:
+                column, folded = _filtered_column(left)
+                if column is not None and isinstance(right, exp.Literal) and right.is_string:
+                    filters.append((column, right.this, isinstance(node, exp.NEQ), folded))
+            elif not node.args.get("query"):
+                column, folded = _filtered_column(node.this)
+                excludes = isinstance(node.parent, exp.Not)
+                if column is not None:
+                    filters += [(column, item.this, excludes, folded) for item in node.expressions
+                                if isinstance(item, exp.Literal) and item.is_string]
+        # Group by column so an exclusion list is judged as a whole.
+        grouped: Dict[tuple, Dict[str, Any]] = {}
+        for column, literal, excludes, folded in filters:
             source = sql_scope.column_source(column, select_sources)
-            key = (source.table.name.lower(), column.name.lower(), literal) if source else None
-            if not source or key in seen:
+            if not source:
+                continue
+            key = (source.table.name.lower(), column.name.lower(), excludes)
+            entry = grouped.setdefault(key, {"source": source, "column": column, "literals": [], "folded": folded})
+            entry["literals"].append(literal)
+        for key, entry in grouped.items():
+            if key in seen:
                 continue
             seen.add(key)
+            excludes = key[2]
+            source, column = entry["source"], entry["column"]
             distinct = await run_sql(
                 f"SELECT DISTINCT {_q(column.name)} FROM {_q(source.table.name)} WHERE {_q(column.name)} IS NOT NULL LIMIT 41"
             )
             if distinct.error or not distinct.rows:
                 continue
             values = [str(row[0]) for row in distinct.rows]
-            if literal in values:
+            complete = len(values) <= 40
+            ignore_case = entry["folded"] or catalog.engine in CASE_INSENSITIVE_ENGINES
+            present = {v.lower() for v in values} if ignore_case else set(values)
+            absent = [lit for lit in entry["literals"] if (lit.lower() if ignore_case else lit) not in present]
+            if not absent:
                 continue
             name = f"{source.table.name}.{column.name}"
-            # MySQL's and SQL Server's default collations ignore case, so only an absent value matters there.
-            same_case = [] if catalog.engine in CASE_INSENSITIVE_ENGINES else [value for value in values if value.lower() == literal.lower()]
-            if not same_case and len(values) <= 40:
-                # Only a complete list shows the value is absent; long lists may be truncated.
-                exact = await run_sql(
-                    f"SELECT COUNT(*) FROM {_q(source.table.name)} WHERE {_q(column.name)} = '{literal.replace(chr(39), chr(39) * 2)}'"
-                )
-                if exact.error or not exact.rows or exact.rows[0][0]:
+            is_flag = bool(FLAG_COLUMN.search(column.name))
+            shown = ", ".join(f"'{value}'" for value in values[:12]) + (" ..." if len(values) > 12 else "")
+            same_case = [] if ignore_case else [v for lit in absent for v in values if v.lower() == lit.lower()]
+            if is_flag and complete:
+                # A flag value from the column's own coding is fine even if no row has it yet
+                # ('T' when nothing is cancelled); one from another coding ('Y' for a T/F flag) is a mistake.
+                family = _flag_family(values)
+                absent = [lit for lit in absent if lit.strip().lower() not in family]
+                categorical = bool(absent)
+            elif STATUS_COLUMN.search(column.name) and complete:
+                # A status that simply has no rows is not a mistake; a misspelled one is.
+                categorical = any(_similar(lit, values) for lit in absent)
+                if excludes and not categorical:
                     continue
+            else:
+                categorical = False
+            if not absent:
+                continue
+            listed = ", ".join(f"'{value}'" for value in absent)
+            if excludes:
+                # Judge an exclusion list as a whole: it fails when none of its values occur.
+                if not complete or len(absent) < len(entry["literals"]):
+                    continue
+                findings.append(Finding(
+                    check="filter",
+                    severity="blocking" if categorical or same_case else "warning",
+                    title=f"The exclusion on {column.name} removes nothing",
+                    detail=(f"The query excludes {listed} from {name}, but those values never occur, "
+                            f"so the rows it meant to leave out are still counted. Values in the data: {shown}."),
+                    repair_hint=(f"{name} contains {shown}. Exclude the values that actually mark the rows "
+                                 f"to leave out, instead of {listed}."),
+                    data={"column": name, "values": values[:40], "absent": absent, "excludes": True},
+                ))
+                continue
             if same_case:
                 findings.append(Finding(
                     check="filter",
                     severity="blocking",
-                    title=f"'{literal}' does not match the data's '{same_case[0]}'",
-                    detail=f"{name} stores '{same_case[0]}'; the filter '{literal}' matches no rows because the letter case differs.",
-                    repair_hint=f"In {name}, use '{same_case[0]}' instead of '{literal}'; text comparisons are case-sensitive.",
-                    data={"column": name, "value": literal, "suggested": same_case[0]},
+                    title=f"'{absent[0]}' does not match the data's '{same_case[0]}'",
+                    detail=f"{name} stores '{same_case[0]}'; the filter '{absent[0]}' matches no rows because the letter case differs.",
+                    repair_hint=f"In {name}, use '{same_case[0]}' instead of '{absent[0]}'; text comparisons are case-sensitive.",
+                    data={"column": name, "value": absent[0], "suggested": same_case[0]},
                 ))
-            elif len(values) <= 40:
-                shown = ", ".join(f"'{value}'" for value in values[:12]) + (" ..." if len(values) > 12 else "")
+            elif complete:
+                literal = absent[0].replace("'", "''")
+                exact = await run_sql(f"SELECT COUNT(*) FROM {_q(source.table.name)} WHERE {_q(column.name)} = '{literal}'")
+                if exact.error or not exact.rows or exact.rows[0][0]:
+                    continue
                 findings.append(Finding(
                     check="filter",
-                    severity="warning",
-                    title=f"No record has {column.name} = '{literal}'",
+                    severity="blocking" if categorical else "warning",
+                    title=f"No record has {column.name} = '{absent[0]}'",
                     detail=f"The filter on {name} matches nothing, so this figure may be zero or empty for that reason. Values in the data: {shown}.",
-                    data={"column": name, "value": literal, "values": values[:40]},
+                    repair_hint=f"{name} contains {shown}. Use one of those values in the filter." if categorical else "",
+                    data={"column": name, "value": absent[0], "values": values[:40]},
                 ))
     return findings
 
@@ -506,10 +602,15 @@ async def check_filter_values(tree: exp.Expression, catalog: CatalogSchema, run_
 COUNT_QUESTION = re.compile(
     r"\b(?:how many|number of|count of|berapa\s+(?:ramai|banyak)|bilangan)\s+((?:[\w&-]+\s+){0,3}[\w&-]+)", re.I
 )
-SUBJECT_QUESTION = re.compile(r"\b(?:which|what)\s+([a-z][\w-]*)|\b([a-z][\w-]*)\s+mana\b", re.I)
+SUBJECT_QUESTION = re.compile(
+    r"\b(?:which|what(?:\s+(?:is|are|was|were)\s+(?:our|my|your)(?:\s+(?:current|latest|total|overall|average))?)?)"
+    r"\s+([a-z][\w-]*)(?:\s+([a-z][\w-]*))?|\b([a-z][\w-]*)\s+mana\b",
+    re.I,
+)
 NOT_SUBJECTS = {"is", "are", "was", "were", "of", "one", "ones", "do", "does", "did", "has", "have", "the", "a", "an",
                 "kind", "type", "types", "percentage", "percent", "proportion", "ratio", "amount", "number", "total", "yang",
-                "time", "year", "month", "day", "date"}
+                "time", "year", "month", "day", "date", "had", "made", "make", "sold", "bought", "got", "gave",
+                "can", "will", "should", "would", "most", "least", "best", "worst"}
 
 
 def _entity_table(words: List[str], catalog: CatalogSchema) -> Optional[Any]:
@@ -608,12 +709,24 @@ def check_answer_subject(question: str, catalog: CatalogSchema, definitions: Opt
 
     vocabulary = schema_vocabulary(catalog, definitions)
     for match in SUBJECT_QUESTION.finditer(question or ""):
-        word = (match.group(1) or match.group(2) or "").lower()
-        if len(word) < 4 or word in NOT_SUBJECTS or word in GENERIC_TERMS:
+        # "which delivery driver": the subject noun may be the first or second word.
+        words = [match.group(1), match.group(2)] if match.group(1) else [match.group(3)]
+        candidates = []
+        for word in (w.lower() for w in words if w):
+            if word in NOT_SUBJECTS or _describes_action(word):
+                break
+            candidates.append(word)
+        missing = None
+        for word in candidates:
+            if len(word) < 4 or word in GENERIC_TERMS:
+                continue
+            translations = MALAY_TERMS.get(word, [])
+            if not (_grounded(word, vocabulary) or any(_grounded(t, vocabulary) for t in translations)):
+                missing = (word, translations)
+                break
+        if not missing:
             continue
-        translations = MALAY_TERMS.get(word, [])
-        if _grounded(word, vocabulary) or any(_grounded(t, vocabulary) for t in translations):
-            continue
+        word, translations = missing
         shown = translations[0] if translations else word
         return [Finding(
             check="coverage",
@@ -623,6 +736,81 @@ def check_answer_subject(question: str, catalog: CatalogSchema, definitions: Opt
             data={"terms": [shown]},
         )]
     return []
+
+
+def check_correlated_subqueries(tree: exp.Expression, catalog: CatalogSchema) -> List[Finding]:
+    """Detect EXISTS (subquery) conditions that never refer to the outer query's rows.
+
+    "Invoices that include rice" written as EXISTS (SELECT 1 FROM ItemGroup WHERE
+    Description = 'Rice') is true for every invoice, so it filters nothing.
+    """
+    findings: List[Finding] = []
+    for node in tree.find_all(exp.Exists):
+        inner = node.find(exp.Select)
+        outer = node.find_ancestor(exp.Select)
+        if inner is None or outer is None:
+            continue
+        outer_sources = sql_scope.sources(outer, catalog)
+        inner_sources = sql_scope.sources(inner, catalog)
+        inner_columns = {column.name.lower() for source in inner_sources.values() for column in source.table.columns}
+        outer_columns = {column.name.lower() for source in outer_sources.values() for column in source.table.columns}
+        correlated = False
+        for column in inner.find_all(exp.Column):
+            qualifier = (column.table or "").lower()
+            if qualifier and qualifier in outer_sources and qualifier not in inner_sources:
+                correlated = True
+            elif not qualifier and column.name.lower() in outer_columns and column.name.lower() not in inner_columns:
+                correlated = True
+            if correlated:
+                break
+        if not correlated and outer_sources:
+            tables = ", ".join(sorted(source.table.name for source in outer_sources.values()))
+            findings.append(Finding(
+                check="grain",
+                severity="blocking",
+                title="An EXISTS condition does not depend on the row being tested",
+                detail=(f"The EXISTS subquery never refers to {tables}, so it is true (or false) for every row "
+                        f"and does not filter anything."),
+                repair_hint=(f"Link the EXISTS subquery to the outer row, for example with a condition that joins "
+                             f"its tables to {tables} on their shared key."),
+            ))
+    return findings
+
+
+ADMISSION = re.compile(
+    r"\b(cannot|can't|can ?not|unable to|not (?:possible|available|supported|present|represented)|no (?:such |matching |relevant )?"
+    r"(?:table|column|data|field|information)|does not (?:exist|contain|have)|doesn't (?:exist|contain|have)|"
+    r"closest (?:answer|approximation)|approximat|as a proxy|instead of)\b",
+    re.I,
+)
+
+
+def check_admissions(sql: str) -> List[Finding]:
+    """The model sometimes explains, in a SQL comment, that it could not do what was asked
+    (-- the schema has no invoice line table, so this returns all invoices) and answers anyway."""
+    comments = re.findall(r"--[^\n]*|/\*.*?\*/", sql or "", re.S)
+    admitted = next((c for c in comments if ADMISSION.search(c)), None)
+    if not admitted:
+        return []
+    note = " ".join(admitted.strip("-/* \n").split())[:240]
+    return [Finding(
+        check="coverage",
+        severity="blocking",
+        title="The query says it could not answer the question as asked",
+        detail=f"The generated SQL notes: \"{note}\". An answer built on that substitution is not stated as fact.",
+    )]
+
+
+def check_reads_data(tree: exp.Expression) -> List[Finding]:
+    """A query that reads no table (SELECT 'No such data' AS note) is a refusal, not an answer."""
+    if any(True for _ in tree.find_all(exp.Table)):
+        return []
+    return [Finding(
+        check="coverage",
+        severity="blocking",
+        title="The query does not read any data",
+        detail="It returns fixed text or numbers instead of reading the database, usually because the data cannot answer the question.",
+    )]
 
 
 def check_sanity(result: ExecutionResult) -> List[Finding]:

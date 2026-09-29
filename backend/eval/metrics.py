@@ -53,7 +53,8 @@ def reliability_score(records: Sequence[Dict[str, Any]], config: str, penalty: f
     total = 0.0
     for record in records:
         outcome, correct = record[config]["outcome"], record[config]["correct"]
-        if record["expected"] == "answer":
+        if record["expected"] == "answer" or (is_answered(outcome) and correct):
+            # (the second case: a valid reading of an ambiguous question, its assumption stated)
             if is_answered(outcome):
                 total += 1.0 if correct else -penalty
         else:

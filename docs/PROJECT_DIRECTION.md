@@ -8,7 +8,8 @@ Measured results, their sources and the report storyline are in [`REPORT_NARRATI
 
 - **Business trap set** (52 questions): wrong answers stated as fact fall from 26.9% of questions to none, with 73% answered immediately and no false alarms.
 - **BIRD Mini-Dev** (233 held-out questions): at c = 1, from 59.7% to 15.9%, with 42% answered. At the default c = 4, SlayQL answers none, because the model is right on only about 28%.
-- **Review-queue learning:** after 40 analyst reviews, confident wrong answers at c = 4 fall from 34.8% to 1.6%, and to 0% after 80.
+- **Review-queue learning:** after 40 analyst reviews, confident wrong answers at c = 4 fall from 33.9% to 1.6%, and to 0% after 80.
+- **Malaysian distributor set:** on 22 AutoCount-style questions, wrong answers stated as fact fall from 45.5% to 0%.
 - **New since the direction was written:** Report Studio rebuilt on checked queries; coverage, filter-value and flag checks; SQL Server connector; Bahasa Malaysia test items; per-workspace learning.
 - **Still open:** interviews, external held-out questions, the user study at demo day, and a pilot. Business-value claims about time and money remain hypotheses (section 6.10).
 

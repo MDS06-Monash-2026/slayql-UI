@@ -21,6 +21,9 @@ CACHE_DIR = EVAL_DIR / "cache"
 RESULTS_DIR = EVAL_DIR / "results"
 TRAP_SET = EVAL_DIR / "datasets" / "trap_set.jsonl"
 DEMO_DB = REPO / "backend" / "data" / "slayql_demo.sqlite3"
+# AutoCount-style Malaysian distributor (backend/data/seed_autocount_sample.py).
+DISTRIBUTOR_SET = EVAL_DIR / "datasets" / "distributor_set.jsonl"
+DISTRIBUTOR_DB = REPO / "public" / "autocount-sample.db"
 BIRD_DIR = EVAL_DIR / "data" / "minidev" / "MINIDEV"
 BIRD_JSON = BIRD_DIR / "mini_dev_sqlite.json"
 
@@ -46,18 +49,22 @@ class Item:
     evidence: str = ""
     alternatives: List[str] = field(default_factory=list)
     author: str = "team"  # "team", or who wrote an externally authored held-out item
+    accept: List[str] = field(default_factory=list)  # other SQL whose result is also a correct answer
 
 
 def load_items(dataset: str, limit: Optional[int] = None) -> List[Item]:
     items: List[Item] = []
-    if dataset == "trap":
-        for line in TRAP_SET.read_text(encoding="utf-8").splitlines():
+    if dataset in ("trap", "distributor"):
+        source, db_path = (TRAP_SET, DEMO_DB) if dataset == "trap" else (DISTRIBUTOR_SET, DISTRIBUTOR_DB)
+        if dataset == "distributor" and not DISTRIBUTOR_DB.exists():
+            raise SystemExit("Run python -m backend.data.seed_autocount_sample first.")
+        for line in source.read_text(encoding="utf-8").splitlines():
             row = json.loads(line)
             items.append(Item(
-                dataset="trap", id=row["id"], question=row["question"], db_path=DEMO_DB,
+                dataset=dataset, id=row["id"], question=row["question"], db_path=db_path,
                 expected=row["expected"], gold_sql=row["gold_sql"], trap=row["trap"],
                 language=row["language"], alternatives=row.get("alternatives", []),
-                author=row.get("author", "team"),
+                author=row.get("author", "team"), accept=row.get("accept", []),
             ))
     elif dataset == "bird":
         if not BIRD_JSON.exists():
@@ -109,6 +116,19 @@ def make_runner(db_path: Path, catalog: CatalogSchema):
                                    error=validation.error_message or "invalid SQL")
         return await QueryExecutor.execute_sqlite(str(db_path), validation.sanitized_sql, TIMEOUT_SECONDS, MAX_ROWS)
     return run
+
+
+async def run_readings(item: Item) -> List[ExecutionResult]:
+    """Every result that counts as right: the gold answer and accepted equivalents, or, for a
+    question with several meanings, each valid reading (used to credit a stated assumption)."""
+    sqls = [item.gold_sql] + (item.accept if item.expected == "answer" else item.alternatives)
+    results = []
+    for sql in sqls:
+        if sql:
+            result = await QueryExecutor.execute_sqlite(str(item.db_path), sql, TIMEOUT_SECONDS, 100000)
+            if not result.error:
+                results.append(result)
+    return results
 
 
 async def run_gold(item: Item) -> Optional[ExecutionResult]:

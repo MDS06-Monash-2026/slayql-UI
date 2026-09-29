@@ -7,8 +7,8 @@
   "penalty": 4.0,
   "threshold": 0.8,
   "calibration": "default prior (not yet calibrated)",
-  "commit": "d6fd7b7",
-  "evaluated_at": "2026-09-29T14:25:49.553616+00:00",
+  "commit": "8dfba30",
+  "evaluated_at": "2026-09-29T15:26:48.448228+00:00",
   "total_generation_cost_usd": 0.0325,
   "splits": {
     "test": {
@@ -830,12 +830,12 @@
           {
             "coverage": 0.8,
             "risk": 0.0,
-            "threshold": 0.8808
+            "threshold": 0.8455
           },
           {
             "coverage": 0.85,
             "risk": 0.0,
-            "threshold": 0.8455
+            "threshold": 0.8176
           },
           {
             "coverage": 0.9,
@@ -856,12 +856,12 @@
         "aurc": 0.0
       },
       "calibration_B3": {
-        "ece": 0.1327,
+        "ece": 0.1359,
         "reliability_diagram": [
           {
             "bin": 8,
             "n": 20,
-            "confidence": 0.8673,
+            "confidence": 0.8641,
             "accuracy": 1.0
           }
         ]
@@ -1771,12 +1771,12 @@
           {
             "coverage": 0.8462,
             "risk": 0.0,
-            "threshold": 0.8808
+            "threshold": 0.8455
           },
           {
             "coverage": 0.8718,
             "risk": 0.0,
-            "threshold": 0.8455
+            "threshold": 0.8176
           },
           {
             "coverage": 0.8974,
@@ -1807,7 +1807,7 @@
         "aurc": 0.0
       },
       "calibration_B3": {
-        "ece": 0.1315,
+        "ece": 0.1331,
         "reliability_diagram": [
           {
             "bin": 7,
@@ -1818,7 +1818,7 @@
           {
             "bin": 8,
             "n": 38,
-            "confidence": 0.8716,
+            "confidence": 0.8699,
             "accuracy": 1.0
           }
         ]
@@ -1877,7 +1877,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",
@@ -1943,7 +1945,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",
@@ -2009,7 +2013,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",
@@ -2075,7 +2081,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",
@@ -2141,7 +2149,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",
@@ -2207,7 +2217,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",
@@ -2273,7 +2285,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",
@@ -2339,7 +2353,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",
@@ -2405,7 +2421,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",
@@ -2471,7 +2489,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",
@@ -2537,7 +2557,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",
@@ -2603,7 +2625,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",
@@ -2669,7 +2693,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",
@@ -2735,7 +2761,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",
@@ -2801,7 +2829,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",
@@ -2867,7 +2897,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",
@@ -2933,7 +2965,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",
@@ -2999,7 +3033,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",
@@ -3065,7 +3101,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",
@@ -3131,7 +3169,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",
@@ -3197,7 +3237,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",
@@ -3263,7 +3305,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",
@@ -3329,7 +3373,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",
@@ -3403,7 +3449,9 @@
             "title": "Includes refunded, cancelled orders"
           }
         ],
-        "selected_correct": false
+        "selected_correct": false,
+        "reading_match": true,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "clarify",
@@ -3477,7 +3525,9 @@
             "title": "Includes refunded, cancelled orders"
           }
         ],
-        "selected_correct": false
+        "selected_correct": false,
+        "reading_match": true,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "clarify",
@@ -3551,7 +3601,9 @@
             "title": "Includes refunded, cancelled orders"
           }
         ],
-        "selected_correct": false
+        "selected_correct": false,
+        "reading_match": true,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "clarify",
@@ -3625,7 +3677,9 @@
             "title": "Includes refunded, cancelled orders"
           }
         ],
-        "selected_correct": false
+        "selected_correct": false,
+        "reading_match": true,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "clarify",
@@ -3699,7 +3753,9 @@
             "title": "Includes refunded, cancelled orders"
           }
         ],
-        "selected_correct": false
+        "selected_correct": false,
+        "reading_match": true,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "clarify",
@@ -3765,7 +3821,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",
@@ -3831,7 +3889,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",
@@ -3897,7 +3957,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",
@@ -3963,7 +4025,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",
@@ -4029,7 +4093,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",
@@ -4100,7 +4166,9 @@
             "title": "No candidate query ran successfully"
           }
         ],
-        "selected_correct": false
+        "selected_correct": false,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "handoff",
@@ -4171,7 +4239,9 @@
             "title": "No candidate query ran successfully"
           }
         ],
-        "selected_correct": false
+        "selected_correct": false,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "handoff",
@@ -4245,7 +4315,9 @@
             "title": "The data has nothing about \"deal\""
           }
         ],
-        "selected_correct": false
+        "selected_correct": false,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "handoff",
@@ -4311,7 +4383,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",
@@ -4349,7 +4423,9 @@
         "correct": true,
         "sql": "SELECT SUM(total_amount) AS total_revenue\nFROM orders\nWHERE status = 'completed';",
         "repaired": false,
-        "findings": []
+        "findings": [
+          "Assumes which records count as \"hasil\""
+        ]
       },
       "B2": {
         "outcome": "answer",
@@ -4358,17 +4434,17 @@
         "sql": "SELECT SUM(total_amount) AS total_revenue\nFROM orders\nWHERE status = 'completed';"
       },
       "B3": {
-        "outcome": "confident",
+        "outcome": "caveat",
         "correct": true,
         "sql": "SELECT SUM(total_amount) AS total_revenue\nFROM orders\nWHERE status = 'completed';",
         "preview": "2,159,970.05",
-        "p": 0.8808,
+        "p": 0.8176,
         "features": {
           "agreement": 1.0,
           "single_candidate": 0.0,
           "unresolved_blocking": 0.0,
           "ambiguity": 0.0,
-          "warnings": 0.0,
+          "warnings": 1.0,
           "repairs": 0.0,
           "empty_result": 0.0,
           "semantic_invalid": 0.0,
@@ -4376,15 +4452,23 @@
         },
         "blocking": false,
         "options": 0,
-        "findings": [],
-        "selected_correct": true
+        "findings": [
+          {
+            "check": "definition",
+            "severity": "warning",
+            "title": "Assumes which records count as \"hasil\""
+          }
+        ],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": true
       },
       "B3_c1": {
-        "outcome": "confident",
+        "outcome": "caveat",
         "correct": true
       },
       "B3_c4": {
-        "outcome": "confident",
+        "outcome": "caveat",
         "correct": true
       },
       "B3_c9": {
@@ -4443,7 +4527,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",
@@ -4517,7 +4603,9 @@
             "title": "Includes refunded, cancelled orders"
           }
         ],
-        "selected_correct": false
+        "selected_correct": false,
+        "reading_match": true,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "clarify",
@@ -4583,7 +4671,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",
@@ -4649,7 +4739,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",
@@ -4715,7 +4807,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",
@@ -4781,7 +4875,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",
@@ -4847,7 +4943,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",
@@ -4921,7 +5019,9 @@
             "title": "Includes refunded, cancelled orders"
           }
         ],
-        "selected_correct": false
+        "selected_correct": false,
+        "reading_match": true,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "clarify",
@@ -4995,7 +5095,9 @@
             "title": "Includes refunded, cancelled orders"
           }
         ],
-        "selected_correct": false
+        "selected_correct": false,
+        "reading_match": true,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "clarify",
@@ -5061,7 +5163,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",
@@ -5127,7 +5231,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",
@@ -5201,7 +5307,9 @@
             "title": "The data has nothing about \"satisfaction\""
           }
         ],
-        "selected_correct": false
+        "selected_correct": false,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "handoff",
@@ -5273,7 +5381,9 @@
             "title": "No candidate query ran successfully"
           }
         ],
-        "selected_correct": false
+        "selected_correct": false,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "handoff",
@@ -5339,7 +5449,9 @@
         "blocking": false,
         "options": 0,
         "findings": [],
-        "selected_correct": true
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
       },
       "B3_c1": {
         "outcome": "confident",

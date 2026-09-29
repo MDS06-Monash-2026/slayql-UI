@@ -68,7 +68,7 @@ def average(runs: List[Dict[str, float]]) -> Dict[str, float]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--dataset", choices=["trap", "bird"], default="bird")
+    parser.add_argument("--dataset", choices=["trap", "bird", "distributor"], default="bird")
     parser.add_argument("--repeats", type=int, default=REPEATS)
     args = parser.parse_args()
 

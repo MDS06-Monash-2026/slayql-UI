@@ -1,0 +1,3085 @@
+{
+  "dataset": "distributor",
+  "model": "deepseek-v4.1-flash",
+  "k": 3,
+  "with_evidence": false,
+  "prompt_version": "v2",
+  "penalty": 4.0,
+  "threshold": 0.8,
+  "calibration": "default prior (not yet calibrated)",
+  "commit": "8dfba30",
+  "evaluated_at": "2026-09-29T15:26:44.574234+00:00",
+  "total_generation_cost_usd": 0.0,
+  "splits": {
+    "test": {
+      "n": 11,
+      "configs": {
+        "B0": {
+          "n": 11,
+          "answered": 11,
+          "correct_answers": 5,
+          "wrong_answers": 6,
+          "clarified": 0,
+          "handed_off": 0,
+          "coverage": 1.0,
+          "selective_risk": 0.5455,
+          "silent_error_rate": 0.5455,
+          "execution_accuracy": 0.7143,
+          "reliability_score_c1": -0.0909,
+          "reliability_score_c4": -1.7273,
+          "reliability_score_c9": -4.4545
+        },
+        "B1": {
+          "n": 11,
+          "answered": 8,
+          "correct_answers": 7,
+          "wrong_answers": 1,
+          "clarified": 0,
+          "handed_off": 3,
+          "coverage": 0.7273,
+          "selective_risk": 0.125,
+          "silent_error_rate": 0.0909,
+          "execution_accuracy": 1.0,
+          "reliability_score_c1": 0.8182,
+          "reliability_score_c4": 0.5455,
+          "reliability_score_c9": 0.0909,
+          "catch_rate": 0.8333,
+          "false_alarm_rate": 0.0
+        },
+        "B2": {
+          "n": 11,
+          "answered": 9,
+          "correct_answers": 4,
+          "wrong_answers": 5,
+          "clarified": 2,
+          "handed_off": 0,
+          "coverage": 0.8182,
+          "selective_risk": 0.5556,
+          "silent_error_rate": 0.4545,
+          "execution_accuracy": 0.5714,
+          "reliability_score_c1": 0.0,
+          "reliability_score_c4": -1.3636,
+          "reliability_score_c9": -3.6364,
+          "catch_rate": 0.1667,
+          "false_alarm_rate": 0.2
+        },
+        "B3": {
+          "n": 11,
+          "answered": 2,
+          "correct_answers": 2,
+          "wrong_answers": 0,
+          "clarified": 1,
+          "handed_off": 8,
+          "coverage": 0.1818,
+          "selective_risk": 0.0,
+          "silent_error_rate": 0.0,
+          "execution_accuracy": 0.2857,
+          "reliability_score_c1": 0.5455,
+          "reliability_score_c4": 0.5455,
+          "reliability_score_c9": 0.5455,
+          "catch_rate": 1.0,
+          "false_alarm_rate": 0.6
+        },
+        "B3_c1": {
+          "n": 11,
+          "answered": 7,
+          "correct_answers": 7,
+          "wrong_answers": 0,
+          "clarified": 1,
+          "handed_off": 3,
+          "coverage": 0.6364,
+          "selective_risk": 0.0,
+          "silent_error_rate": 0.0,
+          "execution_accuracy": 0.8571,
+          "reliability_score_c1": 0.9091,
+          "reliability_score_c4": 0.9091,
+          "reliability_score_c9": 0.9091,
+          "catch_rate": 1.0,
+          "false_alarm_rate": 0.2
+        },
+        "B3_c4": {
+          "n": 11,
+          "answered": 2,
+          "correct_answers": 2,
+          "wrong_answers": 0,
+          "clarified": 1,
+          "handed_off": 8,
+          "coverage": 0.1818,
+          "selective_risk": 0.0,
+          "silent_error_rate": 0.0,
+          "execution_accuracy": 0.2857,
+          "reliability_score_c1": 0.5455,
+          "reliability_score_c4": 0.5455,
+          "reliability_score_c9": 0.5455,
+          "catch_rate": 1.0,
+          "false_alarm_rate": 0.6
+        },
+        "B3_c9": {
+          "n": 11,
+          "answered": 0,
+          "correct_answers": 0,
+          "wrong_answers": 0,
+          "clarified": 1,
+          "handed_off": 10,
+          "coverage": 0.0,
+          "selective_risk": 0.0,
+          "silent_error_rate": 0.0,
+          "execution_accuracy": 0.0,
+          "reliability_score_c1": 0.3636,
+          "reliability_score_c4": 0.3636,
+          "reliability_score_c9": 0.3636,
+          "catch_rate": 1.0,
+          "false_alarm_rate": 1.0
+        }
+      },
+      "by_trap": {
+        "definition": {
+          "B0": {
+            "n": 1,
+            "answered": 1,
+            "correct_answers": 0,
+            "wrong_answers": 1,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 1.0,
+            "silent_error_rate": 1.0,
+            "execution_accuracy": null,
+            "reliability_score_c1": -1.0,
+            "reliability_score_c4": -4.0,
+            "reliability_score_c9": -9.0
+          },
+          "B1": {
+            "n": 1,
+            "answered": 1,
+            "correct_answers": 0,
+            "wrong_answers": 1,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 1.0,
+            "silent_error_rate": 1.0,
+            "execution_accuracy": null,
+            "reliability_score_c1": -1.0,
+            "reliability_score_c4": -4.0,
+            "reliability_score_c9": -9.0,
+            "catch_rate": 0.0,
+            "false_alarm_rate": null
+          },
+          "B2": {
+            "n": 1,
+            "answered": 1,
+            "correct_answers": 0,
+            "wrong_answers": 1,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 1.0,
+            "silent_error_rate": 1.0,
+            "execution_accuracy": null,
+            "reliability_score_c1": -1.0,
+            "reliability_score_c4": -4.0,
+            "reliability_score_c9": -9.0,
+            "catch_rate": 0.0,
+            "false_alarm_rate": null
+          },
+          "B3": {
+            "n": 1,
+            "answered": 0,
+            "correct_answers": 0,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 1,
+            "coverage": 0.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": null,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": 1.0,
+            "false_alarm_rate": null
+          }
+        },
+        "fanout": {
+          "B0": {
+            "n": 2,
+            "answered": 2,
+            "correct_answers": 2,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0
+          },
+          "B1": {
+            "n": 2,
+            "answered": 2,
+            "correct_answers": 2,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": null,
+            "false_alarm_rate": 0.0
+          },
+          "B2": {
+            "n": 2,
+            "answered": 2,
+            "correct_answers": 2,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": null,
+            "false_alarm_rate": 0.0
+          },
+          "B3": {
+            "n": 2,
+            "answered": 2,
+            "correct_answers": 2,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": null,
+            "false_alarm_rate": 0.0
+          }
+        },
+        "infeasible": {
+          "B0": {
+            "n": 3,
+            "answered": 3,
+            "correct_answers": 0,
+            "wrong_answers": 3,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 1.0,
+            "silent_error_rate": 1.0,
+            "execution_accuracy": null,
+            "reliability_score_c1": -1.0,
+            "reliability_score_c4": -4.0,
+            "reliability_score_c9": -9.0
+          },
+          "B1": {
+            "n": 3,
+            "answered": 0,
+            "correct_answers": 0,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 3,
+            "coverage": 0.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": null,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": 1.0,
+            "false_alarm_rate": null
+          },
+          "B2": {
+            "n": 3,
+            "answered": 2,
+            "correct_answers": 0,
+            "wrong_answers": 2,
+            "clarified": 1,
+            "handed_off": 0,
+            "coverage": 0.6667,
+            "selective_risk": 1.0,
+            "silent_error_rate": 0.6667,
+            "execution_accuracy": null,
+            "reliability_score_c1": -0.3333,
+            "reliability_score_c4": -2.3333,
+            "reliability_score_c9": -5.6667,
+            "catch_rate": 0.3333,
+            "false_alarm_rate": null
+          },
+          "B3": {
+            "n": 3,
+            "answered": 0,
+            "correct_answers": 0,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 3,
+            "coverage": 0.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": null,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": 1.0,
+            "false_alarm_rate": null
+          }
+        },
+        "none": {
+          "B0": {
+            "n": 4,
+            "answered": 4,
+            "correct_answers": 2,
+            "wrong_answers": 2,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.5,
+            "silent_error_rate": 0.5,
+            "execution_accuracy": 0.5,
+            "reliability_score_c1": 0.0,
+            "reliability_score_c4": -1.5,
+            "reliability_score_c9": -4.0
+          },
+          "B1": {
+            "n": 4,
+            "answered": 4,
+            "correct_answers": 4,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": 1.0,
+            "false_alarm_rate": 0.0
+          },
+          "B2": {
+            "n": 4,
+            "answered": 3,
+            "correct_answers": 1,
+            "wrong_answers": 2,
+            "clarified": 1,
+            "handed_off": 0,
+            "coverage": 0.75,
+            "selective_risk": 0.6667,
+            "silent_error_rate": 0.5,
+            "execution_accuracy": 0.25,
+            "reliability_score_c1": -0.25,
+            "reliability_score_c4": -1.75,
+            "reliability_score_c9": -4.25,
+            "catch_rate": 0.0,
+            "false_alarm_rate": 0.5
+          },
+          "B3": {
+            "n": 4,
+            "answered": 0,
+            "correct_answers": 0,
+            "wrong_answers": 0,
+            "clarified": 1,
+            "handed_off": 3,
+            "coverage": 0.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 0.0,
+            "reliability_score_c1": 0.0,
+            "reliability_score_c4": 0.0,
+            "reliability_score_c9": 0.0,
+            "catch_rate": 1.0,
+            "false_alarm_rate": 1.0
+          }
+        },
+        "period": {
+          "B0": {
+            "n": 1,
+            "answered": 1,
+            "correct_answers": 1,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0
+          },
+          "B1": {
+            "n": 1,
+            "answered": 1,
+            "correct_answers": 1,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": null,
+            "false_alarm_rate": 0.0
+          },
+          "B2": {
+            "n": 1,
+            "answered": 1,
+            "correct_answers": 1,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": null,
+            "false_alarm_rate": 0.0
+          },
+          "B3": {
+            "n": 1,
+            "answered": 0,
+            "correct_answers": 0,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 1,
+            "coverage": 0.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 0.0,
+            "reliability_score_c1": 0.0,
+            "reliability_score_c4": 0.0,
+            "reliability_score_c9": 0.0,
+            "catch_rate": null,
+            "false_alarm_rate": 1.0
+          }
+        }
+      },
+      "by_language": {
+        "en": {
+          "B0": {
+            "n": 9,
+            "answered": 9,
+            "correct_answers": 5,
+            "wrong_answers": 4,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.4444,
+            "silent_error_rate": 0.4444,
+            "execution_accuracy": 0.7143,
+            "reliability_score_c1": 0.1111,
+            "reliability_score_c4": -1.2222,
+            "reliability_score_c9": -3.4444
+          },
+          "B1": {
+            "n": 9,
+            "answered": 7,
+            "correct_answers": 7,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 2,
+            "coverage": 0.7778,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": 1.0,
+            "false_alarm_rate": 0.0
+          },
+          "B2": {
+            "n": 9,
+            "answered": 7,
+            "correct_answers": 4,
+            "wrong_answers": 3,
+            "clarified": 2,
+            "handed_off": 0,
+            "coverage": 0.7778,
+            "selective_risk": 0.4286,
+            "silent_error_rate": 0.3333,
+            "execution_accuracy": 0.5714,
+            "reliability_score_c1": 0.2222,
+            "reliability_score_c4": -0.7778,
+            "reliability_score_c9": -2.4444,
+            "catch_rate": 0.25,
+            "false_alarm_rate": 0.2
+          },
+          "B3": {
+            "n": 9,
+            "answered": 2,
+            "correct_answers": 2,
+            "wrong_answers": 0,
+            "clarified": 1,
+            "handed_off": 6,
+            "coverage": 0.2222,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 0.2857,
+            "reliability_score_c1": 0.4444,
+            "reliability_score_c4": 0.4444,
+            "reliability_score_c9": 0.4444,
+            "catch_rate": 1.0,
+            "false_alarm_rate": 0.6
+          }
+        },
+        "ms": {
+          "B0": {
+            "n": 2,
+            "answered": 2,
+            "correct_answers": 0,
+            "wrong_answers": 2,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 1.0,
+            "silent_error_rate": 1.0,
+            "execution_accuracy": null,
+            "reliability_score_c1": -1.0,
+            "reliability_score_c4": -4.0,
+            "reliability_score_c9": -9.0
+          },
+          "B1": {
+            "n": 2,
+            "answered": 1,
+            "correct_answers": 0,
+            "wrong_answers": 1,
+            "clarified": 0,
+            "handed_off": 1,
+            "coverage": 0.5,
+            "selective_risk": 1.0,
+            "silent_error_rate": 0.5,
+            "execution_accuracy": null,
+            "reliability_score_c1": 0.0,
+            "reliability_score_c4": -1.5,
+            "reliability_score_c9": -4.0,
+            "catch_rate": 0.5,
+            "false_alarm_rate": null
+          },
+          "B2": {
+            "n": 2,
+            "answered": 2,
+            "correct_answers": 0,
+            "wrong_answers": 2,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 1.0,
+            "silent_error_rate": 1.0,
+            "execution_accuracy": null,
+            "reliability_score_c1": -1.0,
+            "reliability_score_c4": -4.0,
+            "reliability_score_c9": -9.0,
+            "catch_rate": 0.0,
+            "false_alarm_rate": null
+          },
+          "B3": {
+            "n": 2,
+            "answered": 0,
+            "correct_answers": 0,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 2,
+            "coverage": 0.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": null,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": 1.0,
+            "false_alarm_rate": null
+          }
+        }
+      },
+      "by_author": {
+        "team": {
+          "B0": {
+            "n": 11,
+            "answered": 11,
+            "correct_answers": 5,
+            "wrong_answers": 6,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.5455,
+            "silent_error_rate": 0.5455,
+            "execution_accuracy": 0.7143,
+            "reliability_score_c1": -0.0909,
+            "reliability_score_c4": -1.7273,
+            "reliability_score_c9": -4.4545
+          },
+          "B1": {
+            "n": 11,
+            "answered": 8,
+            "correct_answers": 7,
+            "wrong_answers": 1,
+            "clarified": 0,
+            "handed_off": 3,
+            "coverage": 0.7273,
+            "selective_risk": 0.125,
+            "silent_error_rate": 0.0909,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 0.8182,
+            "reliability_score_c4": 0.5455,
+            "reliability_score_c9": 0.0909,
+            "catch_rate": 0.8333,
+            "false_alarm_rate": 0.0
+          },
+          "B2": {
+            "n": 11,
+            "answered": 9,
+            "correct_answers": 4,
+            "wrong_answers": 5,
+            "clarified": 2,
+            "handed_off": 0,
+            "coverage": 0.8182,
+            "selective_risk": 0.5556,
+            "silent_error_rate": 0.4545,
+            "execution_accuracy": 0.5714,
+            "reliability_score_c1": 0.0,
+            "reliability_score_c4": -1.3636,
+            "reliability_score_c9": -3.6364,
+            "catch_rate": 0.1667,
+            "false_alarm_rate": 0.2
+          },
+          "B3": {
+            "n": 11,
+            "answered": 2,
+            "correct_answers": 2,
+            "wrong_answers": 0,
+            "clarified": 1,
+            "handed_off": 8,
+            "coverage": 0.1818,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 0.2857,
+            "reliability_score_c1": 0.5455,
+            "reliability_score_c4": 0.5455,
+            "reliability_score_c9": 0.5455,
+            "catch_rate": 1.0,
+            "false_alarm_rate": 0.6
+          }
+        }
+      },
+      "risk_coverage_B3": {
+        "curve": [
+          {
+            "coverage": 0.1429,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.2857,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.4286,
+            "risk": 0.0,
+            "threshold": 0.7503
+          },
+          {
+            "coverage": 0.5714,
+            "risk": 0.0,
+            "threshold": 0.7503
+          },
+          {
+            "coverage": 0.7143,
+            "risk": 0.0,
+            "threshold": 0.7503
+          },
+          {
+            "coverage": 0.8571,
+            "risk": 0.0,
+            "threshold": 0.7503
+          },
+          {
+            "coverage": 1.0,
+            "risk": 0.0,
+            "threshold": 0.475
+          }
+        ],
+        "aurc": 0.0
+      },
+      "calibration_B3": {
+        "ece": 0.2517,
+        "reliability_diagram": [
+          {
+            "bin": 4,
+            "n": 1,
+            "confidence": 0.475,
+            "accuracy": 1.0
+          },
+          {
+            "bin": 7,
+            "n": 4,
+            "confidence": 0.7503,
+            "accuracy": 1.0
+          },
+          {
+            "bin": 8,
+            "n": 2,
+            "confidence": 0.8808,
+            "accuracy": 1.0
+          }
+        ]
+      }
+    },
+    "all": {
+      "n": 22,
+      "configs": {
+        "B0": {
+          "n": 22,
+          "answered": 22,
+          "correct_answers": 12,
+          "wrong_answers": 10,
+          "clarified": 0,
+          "handed_off": 0,
+          "coverage": 1.0,
+          "selective_risk": 0.4545,
+          "silent_error_rate": 0.4545,
+          "execution_accuracy": 0.75,
+          "reliability_score_c1": 0.0909,
+          "reliability_score_c4": -1.2727,
+          "reliability_score_c9": -3.5455
+        },
+        "B1": {
+          "n": 22,
+          "answered": 19,
+          "correct_answers": 16,
+          "wrong_answers": 3,
+          "clarified": 0,
+          "handed_off": 3,
+          "coverage": 0.8636,
+          "selective_risk": 0.1579,
+          "silent_error_rate": 0.1364,
+          "execution_accuracy": 1.0,
+          "reliability_score_c1": 0.7273,
+          "reliability_score_c4": 0.3182,
+          "reliability_score_c9": -0.3636,
+          "catch_rate": 0.7,
+          "false_alarm_rate": 0.0
+        },
+        "B2": {
+          "n": 22,
+          "answered": 20,
+          "correct_answers": 11,
+          "wrong_answers": 9,
+          "clarified": 2,
+          "handed_off": 0,
+          "coverage": 0.9091,
+          "selective_risk": 0.45,
+          "silent_error_rate": 0.4091,
+          "execution_accuracy": 0.6875,
+          "reliability_score_c1": 0.1364,
+          "reliability_score_c4": -1.0909,
+          "reliability_score_c9": -3.1364,
+          "catch_rate": 0.1,
+          "false_alarm_rate": 0.0833
+        },
+        "B3": {
+          "n": 22,
+          "answered": 9,
+          "correct_answers": 9,
+          "wrong_answers": 0,
+          "clarified": 2,
+          "handed_off": 11,
+          "coverage": 0.4091,
+          "selective_risk": 0.0,
+          "silent_error_rate": 0.0,
+          "execution_accuracy": 0.5625,
+          "reliability_score_c1": 0.6818,
+          "reliability_score_c4": 0.6818,
+          "reliability_score_c9": 0.6818,
+          "catch_rate": 1.0,
+          "false_alarm_rate": 0.25
+        },
+        "B3_c1": {
+          "n": 22,
+          "answered": 17,
+          "correct_answers": 17,
+          "wrong_answers": 0,
+          "clarified": 2,
+          "handed_off": 3,
+          "coverage": 0.7727,
+          "selective_risk": 0.0,
+          "silent_error_rate": 0.0,
+          "execution_accuracy": 0.9375,
+          "reliability_score_c1": 0.9545,
+          "reliability_score_c4": 0.9545,
+          "reliability_score_c9": 0.9545,
+          "catch_rate": 1.0,
+          "false_alarm_rate": 0.0833
+        },
+        "B3_c4": {
+          "n": 22,
+          "answered": 9,
+          "correct_answers": 9,
+          "wrong_answers": 0,
+          "clarified": 2,
+          "handed_off": 11,
+          "coverage": 0.4091,
+          "selective_risk": 0.0,
+          "silent_error_rate": 0.0,
+          "execution_accuracy": 0.5625,
+          "reliability_score_c1": 0.6818,
+          "reliability_score_c4": 0.6818,
+          "reliability_score_c9": 0.6818,
+          "catch_rate": 1.0,
+          "false_alarm_rate": 0.25
+        },
+        "B3_c9": {
+          "n": 22,
+          "answered": 0,
+          "correct_answers": 0,
+          "wrong_answers": 0,
+          "clarified": 2,
+          "handed_off": 20,
+          "coverage": 0.0,
+          "selective_risk": 0.0,
+          "silent_error_rate": 0.0,
+          "execution_accuracy": 0.0,
+          "reliability_score_c1": 0.2727,
+          "reliability_score_c4": 0.2727,
+          "reliability_score_c9": 0.2727,
+          "catch_rate": 1.0,
+          "false_alarm_rate": 1.0
+        }
+      },
+      "by_trap": {
+        "definition": {
+          "B0": {
+            "n": 3,
+            "answered": 3,
+            "correct_answers": 0,
+            "wrong_answers": 3,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 1.0,
+            "silent_error_rate": 1.0,
+            "execution_accuracy": null,
+            "reliability_score_c1": -1.0,
+            "reliability_score_c4": -4.0,
+            "reliability_score_c9": -9.0
+          },
+          "B1": {
+            "n": 3,
+            "answered": 3,
+            "correct_answers": 0,
+            "wrong_answers": 3,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 1.0,
+            "silent_error_rate": 1.0,
+            "execution_accuracy": null,
+            "reliability_score_c1": -1.0,
+            "reliability_score_c4": -4.0,
+            "reliability_score_c9": -9.0,
+            "catch_rate": 0.0,
+            "false_alarm_rate": null
+          },
+          "B2": {
+            "n": 3,
+            "answered": 3,
+            "correct_answers": 0,
+            "wrong_answers": 3,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 1.0,
+            "silent_error_rate": 1.0,
+            "execution_accuracy": null,
+            "reliability_score_c1": -1.0,
+            "reliability_score_c4": -4.0,
+            "reliability_score_c9": -9.0,
+            "catch_rate": 0.0,
+            "false_alarm_rate": null
+          },
+          "B3": {
+            "n": 3,
+            "answered": 0,
+            "correct_answers": 0,
+            "wrong_answers": 0,
+            "clarified": 1,
+            "handed_off": 2,
+            "coverage": 0.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": null,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": 1.0,
+            "false_alarm_rate": null
+          }
+        },
+        "fanout": {
+          "B0": {
+            "n": 2,
+            "answered": 2,
+            "correct_answers": 2,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0
+          },
+          "B1": {
+            "n": 2,
+            "answered": 2,
+            "correct_answers": 2,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": null,
+            "false_alarm_rate": 0.0
+          },
+          "B2": {
+            "n": 2,
+            "answered": 2,
+            "correct_answers": 2,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": null,
+            "false_alarm_rate": 0.0
+          },
+          "B3": {
+            "n": 2,
+            "answered": 2,
+            "correct_answers": 2,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": null,
+            "false_alarm_rate": 0.0
+          }
+        },
+        "infeasible": {
+          "B0": {
+            "n": 3,
+            "answered": 3,
+            "correct_answers": 0,
+            "wrong_answers": 3,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 1.0,
+            "silent_error_rate": 1.0,
+            "execution_accuracy": null,
+            "reliability_score_c1": -1.0,
+            "reliability_score_c4": -4.0,
+            "reliability_score_c9": -9.0
+          },
+          "B1": {
+            "n": 3,
+            "answered": 0,
+            "correct_answers": 0,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 3,
+            "coverage": 0.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": null,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": 1.0,
+            "false_alarm_rate": null
+          },
+          "B2": {
+            "n": 3,
+            "answered": 2,
+            "correct_answers": 0,
+            "wrong_answers": 2,
+            "clarified": 1,
+            "handed_off": 0,
+            "coverage": 0.6667,
+            "selective_risk": 1.0,
+            "silent_error_rate": 0.6667,
+            "execution_accuracy": null,
+            "reliability_score_c1": -0.3333,
+            "reliability_score_c4": -2.3333,
+            "reliability_score_c9": -5.6667,
+            "catch_rate": 0.3333,
+            "false_alarm_rate": null
+          },
+          "B3": {
+            "n": 3,
+            "answered": 0,
+            "correct_answers": 0,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 3,
+            "coverage": 0.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": null,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": 1.0,
+            "false_alarm_rate": null
+          }
+        },
+        "none": {
+          "B0": {
+            "n": 12,
+            "answered": 12,
+            "correct_answers": 8,
+            "wrong_answers": 4,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.3333,
+            "silent_error_rate": 0.3333,
+            "execution_accuracy": 0.6667,
+            "reliability_score_c1": 0.3333,
+            "reliability_score_c4": -0.6667,
+            "reliability_score_c9": -2.3333
+          },
+          "B1": {
+            "n": 12,
+            "answered": 12,
+            "correct_answers": 12,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": 1.0,
+            "false_alarm_rate": 0.0
+          },
+          "B2": {
+            "n": 12,
+            "answered": 11,
+            "correct_answers": 7,
+            "wrong_answers": 4,
+            "clarified": 1,
+            "handed_off": 0,
+            "coverage": 0.9167,
+            "selective_risk": 0.3636,
+            "silent_error_rate": 0.3333,
+            "execution_accuracy": 0.5833,
+            "reliability_score_c1": 0.25,
+            "reliability_score_c4": -0.75,
+            "reliability_score_c9": -2.4167,
+            "catch_rate": 0.0,
+            "false_alarm_rate": 0.125
+          },
+          "B3": {
+            "n": 12,
+            "answered": 6,
+            "correct_answers": 6,
+            "wrong_answers": 0,
+            "clarified": 1,
+            "handed_off": 5,
+            "coverage": 0.5,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 0.5,
+            "reliability_score_c1": 0.5,
+            "reliability_score_c4": 0.5,
+            "reliability_score_c9": 0.5,
+            "catch_rate": 1.0,
+            "false_alarm_rate": 0.25
+          }
+        },
+        "period": {
+          "B0": {
+            "n": 2,
+            "answered": 2,
+            "correct_answers": 2,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0
+          },
+          "B1": {
+            "n": 2,
+            "answered": 2,
+            "correct_answers": 2,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": null,
+            "false_alarm_rate": 0.0
+          },
+          "B2": {
+            "n": 2,
+            "answered": 2,
+            "correct_answers": 2,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": null,
+            "false_alarm_rate": 0.0
+          },
+          "B3": {
+            "n": 2,
+            "answered": 1,
+            "correct_answers": 1,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 1,
+            "coverage": 0.5,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 0.5,
+            "reliability_score_c1": 0.5,
+            "reliability_score_c4": 0.5,
+            "reliability_score_c9": 0.5,
+            "catch_rate": null,
+            "false_alarm_rate": 0.5
+          }
+        }
+      },
+      "by_language": {
+        "en": {
+          "B0": {
+            "n": 19,
+            "answered": 19,
+            "correct_answers": 12,
+            "wrong_answers": 7,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.3684,
+            "silent_error_rate": 0.3684,
+            "execution_accuracy": 0.8,
+            "reliability_score_c1": 0.2632,
+            "reliability_score_c4": -0.8421,
+            "reliability_score_c9": -2.6842
+          },
+          "B1": {
+            "n": 19,
+            "answered": 17,
+            "correct_answers": 15,
+            "wrong_answers": 2,
+            "clarified": 0,
+            "handed_off": 2,
+            "coverage": 0.8947,
+            "selective_risk": 0.1176,
+            "silent_error_rate": 0.1053,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 0.7895,
+            "reliability_score_c4": 0.4737,
+            "reliability_score_c9": -0.0526,
+            "catch_rate": 0.7143,
+            "false_alarm_rate": 0.0
+          },
+          "B2": {
+            "n": 19,
+            "answered": 17,
+            "correct_answers": 11,
+            "wrong_answers": 6,
+            "clarified": 2,
+            "handed_off": 0,
+            "coverage": 0.8947,
+            "selective_risk": 0.3529,
+            "silent_error_rate": 0.3158,
+            "execution_accuracy": 0.7333,
+            "reliability_score_c1": 0.3158,
+            "reliability_score_c4": -0.6316,
+            "reliability_score_c9": -2.2105,
+            "catch_rate": 0.1429,
+            "false_alarm_rate": 0.0833
+          },
+          "B3": {
+            "n": 19,
+            "answered": 9,
+            "correct_answers": 9,
+            "wrong_answers": 0,
+            "clarified": 2,
+            "handed_off": 8,
+            "coverage": 0.4737,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 0.6,
+            "reliability_score_c1": 0.6842,
+            "reliability_score_c4": 0.6842,
+            "reliability_score_c9": 0.6842,
+            "catch_rate": 1.0,
+            "false_alarm_rate": 0.25
+          }
+        },
+        "ms": {
+          "B0": {
+            "n": 3,
+            "answered": 3,
+            "correct_answers": 0,
+            "wrong_answers": 3,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 1.0,
+            "silent_error_rate": 1.0,
+            "execution_accuracy": 0.0,
+            "reliability_score_c1": -1.0,
+            "reliability_score_c4": -4.0,
+            "reliability_score_c9": -9.0
+          },
+          "B1": {
+            "n": 3,
+            "answered": 2,
+            "correct_answers": 1,
+            "wrong_answers": 1,
+            "clarified": 0,
+            "handed_off": 1,
+            "coverage": 0.6667,
+            "selective_risk": 0.5,
+            "silent_error_rate": 0.3333,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 0.3333,
+            "reliability_score_c4": -0.6667,
+            "reliability_score_c9": -2.3333,
+            "catch_rate": 0.6667,
+            "false_alarm_rate": null
+          },
+          "B2": {
+            "n": 3,
+            "answered": 3,
+            "correct_answers": 0,
+            "wrong_answers": 3,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 1.0,
+            "silent_error_rate": 1.0,
+            "execution_accuracy": 0.0,
+            "reliability_score_c1": -1.0,
+            "reliability_score_c4": -4.0,
+            "reliability_score_c9": -9.0,
+            "catch_rate": 0.0,
+            "false_alarm_rate": null
+          },
+          "B3": {
+            "n": 3,
+            "answered": 0,
+            "correct_answers": 0,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 3,
+            "coverage": 0.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 0.0,
+            "reliability_score_c1": 0.6667,
+            "reliability_score_c4": 0.6667,
+            "reliability_score_c9": 0.6667,
+            "catch_rate": 1.0,
+            "false_alarm_rate": null
+          }
+        }
+      },
+      "by_author": {
+        "team": {
+          "B0": {
+            "n": 22,
+            "answered": 22,
+            "correct_answers": 12,
+            "wrong_answers": 10,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.4545,
+            "silent_error_rate": 0.4545,
+            "execution_accuracy": 0.75,
+            "reliability_score_c1": 0.0909,
+            "reliability_score_c4": -1.2727,
+            "reliability_score_c9": -3.5455
+          },
+          "B1": {
+            "n": 22,
+            "answered": 19,
+            "correct_answers": 16,
+            "wrong_answers": 3,
+            "clarified": 0,
+            "handed_off": 3,
+            "coverage": 0.8636,
+            "selective_risk": 0.1579,
+            "silent_error_rate": 0.1364,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 0.7273,
+            "reliability_score_c4": 0.3182,
+            "reliability_score_c9": -0.3636,
+            "catch_rate": 0.7,
+            "false_alarm_rate": 0.0
+          },
+          "B2": {
+            "n": 22,
+            "answered": 20,
+            "correct_answers": 11,
+            "wrong_answers": 9,
+            "clarified": 2,
+            "handed_off": 0,
+            "coverage": 0.9091,
+            "selective_risk": 0.45,
+            "silent_error_rate": 0.4091,
+            "execution_accuracy": 0.6875,
+            "reliability_score_c1": 0.1364,
+            "reliability_score_c4": -1.0909,
+            "reliability_score_c9": -3.1364,
+            "catch_rate": 0.1,
+            "false_alarm_rate": 0.0833
+          },
+          "B3": {
+            "n": 22,
+            "answered": 9,
+            "correct_answers": 9,
+            "wrong_answers": 0,
+            "clarified": 2,
+            "handed_off": 11,
+            "coverage": 0.4091,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 0.5625,
+            "reliability_score_c1": 0.6818,
+            "reliability_score_c4": 0.6818,
+            "reliability_score_c9": 0.6818,
+            "catch_rate": 1.0,
+            "false_alarm_rate": 0.25
+          }
+        }
+      },
+      "risk_coverage_B3": {
+        "curve": [
+          {
+            "coverage": 0.0625,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.125,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.1875,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.25,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.3125,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.375,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.4375,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.5,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.5625,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.625,
+            "risk": 0.0,
+            "threshold": 0.7503
+          },
+          {
+            "coverage": 0.6875,
+            "risk": 0.0,
+            "threshold": 0.7503
+          },
+          {
+            "coverage": 0.75,
+            "risk": 0.0,
+            "threshold": 0.7503
+          },
+          {
+            "coverage": 0.8125,
+            "risk": 0.0,
+            "threshold": 0.7503
+          },
+          {
+            "coverage": 0.875,
+            "risk": 0.0,
+            "threshold": 0.7503
+          },
+          {
+            "coverage": 0.9375,
+            "risk": 0.0,
+            "threshold": 0.7503
+          },
+          {
+            "coverage": 1.0,
+            "risk": 0.0,
+            "threshold": 0.475
+          }
+        ],
+        "aurc": 0.0
+      },
+      "calibration_B3": {
+        "ece": 0.1935,
+        "reliability_diagram": [
+          {
+            "bin": 4,
+            "n": 1,
+            "confidence": 0.475,
+            "accuracy": 1.0
+          },
+          {
+            "bin": 7,
+            "n": 6,
+            "confidence": 0.7503,
+            "accuracy": 1.0
+          },
+          {
+            "bin": 8,
+            "n": 9,
+            "confidence": 0.8808,
+            "accuracy": 1.0
+          }
+        ]
+      }
+    }
+  },
+  "items": [
+    {
+      "dataset": "distributor",
+      "id": "dist-01",
+      "question": "How many debtors do we have?",
+      "expected": "answer",
+      "trap": "none",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "fit",
+      "cost_usd": 0.0,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS DebtorCount\nFROM Debtor;",
+        "preview": "74"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS DebtorCount\nFROM Debtor;",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT COUNT(*) AS DebtorCount\nFROM Debtor;"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS DebtorCount\nFROM Debtor;",
+        "preview": "74",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "distributor",
+      "id": "dist-02",
+      "question": "Which sales agent is no longer active?",
+      "expected": "answer",
+      "trap": "none",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "fit",
+      "cost_usd": 0.0,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT SalesAgent, Description\nFROM SalesAgent\nWHERE IsActive = 'F';",
+        "preview": "JASON, Jason Lim"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT SalesAgent, Description\nFROM SalesAgent\nWHERE IsActive = 'F';",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT SalesAgent, Description\nFROM SalesAgent\nWHERE IsActive = 'F';"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT SalesAgent, Description\nFROM SalesAgent\nWHERE IsActive = 'F';",
+        "preview": "JASON, Jason Lim",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "distributor",
+      "id": "dist-03",
+      "question": "How many invoices that were not cancelled were issued in August 2026?",
+      "expected": "answer",
+      "trap": "none",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "fit",
+      "cost_usd": 0.0,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS InvoiceCount\nFROM IV\nWHERE Cancelled = 'F'\n  AND DocDate >= '2026-08-01'\n  AND DocDate < '2026-09-01';",
+        "preview": "29"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS InvoiceCount\nFROM IV\nWHERE Cancelled = 'F'\n  AND DocDate >= '2026-08-01'\n  AND DocDate < '2026-09-01';",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT COUNT(*) AS InvoiceCount\nFROM IV\nWHERE Cancelled = 'F'\n  AND DocDate >= '2026-08-01'\n  AND DocDate < '2026-09-01';"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS InvoiceCount\nFROM IV\nWHERE Cancelled = 'F'\n  AND DocDate >= '2026-08-01'\n  AND DocDate < '2026-09-01';",
+        "preview": "29",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "distributor",
+      "id": "dist-04",
+      "question": "What is the total invoiced amount, including SST, of non-cancelled invoices in 2025?",
+      "expected": "answer",
+      "trap": "none",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.0,
+      "calls": 4,
+      "B0": {
+        "outcome": "answer",
+        "correct": false,
+        "sql": "SELECT SUM(IV.TotalIncTax) AS TotalInvoicedIncSST\nFROM IV\nWHERE (IV.Cancelled IS NULL OR UPPER(IV.Cancelled) NOT IN ('Y', 'YES', 'TRUE', '1'))\n  AND IV.DocDate >= '2025-01-01'\n  AND IV.DocDate < '2026-01-01';",
+        "preview": "2,378,880.23"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT SUM(TotalIncTax) AS TotalInvoicedIncTax\nFROM IV\nWHERE DocDate >= '2025-01-01'\n  AND DocDate < '2026-01-01'\n  AND (Cancelled IS NULL OR Cancelled <> 'T');",
+        "repaired": true,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": false,
+        "agreement": 1.0,
+        "sql": "SELECT SUM(IV.TotalIncTax) AS TotalInvoicedIncSST\nFROM IV\nWHERE (IV.Cancelled IS NULL OR UPPER(IV.Cancelled) NOT IN ('Y', 'YES', 'TRUE', '1'))\n  AND IV.DocDate >= '2025-01-01'\n  AND IV.DocDate < '2026-01-01';"
+      },
+      "B3": {
+        "outcome": "handoff",
+        "correct": false,
+        "sql": "SELECT SUM(TotalIncTax) AS TotalInvoicedIncTax\nFROM IV\nWHERE DocDate >= '2025-01-01'\n  AND DocDate < '2026-01-01'\n  AND (Cancelled IS NULL OR Cancelled <> 'T');",
+        "preview": "2,304,063.79",
+        "p": 0.7503,
+        "features": {
+          "agreement": 0.0,
+          "single_candidate": 1.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 1.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "handoff",
+        "correct": false
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "distributor",
+      "id": "dist-05",
+      "question": "How many invoices were rejected by LHDN e-invoicing?",
+      "expected": "answer",
+      "trap": "none",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "fit",
+      "cost_usd": 0.0,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS RejectedInvoiceCount\nFROM IV\nWHERE EInvoiceStatus = 'Rejected';",
+        "preview": "6"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS RejectedInvoiceCount\nFROM IV\nWHERE EInvoiceStatus = 'Rejected';",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT COUNT(*) AS RejectedInvoiceCount\nFROM IV\nWHERE EInvoiceStatus = 'Rejected';"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS RejectedInvoiceCount\nFROM IV\nWHERE EInvoiceStatus = 'Rejected';",
+        "preview": "6",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "distributor",
+      "id": "dist-06",
+      "question": "What is the total value of credit notes issued in 2026?",
+      "expected": "answer",
+      "trap": "none",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "fit",
+      "cost_usd": 0.0,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(TotalIncTax), 0) AS TotalCreditNotes2026\nFROM CN\nWHERE strftime('%Y', DocDate) = '2026'\n  AND COALESCE(Cancelled, 'F') <> 'T';",
+        "preview": "28,596.39"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(TotalIncTax), 0) AS TotalCreditNotes2026\nFROM CN\nWHERE strftime('%Y', DocDate) = '2026'\n  AND COALESCE(Cancelled, 'F') <> 'T';",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT COALESCE(SUM(TotalIncTax), 0) AS TotalCreditNotes2026\nFROM CN\nWHERE strftime('%Y', DocDate) = '2026'\n  AND COALESCE(Cancelled, 'F') <> 'T';"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(TotalIncTax), 0) AS TotalCreditNotes2026\nFROM CN\nWHERE strftime('%Y', DocDate) = '2026'\n  AND COALESCE(Cancelled, 'F') <> 'T';",
+        "preview": "28,596.39",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "distributor",
+      "id": "dist-07",
+      "question": "What were total non-cancelled sales, excluding SST, to customers in Johor?",
+      "expected": "answer",
+      "trap": "none",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "fit",
+      "cost_usd": 0.0,
+      "calls": 4,
+      "B0": {
+        "outcome": "answer",
+        "correct": false,
+        "sql": "SELECT SUM(iv.TotalExTax) AS TotalNonCancelledSalesExTax\nFROM IV iv\nJOIN Debtor d ON iv.DebtorCode = d.AccNo\nJOIN Area a ON d.AreaCode = a.AreaCode\nWHERE a.Description = 'Johor'\n  AND (iv.Cancelled IS NULL OR iv.Cancelled <> 'Cancelled');",
+        "preview": "673,316.12"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT SUM(IV.TotalExTax) AS TotalNonCancelledSalesExSST\nFROM IV\nJOIN Debtor ON IV.DebtorCode = Debtor.AccNo\nJOIN Area ON Debtor.AreaCode = Area.AreaCode\nWHERE Area.Description = 'Johor'\n  AND IV.Cancelled = 'F';",
+        "repaired": true,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": false,
+        "agreement": 1.0,
+        "sql": "SELECT SUM(iv.TotalExTax) AS TotalNonCancelledSalesExTax\nFROM IV iv\nJOIN Debtor d ON iv.DebtorCode = d.AccNo\nJOIN Area a ON d.AreaCode = a.AreaCode\nWHERE a.Description = 'Johor'\n  AND (iv.Cancelled IS NULL OR iv.Cancelled <> 'Cancelled');"
+      },
+      "B3": {
+        "outcome": "handoff",
+        "correct": false,
+        "sql": "SELECT SUM(IV.TotalExTax) AS TotalNonCancelledSalesExSST\nFROM IV\nJOIN Debtor ON IV.DebtorCode = Debtor.AccNo\nJOIN Area ON Debtor.AreaCode = Area.AreaCode\nWHERE Area.Description = 'Johor'\n  AND IV.Cancelled = 'F';",
+        "preview": "627,354.45",
+        "p": 0.7503,
+        "features": {
+          "agreement": 0.0,
+          "single_candidate": 1.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 1.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "handoff",
+        "correct": false
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "distributor",
+      "id": "dist-08",
+      "question": "What is the total invoiced amount, including SST, of non-cancelled invoices that include rice?",
+      "expected": "answer",
+      "trap": "fanout",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.0,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT SUM(iv.TotalIncTax) AS TotalInvoicedIncSST\nFROM IV AS iv\nWHERE iv.Cancelled = 'F'\n  AND iv.DocKey IN (\n    SELECT d.DocKey\n    FROM IVDTL AS d\n    JOIN Item AS i ON i.ItemCode = d.ItemCode\n    JOIN ItemGroup AS g ON g.ItemGroup = i.ItemGroup\n    WHERE g.Description = 'Rice'\n  );",
+        "preview": "2,302,366.20"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT SUM(iv.TotalIncTax) AS TotalInvoicedIncSST\nFROM IV AS iv\nWHERE iv.Cancelled = 'F'\n  AND iv.DocKey IN (\n    SELECT d.DocKey\n    FROM IVDTL AS d\n    JOIN Item AS i ON i.ItemCode = d.ItemCode\n    JOIN ItemGroup AS g ON g.ItemGroup = i.ItemGroup\n    WHERE g.Description = 'Rice'\n  );",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT SUM(iv.TotalIncTax) AS TotalInvoicedIncSST\nFROM IV AS iv\nWHERE iv.Cancelled = 'F'\n  AND iv.DocKey IN (\n    SELECT d.DocKey\n    FROM IVDTL AS d\n    JOIN Item AS i ON i.ItemCode = d.ItemCode\n    JOIN ItemGroup AS g ON g.ItemGroup = i.ItemGroup\n    WHERE g.Description = 'Rice'\n  );"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT SUM(iv.TotalIncTax) AS TotalInvoicedIncSST\nFROM IV AS iv\nWHERE iv.Cancelled = 'F'\n  AND iv.DocKey IN (\n    SELECT d.DocKey\n    FROM IVDTL AS d\n    JOIN Item AS i ON i.ItemCode = d.ItemCode\n    JOIN ItemGroup AS g ON g.ItemGroup = i.ItemGroup\n    WHERE g.Description = 'Rice'\n  );",
+        "preview": "2,302,366.20",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "distributor",
+      "id": "dist-09",
+      "question": "What is the total invoiced amount, including SST, of non-cancelled invoices that include beverages, for customers in the Klang Valley?",
+      "expected": "answer",
+      "trap": "fanout",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.0,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "WITH BeverageInvoices AS (\n    SELECT DISTINCT IV.DocKey, IV.TotalIncTax\n    FROM IV\n    JOIN Debtor ON Debtor.AccNo = IV.DebtorCode\n    JOIN Area ON Area.AreaCode = Debtor.AreaCode\n    JOIN IVDTL ON IVDTL.DocKey = IV.DocKey\n    JOIN Item ON Item.ItemCode = IVDTL.ItemCode\n    JOIN ItemGroup ON ItemGroup.ItemGroup = Item.ItemGroup\n    WHERE IV.Cancelled = 'F'\n      AND Area.Description = 'Klang Valley'\n      AND ItemGroup.Description = 'Beverages'\n)\nSELECT SUM(TotalIncTax) AS TotalInvoicedIncSST\nFROM BeverageInvoices;",
+        "preview": "408,140.62"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "WITH BeverageInvoices AS (\n    SELECT DISTINCT IV.DocKey, IV.TotalIncTax\n    FROM IV\n    JOIN Debtor ON Debtor.AccNo = IV.DebtorCode\n    JOIN Area ON Area.AreaCode = Debtor.AreaCode\n    JOIN IVDTL ON IVDTL.DocKey = IV.DocKey\n    JOIN Item ON Item.ItemCode = IVDTL.ItemCode\n    JOIN ItemGroup ON ItemGroup.ItemGroup = Item.ItemGroup\n    WHERE IV.Cancelled = 'F'\n      AND Area.Description = 'Klang Valley'\n      AND ItemGroup.Description = 'Beverages'\n)\nSELECT SUM(TotalIncTax) AS TotalInvoicedIncSST\nFROM BeverageInvoices;",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "WITH BeverageInvoices AS (\n    SELECT DISTINCT IV.DocKey, IV.TotalIncTax\n    FROM IV\n    JOIN Debtor ON Debtor.AccNo = IV.DebtorCode\n    JOIN Area ON Area.AreaCode = Debtor.AreaCode\n    JOIN IVDTL ON IVDTL.DocKey = IV.DocKey\n    JOIN Item ON Item.ItemCode = IVDTL.ItemCode\n    JOIN ItemGroup ON ItemGroup.ItemGroup = Item.ItemGroup\n    WHERE IV.Cancelled = 'F'\n      AND Area.Description = 'Klang Valley'\n      AND ItemGroup.Description = 'Beverages'\n)\nSELECT SUM(TotalIncTax) AS TotalInvoicedIncSST\nFROM BeverageInvoices;"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "WITH BeverageInvoices AS (\n    SELECT DISTINCT IV.DocKey, IV.TotalIncTax\n    FROM IV\n    JOIN Debtor ON Debtor.AccNo = IV.DebtorCode\n    JOIN Area ON Area.AreaCode = Debtor.AreaCode\n    JOIN IVDTL ON IVDTL.DocKey = IV.DocKey\n    JOIN Item ON Item.ItemCode = IVDTL.ItemCode\n    JOIN ItemGroup ON ItemGroup.ItemGroup = Item.ItemGroup\n    WHERE IV.Cancelled = 'F'\n      AND Area.Description = 'Klang Valley'\n      AND ItemGroup.Description = 'Beverages'\n)\nSELECT SUM(TotalIncTax) AS TotalInvoicedIncSST\nFROM BeverageInvoices;",
+        "preview": "408,140.62",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "distributor",
+      "id": "dist-10",
+      "question": "What were our total sales in 2025?",
+      "expected": "clarify",
+      "trap": "definition",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "fit",
+      "cost_usd": 0.0,
+      "calls": 4,
+      "B0": {
+        "outcome": "answer",
+        "correct": false,
+        "sql": "SELECT SUM(iv.TotalIncTax) AS TotalSales2025\nFROM IV AS iv\nWHERE iv.DocDate >= '2025-01-01'\n  AND iv.DocDate <= '2025-12-31'\n  AND (iv.Cancelled IS NULL OR iv.Cancelled = '');",
+        "preview": "NULL"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": false,
+        "sql": "SELECT SUM(IV.TotalExTax) AS TotalSales2025\nFROM IV\nWHERE IV.Cancelled = 'F'\n  AND IV.DocDate >= '2025-01-01'\n  AND IV.DocDate <= '2025-12-31';",
+        "repaired": true,
+        "findings": [
+          "Assumes which records count as \"sales\""
+        ]
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": false,
+        "agreement": 0.667,
+        "sql": "SELECT SUM(TotalIncTax) AS TotalSales2025\nFROM IV\nWHERE DocDate >= '2025-01-01'\n  AND DocDate < '2026-01-01'\n  AND COALESCE(Cancelled, '') <> 'Y';"
+      },
+      "B3": {
+        "outcome": "clarify",
+        "correct": false,
+        "sql": "SELECT SUM(IV.TotalExTax) AS TotalSales2025\nFROM IV\nWHERE IV.Cancelled = 'F'\n  AND IV.DocDate >= '2025-01-01'\n  AND IV.DocDate <= '2025-12-31';",
+        "preview": "2,264,251.51",
+        "p": 0.2315,
+        "features": {
+          "agreement": 0.5,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 1.0,
+          "warnings": 1.0,
+          "repairs": 1.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 2,
+        "findings": [
+          {
+            "check": "definition",
+            "severity": "warning",
+            "title": "Assumes which records count as \"sales\""
+          },
+          {
+            "check": "consensus",
+            "severity": "ambiguity",
+            "title": "The question can be read in different ways"
+          }
+        ],
+        "selected_correct": false,
+        "reading_match": true,
+        "warning": true
+      },
+      "B3_c1": {
+        "outcome": "clarify",
+        "correct": false
+      },
+      "B3_c4": {
+        "outcome": "clarify",
+        "correct": false
+      },
+      "B3_c9": {
+        "outcome": "clarify",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "distributor",
+      "id": "dist-11",
+      "question": "Berapa jumlah jualan kita pada tahun 2026?",
+      "expected": "clarify",
+      "trap": "definition",
+      "language": "ms",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.0,
+      "calls": 4,
+      "B0": {
+        "outcome": "answer",
+        "correct": false,
+        "sql": "SELECT SUM(IV.TotalIncTax) AS TotalSales2026\nFROM IV\nWHERE IV.Cancelled = 'N'\n  AND strftime('%Y', IV.DocDate) = '2026';",
+        "preview": "NULL"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": false,
+        "sql": "SELECT SUM(IV.TotalIncTax) AS TotalSales\nFROM IV\nWHERE IV.Cancelled = 'F'\n  AND IV.DocDate LIKE '2026%';",
+        "repaired": true,
+        "findings": [
+          "Assumes which records count as \"jualan\""
+        ]
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": false,
+        "agreement": 0.667,
+        "sql": "SELECT SUM(IV.TotalIncTax) AS TotalSales2026\nFROM IV\nWHERE IV.Cancelled = 'N'\n  AND strftime('%Y', IV.DocDate) = '2026';"
+      },
+      "B3": {
+        "outcome": "handoff",
+        "correct": false,
+        "sql": "SELECT SUM(IV.TotalIncTax) AS TotalSales\nFROM IV\nWHERE IV.Cancelled = 'F'\n  AND IV.DocDate LIKE '2026%';",
+        "preview": "1,389,515.97",
+        "p": 0.6457,
+        "features": {
+          "agreement": 0.0,
+          "single_candidate": 1.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 1.0,
+          "repairs": 1.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [
+          {
+            "check": "definition",
+            "severity": "warning",
+            "title": "Assumes which records count as \"jualan\""
+          }
+        ],
+        "selected_correct": false,
+        "reading_match": true,
+        "warning": true
+      },
+      "B3_c1": {
+        "outcome": "caveat",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "handoff",
+        "correct": false
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "distributor",
+      "id": "dist-12",
+      "question": "Which sales agent had the highest sales in 2025, and how much?",
+      "expected": "clarify",
+      "trap": "definition",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "fit",
+      "cost_usd": 0.0,
+      "calls": 4,
+      "B0": {
+        "outcome": "answer",
+        "correct": false,
+        "sql": "SELECT sa.SalesAgent, sa.Description, SUM(iv.TotalIncTax) AS TotalSales\nFROM IV iv\nJOIN SalesAgent sa ON sa.SalesAgent = iv.SalesAgent\nWHERE iv.DocDate >= '2025-01-01' AND iv.DocDate <= '2025-12-31'\n  AND (iv.Cancelled IS NULL OR iv.Cancelled = '')\nGROUP BY sa.SalesAgent, sa.Description\nORDER BY TotalSales DESC\nLIMIT 1;",
+        "preview": "no rows"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": false,
+        "sql": "SELECT\n  iv.SalesAgent,\n  sa.Description AS SalesAgentDescription,\n  SUM(iv.TotalIncTax) AS TotalSales\nFROM IV iv\nLEFT JOIN SalesAgent sa\n  ON iv.SalesAgent = sa.SalesAgent\nWHERE iv.Cancelled = 'F'\n  AND iv.DocDate >= '2025-01-01'\n  AND iv.DocDate < '2026-01-01'\nGROUP BY iv.SalesAgent, sa.Description\nORDER BY TotalSales DESC\nLIMIT 1;",
+        "repaired": true,
+        "findings": [
+          "Assumes which records count as \"sales\""
+        ]
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": false,
+        "agreement": 0.667,
+        "sql": "SELECT sa.SalesAgent, sa.Description, SUM(iv.TotalIncTax) AS TotalSales\nFROM IV iv\nJOIN SalesAgent sa ON sa.SalesAgent = iv.SalesAgent\nWHERE iv.DocDate >= '2025-01-01' AND iv.DocDate <= '2025-12-31'\n  AND (iv.Cancelled IS NULL OR iv.Cancelled = '')\nGROUP BY sa.SalesAgent, sa.Description\nORDER BY TotalSales DESC\nLIMIT 1;"
+      },
+      "B3": {
+        "outcome": "handoff",
+        "correct": false,
+        "sql": "SELECT\n  iv.SalesAgent,\n  sa.Description AS SalesAgentDescription,\n  SUM(iv.TotalIncTax) AS TotalSales\nFROM IV iv\nLEFT JOIN SalesAgent sa\n  ON iv.SalesAgent = sa.SalesAgent\nWHERE iv.Cancelled = 'F'\n  AND iv.DocDate >= '2025-01-01'\n  AND iv.DocDate < '2026-01-01'\nGROUP BY iv.SalesAgent, sa.Description\nORDER BY TotalSales DESC\nLIMIT 1;",
+        "preview": "RAVI, Ravi Chandran, 784,575.58",
+        "p": 0.6457,
+        "features": {
+          "agreement": 0.0,
+          "single_candidate": 1.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 1.0,
+          "repairs": 1.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [
+          {
+            "check": "definition",
+            "severity": "warning",
+            "title": "Assumes which records count as \"sales\""
+          }
+        ],
+        "selected_correct": false,
+        "reading_match": true,
+        "warning": true
+      },
+      "B3_c1": {
+        "outcome": "caveat",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "handoff",
+        "correct": false
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "distributor",
+      "id": "dist-13",
+      "question": "What were total non-cancelled sales, excluding SST, last month?",
+      "expected": "answer",
+      "trap": "period",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.0,
+      "calls": 4,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(IV.TotalExTax), 0) AS TotalSalesExTaxLastMonth\nFROM IV\nWHERE (IV.Cancelled IS NULL OR IV.Cancelled NOT IN ('Y', 'Yes', 'True', '1'))\n  AND date(IV.DocDate) >= date('now', 'start of month', '-1 month')\n  AND date(IV.DocDate) < date('now', 'start of month');",
+        "preview": "133,003.79"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(TotalExTax), 0) AS TotalNonCancelledSalesExSST\nFROM IV\nWHERE Cancelled = 'F'\n  AND DocDate >= date('now', 'start of month', '-1 month')\n  AND DocDate < date('now', 'start of month');",
+        "repaired": true,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 0.667,
+        "sql": "SELECT COALESCE(SUM(IV.TotalExTax), 0) AS TotalSalesExTaxLastMonth\nFROM IV\nWHERE (IV.Cancelled IS NULL OR IV.Cancelled NOT IN ('Y', 'Yes', 'True', '1'))\n  AND date(IV.DocDate) >= date('now', 'start of month', '-1 month')\n  AND date(IV.DocDate) < date('now', 'start of month');"
+      },
+      "B3": {
+        "outcome": "handoff",
+        "correct": false,
+        "sql": "SELECT COALESCE(SUM(TotalExTax), 0) AS TotalNonCancelledSalesExSST\nFROM IV\nWHERE Cancelled = 'F'\n  AND DocDate >= date('now', 'start of month', '-1 month')\n  AND DocDate < date('now', 'start of month');",
+        "preview": "133,003.79",
+        "p": 0.7503,
+        "features": {
+          "agreement": 0.0,
+          "single_candidate": 1.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 1.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "handoff",
+        "correct": false
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "distributor",
+      "id": "dist-14",
+      "question": "How many invoices were issued in the last 30 days of data?",
+      "expected": "answer",
+      "trap": "period",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "fit",
+      "cost_usd": 0.0,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS InvoiceCount\nFROM IV\nWHERE DocDate >= (\n    SELECT DATE(MAX(DocDate), '-30 days')\n    FROM IV\n);",
+        "preview": "33"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS InvoiceCount\nFROM IV\nWHERE DocDate >= (\n    SELECT DATE(MAX(DocDate), '-30 days')\n    FROM IV\n);",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT COUNT(*) AS InvoiceCount\nFROM IV\nWHERE DocDate >= (\n    SELECT DATE(MAX(DocDate), '-30 days')\n    FROM IV\n);"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS InvoiceCount\nFROM IV\nWHERE DocDate >= (\n    SELECT DATE(MAX(DocDate), '-30 days')\n    FROM IV\n);",
+        "preview": "33",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "distributor",
+      "id": "dist-15",
+      "question": "How many non-cancelled invoices are still unpaid?",
+      "expected": "answer",
+      "trap": "none",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "fit",
+      "cost_usd": 0.0,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS UnpaidInvoiceCount\nFROM IV\nWHERE IV.Cancelled = 'F'\n  AND IV.TotalIncTax > COALESCE(\n        (SELECT SUM(k.Amount)\n         FROM ARPaymentKnockOff k\n         JOIN ARPayment p ON p.DocKey = k.PaymentDocKey\n         WHERE k.InvoiceDocKey = IV.DocKey\n           AND p.Cancelled = 'F'),\n        0\n      );",
+        "preview": "109"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS UnpaidInvoiceCount\nFROM IV\nWHERE IV.Cancelled = 'F'\n  AND IV.TotalIncTax > COALESCE(\n        (SELECT SUM(k.Amount)\n         FROM ARPaymentKnockOff k\n         JOIN ARPayment p ON p.DocKey = k.PaymentDocKey\n         WHERE k.InvoiceDocKey = IV.DocKey\n           AND p.Cancelled = 'F'),\n        0\n      );",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT COUNT(*) AS UnpaidInvoiceCount\nFROM IV\nWHERE IV.Cancelled = 'F'\n  AND IV.TotalIncTax > COALESCE(\n        (SELECT SUM(k.Amount)\n         FROM ARPaymentKnockOff k\n         JOIN ARPayment p ON p.DocKey = k.PaymentDocKey\n         WHERE k.InvoiceDocKey = IV.DocKey\n           AND p.Cancelled = 'F'),\n        0\n      );"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS UnpaidInvoiceCount\nFROM IV\nWHERE IV.Cancelled = 'F'\n  AND IV.TotalIncTax > COALESCE(\n        (SELECT SUM(k.Amount)\n         FROM ARPaymentKnockOff k\n         JOIN ARPayment p ON p.DocKey = k.PaymentDocKey\n         WHERE k.InvoiceDocKey = IV.DocKey\n           AND p.Cancelled = 'F'),\n        0\n      );",
+        "preview": "109",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "distributor",
+      "id": "dist-16",
+      "question": "Which customer owes us the most on unpaid, non-cancelled invoices?",
+      "expected": "answer",
+      "trap": "none",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.0,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "WITH paid AS (\n    SELECT k.InvoiceDocKey,\n           SUM(k.Amount) AS PaidAmt\n    FROM ARPaymentKnockOff k\n    JOIN ARPayment p\n      ON p.DocKey = k.PaymentDocKey\n     AND p.Cancelled = 'F'\n    GROUP BY k.InvoiceDocKey\n),\ncredited AS (\n    SELECT c.InvoiceDocKey,\n           SUM(c.TotalIncTax) AS CreditedAmt\n    FROM CN c\n    WHERE c.Cancelled = 'F'\n    GROUP BY c.InvoiceDocKey\n),\ninv AS (\n    SELECT i.DocKey,\n           i.DebtorCode,\n           i.TotalIncTax,\n           COALESCE(p.PaidAmt, 0) AS PaidAmt,\n           COALESCE(c.CreditedAmt, 0) AS CreditedAmt,\n           i.TotalIncTax - COALESCE(p.PaidAmt, 0) - COALESCE(c.CreditedAmt, 0) AS Outstanding\n    FROM IV i\n    LEFT JOIN paid p\n      ON p.InvoiceDocKey = i.DocKey\n    LEFT JOIN credited c\n      ON c.InvoiceDocKey = i.DocKey\n    WHERE i.Cancelled = 'F'\n)\nSELECT d.CompanyName,\n       i.DebtorCode,\n       SUM(i.Outstanding) AS TotalOutstanding\nFROM inv i\nJOIN Debtor d\n  ON d.AccNo = i.DebtorCode\nWHERE i.Outstanding > 0\nGROUP BY i.DebtorCode, d.CompanyName\nORDER BY TotalOutstanding DESC\nLIMIT 1;",
+        "preview": "Kedai Runcit Cahaya Sdn Bhd, 300-S074, 144,203.38"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "WITH paid AS (\n    SELECT k.InvoiceDocKey,\n           SUM(k.Amount) AS PaidAmt\n    FROM ARPaymentKnockOff k\n    JOIN ARPayment p\n      ON p.DocKey = k.PaymentDocKey\n     AND p.Cancelled = 'F'\n    GROUP BY k.InvoiceDocKey\n),\ncredited AS (\n    SELECT c.InvoiceDocKey,\n           SUM(c.TotalIncTax) AS CreditedAmt\n    FROM CN c\n    WHERE c.Cancelled = 'F'\n    GROUP BY c.InvoiceDocKey\n),\ninv AS (\n    SELECT i.DocKey,\n           i.DebtorCode,\n           i.TotalIncTax,\n           COALESCE(p.PaidAmt, 0) AS PaidAmt,\n           COALESCE(c.CreditedAmt, 0) AS CreditedAmt,\n           i.TotalIncTax - COALESCE(p.PaidAmt, 0) - COALESCE(c.CreditedAmt, 0) AS Outstanding\n    FROM IV i\n    LEFT JOIN paid p\n      ON p.InvoiceDocKey = i.DocKey\n    LEFT JOIN credited c\n      ON c.InvoiceDocKey = i.DocKey\n    WHERE i.Cancelled = 'F'\n)\nSELECT d.CompanyName,\n       i.DebtorCode,\n       SUM(i.Outstanding) AS TotalOutstanding\nFROM inv i\nJOIN Debtor d\n  ON d.AccNo = i.DebtorCode\nWHERE i.Outstanding > 0\nGROUP BY i.DebtorCode, d.CompanyName\nORDER BY TotalOutstanding DESC\nLIMIT 1;",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "clarify",
+        "correct": false,
+        "agreement": 0.5
+      },
+      "B3": {
+        "outcome": "clarify",
+        "correct": false,
+        "sql": "WITH paid AS (\n    SELECT k.InvoiceDocKey,\n           SUM(k.Amount) AS PaidAmt\n    FROM ARPaymentKnockOff k\n    JOIN ARPayment p\n      ON p.DocKey = k.PaymentDocKey\n     AND p.Cancelled = 'F'\n    GROUP BY k.InvoiceDocKey\n),\ncredited AS (\n    SELECT c.InvoiceDocKey,\n           SUM(c.TotalIncTax) AS CreditedAmt\n    FROM CN c\n    WHERE c.Cancelled = 'F'\n    GROUP BY c.InvoiceDocKey\n),\ninv AS (\n    SELECT i.DocKey,\n           i.DebtorCode,\n           i.TotalIncTax,\n           COALESCE(p.PaidAmt, 0) AS PaidAmt,\n           COALESCE(c.CreditedAmt, 0) AS CreditedAmt,\n           i.TotalIncTax - COALESCE(p.PaidAmt, 0) - COALESCE(c.CreditedAmt, 0) AS Outstanding\n    FROM IV i\n    LEFT JOIN paid p\n      ON p.InvoiceDocKey = i.DocKey\n    LEFT JOIN credited c\n      ON c.InvoiceDocKey = i.DocKey\n    WHERE i.Cancelled = 'F'\n)\nSELECT d.CompanyName,\n       i.DebtorCode,\n       SUM(i.Outstanding) AS TotalOutstanding\nFROM inv i\nJOIN Debtor d\n  ON d.AccNo = i.DebtorCode\nWHERE i.Outstanding > 0\nGROUP BY i.DebtorCode, d.CompanyName\nORDER BY TotalOutstanding DESC\nLIMIT 1;",
+        "preview": "Kedai Runcit Cahaya Sdn Bhd, 300-S074, 144,203.38",
+        "p": 0.475,
+        "features": {
+          "agreement": 0.5,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 1.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 2,
+        "findings": [
+          {
+            "check": "consensus",
+            "severity": "ambiguity",
+            "title": "The question can be read in different ways"
+          }
+        ],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "clarify",
+        "correct": false
+      },
+      "B3_c4": {
+        "outcome": "clarify",
+        "correct": false
+      },
+      "B3_c9": {
+        "outcome": "clarify",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "distributor",
+      "id": "dist-17",
+      "question": "How many customers have unpaid invoices overdue by more than 90 days, as of the latest invoice date?",
+      "expected": "answer",
+      "trap": "none",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.0,
+      "calls": 4,
+      "B0": {
+        "outcome": "answer",
+        "correct": false,
+        "sql": "WITH latest AS (\n    SELECT MAX(iv.DocDate) AS RefDate\n    FROM IV iv\n    WHERE COALESCE(iv.Cancelled, '') <> 'Y'\n),\npaid AS (\n    SELECT k.InvoiceDocKey, SUM(k.Amount) AS PaidAmt\n    FROM ARPaymentKnockOff k\n    JOIN ARPayment p ON p.DocKey = k.PaymentDocKey\n    WHERE COALESCE(p.Cancelled, '') <> 'Y'\n    GROUP BY k.InvoiceDocKey\n)\nSELECT COUNT(DISTINCT iv.DebtorCode) AS OverdueCustomerCount\nFROM IV iv\nCROSS JOIN latest\nLEFT JOIN paid ON paid.InvoiceDocKey = iv.DocKey\nWHERE COALESCE(iv.Cancelled, '') <> 'Y'\n  AND iv.DueDate IS NOT NULL\n  AND julianday(latest.RefDate) - julianday(iv.DueDate) > 90\n  AND iv.TotalIncTax > COALESCE(paid.PaidAmt, 0);",
+        "preview": "34"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "WITH latest_invoice AS (\n  SELECT MAX(DocDate) AS latest_date\n  FROM IV\n  WHERE Cancelled = 'F'\n),\ninvoice_payments AS (\n  SELECT k.InvoiceDocKey, SUM(k.Amount) AS amount_paid\n  FROM ARPaymentKnockOff k\n  JOIN ARPayment p ON p.DocKey = k.PaymentDocKey\n  WHERE p.Cancelled = 'F'\n  GROUP BY k.InvoiceDocKey\n),\ninvoice_credits AS (\n  SELECT c.InvoiceDocKey, SUM(c.TotalIncTax) AS amount_credited\n  FROM CN c\n  WHERE c.Cancelled = 'F'\n  GROUP BY c.InvoiceDocKey\n),\nunpaid_overdue AS (\n  SELECT iv.DebtorCode\n  FROM IV iv\n  CROSS JOIN latest_invoice li\n  LEFT JOIN invoice_payments ip ON ip.InvoiceDocKey = iv.DocKey\n  LEFT JOIN invoice_credits ic ON ic.InvoiceDocKey = iv.DocKey\n  WHERE iv.Cancelled = 'F'\n    AND iv.DueDate IS NOT NULL\n    AND (julianday(li.latest_date) - julianday(iv.DueDate)) > 90\n    AND (iv.TotalIncTax - COALESCE(ip.amount_paid, 0) - COALESCE(ic.amount_credited, 0)) > 0.005\n)\nSELECT COUNT(DISTINCT DebtorCode) AS customer_count\nFROM unpaid_overdue;",
+        "repaired": true,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": false,
+        "agreement": 1.0,
+        "sql": "WITH latest AS (\n    SELECT MAX(iv.DocDate) AS RefDate\n    FROM IV iv\n    WHERE COALESCE(iv.Cancelled, '') <> 'Y'\n),\npaid AS (\n    SELECT k.InvoiceDocKey, SUM(k.Amount) AS PaidAmt\n    FROM ARPaymentKnockOff k\n    JOIN ARPayment p ON p.DocKey = k.PaymentDocKey\n    WHERE COALESCE(p.Cancelled, '') <> 'Y'\n    GROUP BY k.InvoiceDocKey\n)\nSELECT COUNT(DISTINCT iv.DebtorCode) AS OverdueCustomerCount\nFROM IV iv\nCROSS JOIN latest\nLEFT JOIN paid ON paid.InvoiceDocKey = iv.DocKey\nWHERE COALESCE(iv.Cancelled, '') <> 'Y'\n  AND iv.DueDate IS NOT NULL\n  AND julianday(latest.RefDate) - julianday(iv.DueDate) > 90\n  AND iv.TotalIncTax > COALESCE(paid.PaidAmt, 0);"
+      },
+      "B3": {
+        "outcome": "handoff",
+        "correct": false,
+        "sql": "WITH latest_invoice AS (\n  SELECT MAX(DocDate) AS latest_date\n  FROM IV\n  WHERE Cancelled = 'F'\n),\ninvoice_payments AS (\n  SELECT k.InvoiceDocKey, SUM(k.Amount) AS amount_paid\n  FROM ARPaymentKnockOff k\n  JOIN ARPayment p ON p.DocKey = k.PaymentDocKey\n  WHERE p.Cancelled = 'F'\n  GROUP BY k.InvoiceDocKey\n),\ninvoice_credits AS (\n  SELECT c.InvoiceDocKey, SUM(c.TotalIncTax) AS amount_credited\n  FROM CN c\n  WHERE c.Cancelled = 'F'\n  GROUP BY c.InvoiceDocKey\n),\nunpaid_overdue AS (\n  SELECT iv.DebtorCode\n  FROM IV iv\n  CROSS JOIN latest_invoice li\n  LEFT JOIN invoice_payments ip ON ip.InvoiceDocKey = iv.DocKey\n  LEFT JOIN invoice_credits ic ON ic.InvoiceDocKey = iv.DocKey\n  WHERE iv.Cancelled = 'F'\n    AND iv.DueDate IS NOT NULL\n    AND (julianday(li.latest_date) - julianday(iv.DueDate)) > 90\n    AND (iv.TotalIncTax - COALESCE(ip.amount_paid, 0) - COALESCE(ic.amount_credited, 0)) > 0.005\n)\nSELECT COUNT(DISTINCT DebtorCode) AS customer_count\nFROM unpaid_overdue;",
+        "preview": "29",
+        "p": 0.7503,
+        "features": {
+          "agreement": 0.0,
+          "single_candidate": 1.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 1.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "handoff",
+        "correct": false
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "distributor",
+      "id": "dist-18",
+      "question": "How many customers bought from us in 2026?",
+      "expected": "answer",
+      "trap": "none",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.0,
+      "calls": 4,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COUNT(DISTINCT DebtorCode) AS CustomerCount\nFROM IV\nWHERE DocDate LIKE '2026%'\n  AND (Cancelled IS NULL OR UPPER(Cancelled) <> 'Y');",
+        "preview": "65"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COUNT(DISTINCT IV.DebtorCode) AS CustomerCount\nFROM IV\nWHERE IV.DebtorCode IS NOT NULL\n  AND strftime('%Y', IV.DocDate) = '2026'\n  AND (IV.Cancelled IS NULL OR IV.Cancelled <> 'T');",
+        "repaired": true,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 0.667,
+        "sql": "SELECT COUNT(DISTINCT DebtorCode) AS CustomerCount\nFROM IV\nWHERE DocDate LIKE '2026%'\n  AND (Cancelled IS NULL OR UPPER(Cancelled) <> 'Y');"
+      },
+      "B3": {
+        "outcome": "handoff",
+        "correct": false,
+        "sql": "SELECT COUNT(DISTINCT IV.DebtorCode) AS CustomerCount\nFROM IV\nWHERE IV.DebtorCode IS NOT NULL\n  AND strftime('%Y', IV.DocDate) = '2026'\n  AND (IV.Cancelled IS NULL OR IV.Cancelled <> 'T');",
+        "preview": "65",
+        "p": 0.7503,
+        "features": {
+          "agreement": 0.0,
+          "single_candidate": 1.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 1.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "handoff",
+        "correct": false
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "distributor",
+      "id": "dist-19",
+      "question": "Berapa ramai pelanggan yang membeli daripada kita pada tahun 2026?",
+      "expected": "answer",
+      "trap": "none",
+      "language": "ms",
+      "author": "team",
+      "difficulty": "",
+      "split": "fit",
+      "cost_usd": 0.0,
+      "calls": 4,
+      "B0": {
+        "outcome": "answer",
+        "correct": false,
+        "sql": "SELECT COUNT(DISTINCT iv.DebtorCode) AS CustomerCount\nFROM IV AS iv\nWHERE iv.DocDate >= '2026-01-01'\n  AND iv.DocDate < '2027-01-01'\n  AND COALESCE(iv.Cancelled, '') = '';",
+        "preview": "0"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COUNT(DISTINCT IV.DebtorCode) AS CustomerCount\nFROM IV\nWHERE IV.Cancelled = 'F'\n  AND IV.DocDate >= '2026-01-01'\n  AND IV.DocDate < '2027-01-01';",
+        "repaired": true,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": false,
+        "agreement": 0.667,
+        "sql": "SELECT COUNT(DISTINCT iv.DebtorCode) AS CustomerCount\nFROM IV AS iv\nWHERE iv.DocDate >= '2026-01-01'\n  AND iv.DocDate < '2027-01-01'\n  AND COALESCE(iv.Cancelled, '') = '';"
+      },
+      "B3": {
+        "outcome": "handoff",
+        "correct": false,
+        "sql": "SELECT COUNT(DISTINCT IV.DebtorCode) AS CustomerCount\nFROM IV\nWHERE IV.Cancelled = 'F'\n  AND IV.DocDate >= '2026-01-01'\n  AND IV.DocDate < '2027-01-01';",
+        "preview": "65",
+        "p": 0.7503,
+        "features": {
+          "agreement": 0.0,
+          "single_candidate": 1.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 1.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "handoff",
+        "correct": false
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "distributor",
+      "id": "dist-20",
+      "question": "Which delivery driver made the most deliveries?",
+      "expected": "handoff",
+      "trap": "infeasible",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.0,
+      "calls": 4,
+      "B0": {
+        "outcome": "answer",
+        "correct": false,
+        "sql": "SELECT NULL AS DeliveryDriver, NULL AS DeliveryCount WHERE 0;",
+        "preview": "no rows"
+      },
+      "B1": {
+        "outcome": "handoff",
+        "correct": false,
+        "sql": "SELECT 'No delivery driver information is available in the database' AS Message;",
+        "repaired": true,
+        "findings": [
+          "The query does not read any data"
+        ]
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": false,
+        "agreement": 1.0,
+        "sql": "SELECT NULL AS DeliveryDriver, NULL AS DeliveryCount WHERE 0;"
+      },
+      "B3": {
+        "outcome": "handoff",
+        "correct": false,
+        "sql": "SELECT 'No delivery driver information is available in the database' AS Message;",
+        "preview": "No delivery driver information is available in the database",
+        "p": 0.0998,
+        "features": {
+          "agreement": 0.667,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 1.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 1.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": true,
+        "options": 0,
+        "findings": [
+          {
+            "check": "coverage",
+            "severity": "blocking",
+            "title": "The query does not read any data"
+          }
+        ],
+        "selected_correct": false,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "handoff",
+        "correct": false
+      },
+      "B3_c4": {
+        "outcome": "handoff",
+        "correct": false
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "distributor",
+      "id": "dist-21",
+      "question": "What is our current stock balance for each item?",
+      "expected": "handoff",
+      "trap": "infeasible",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.0,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": false,
+        "sql": "-- NOTE: The verified schema (Item, ItemGroup, IV, IVDTL, SalesAgent) has no\n-- on-hand/stock column, so a true stock balance cannot be computed.\n-- The only per-item quantity available is quantity invoiced (net of cancelled\n-- invoices), shown here as the closest available proxy.\nSELECT\n    i.ItemCode,\n    i.Description,\n    i.ItemGroup,\n    i.UOM,\n    COALESCE(ROUND(SUM(d.Qty), 2), 0) AS InvoicedQty\nFROM Item i\nLEFT JOIN IVDTL d\n    ON d.ItemCode = i.ItemCode\nLEFT JOIN IV v\n    ON v.DocKey = d.DocKey\nWHERE v.Cancelled IS NULL OR v.Cancelled <> 'T'\nGROUP BY i.ItemCode, i.Description, i.ItemGroup, i.UOM\nORDER BY i.ItemCode\nLIMIT 200;",
+        "preview": "BC-1KG, Belacan 1kg, SOS, PKT, 9,959.00; BR-05P, Beras Putih Tempatan 5kg, BERAS, BAG, 8,525.00; BR-10B, Beras Basmathi 10kg, BERAS, BAG, 11,706.00 (+19 more rows)"
+      },
+      "B1": {
+        "outcome": "handoff",
+        "correct": false,
+        "sql": "-- NOTE: The verified schema (Item, ItemGroup, IV, IVDTL, SalesAgent) has no\n-- on-hand/stock column, so a true stock balance cannot be computed.\n-- The only per-item quantity available is quantity invoiced (net of cancelled\n-- invoices), shown here as the closest available proxy.\nSELECT\n    i.ItemCode,\n    i.Description,\n    i.ItemGroup,\n    i.UOM,\n    COALESCE(ROUND(SUM(d.Qty), 2), 0) AS InvoicedQty\nFROM Item i\nLEFT JOIN IVDTL d\n    ON d.ItemCode = i.ItemCode\nLEFT JOIN IV v\n    ON v.DocKey = d.DocKey\nWHERE v.Cancelled IS NULL OR v.Cancelled <> 'T'\nGROUP BY i.ItemCode, i.Description, i.ItemGroup, i.UOM\nORDER BY i.ItemCode\nLIMIT 200;",
+        "repaired": false,
+        "findings": [
+          "The query says it could not answer the question as asked"
+        ]
+      },
+      "B2": {
+        "outcome": "clarify",
+        "correct": false,
+        "agreement": 0.333
+      },
+      "B3": {
+        "outcome": "handoff",
+        "correct": false,
+        "sql": "-- NOTE: The verified schema (Item, ItemGroup, IV, IVDTL, SalesAgent) has no\n-- on-hand/stock column, so a true stock balance cannot be computed.\n-- The only per-item quantity available is quantity invoiced (net of cancelled\n-- invoices), shown here as the closest available proxy.\nSELECT\n    i.ItemCode,\n    i.Description,\n    i.ItemGroup,\n    i.UOM,\n    COALESCE(ROUND(SUM(d.Qty), 2), 0) AS InvoicedQty\nFROM Item i\nLEFT JOIN IVDTL d\n    ON d.ItemCode = i.ItemCode\nLEFT JOIN IV v\n    ON v.DocKey = d.DocKey\nWHERE v.Cancelled IS NULL OR v.Cancelled <> 'T'\nGROUP BY i.ItemCode, i.Description, i.ItemGroup, i.UOM\nORDER BY i.ItemCode\nLIMIT 200;",
+        "preview": "BC-1KG, Belacan 1kg, SOS, PKT, 9,959.00; BR-05P, Beras Putih Tempatan 5kg, BERAS, BAG, 8,525.00; BR-10B, Beras Basmathi 10kg, BERAS, BAG, 11,706.00 (+19 more rows)",
+        "p": 0.0997,
+        "features": {
+          "agreement": 0.333,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 1.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": true,
+        "options": 0,
+        "findings": [
+          {
+            "check": "coverage",
+            "severity": "blocking",
+            "title": "The query says it could not answer the question as asked"
+          }
+        ],
+        "selected_correct": false,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "handoff",
+        "correct": false
+      },
+      "B3_c4": {
+        "outcome": "handoff",
+        "correct": false
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "distributor",
+      "id": "dist-22",
+      "question": "Berapakah skor kepuasan pelanggan kita?",
+      "expected": "handoff",
+      "trap": "infeasible",
+      "language": "ms",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.0,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": false,
+        "sql": "SELECT 'Tiada data skor kepuasan pelanggan dalam pangkalan data' AS Nota,\n       'Jadual tersedia: Debtor, IV, ARPayment, CN' AS JadualTersedia;",
+        "preview": "Tiada data skor kepuasan pelanggan dalam pangkalan data, Jadual tersedia: Debtor, IV, ARPayment, CN"
+      },
+      "B1": {
+        "outcome": "handoff",
+        "correct": false,
+        "sql": "SELECT 'Tiada data skor kepuasan pelanggan dalam pangkalan data' AS Nota,\n       'Jadual tersedia: Debtor, IV, ARPayment, CN' AS JadualTersedia;",
+        "repaired": false,
+        "findings": [
+          "The query does not read any data"
+        ]
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": false,
+        "agreement": 0.667,
+        "sql": "SELECT NULL AS CustomerSatisfactionScore;"
+      },
+      "B3": {
+        "outcome": "handoff",
+        "correct": false,
+        "sql": "SELECT 'Tiada data skor kepuasan pelanggan dalam pangkalan data' AS Nota,\n       'Jadual tersedia: Debtor, IV, ARPayment, CN' AS JadualTersedia;",
+        "preview": "Tiada data skor kepuasan pelanggan dalam pangkalan data, Jadual tersedia: Debtor, IV, ARPayment, CN",
+        "p": 0.1681,
+        "features": {
+          "agreement": 0.667,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 1.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": true,
+        "options": 0,
+        "findings": [
+          {
+            "check": "coverage",
+            "severity": "blocking",
+            "title": "The query does not read any data"
+          }
+        ],
+        "selected_correct": false,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "handoff",
+        "correct": false
+      },
+      "B3_c4": {
+        "outcome": "handoff",
+        "correct": false
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    }
+  ]
+}

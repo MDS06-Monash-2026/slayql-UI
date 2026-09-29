@@ -17,9 +17,12 @@ QUERY_ALIASES = {
     "sales": ["sale", "order", "orders", "transaction", "revenue", "amount", "total", "price"],
     "sale": ["sales", "order", "transaction", "revenue", "amount", "total", "price"],
     "profit": ["margin", "revenue", "cost", "price"],
-    "customer": ["client", "account", "buyer"],
+    "customer": ["client", "account", "buyer", "debtor"],
     "employee": ["staff", "worker", "representative"],
     "order": ["sale", "purchase", "transaction"],
+    # Accounting systems such as AutoCount call customers debtors and suppliers creditors.
+    "supplier": ["vendor", "creditor"],
+    "invoice": ["iv", "bill", "doc"],
     "month": ["date", "time", "year"],
     "trend": ["date", "time", "month", "year"],
     "location": ["address", "city", "region", "territory"],
@@ -28,7 +31,7 @@ QUERY_ALIASES = {
 
 # Bahasa Malaysia business vocabulary, so Malay questions reach the English schema.
 MALAY_TERMS = {
-    "pelanggan": ["customer", "customers", "client"],
+    "pelanggan": ["customer", "customers", "client", "debtor"],
     "pesanan": ["order", "orders"],
     "tempahan": ["order", "orders"],
     "jualan": ["sales", "sale", "order", "orders", "revenue", "amount", "total"],
@@ -247,6 +250,23 @@ def rank_schema(catalog: CatalogSchema, question: str, table_limit: int = 5) -> 
         {"table": table, "score": round(score, 4)}
         for table, score in sorted(table_scores.items(), key=lambda item: (-item[1], item[0]))[:table_limit]
     ]
+    # A value the question names ("beverages") beats a value that matched only through its
+    # column's name (a flag 'T' in a column called Cancelled), so real filters survive the cap.
+    asked = {token[:-1] if token.endswith("s") and len(token) > 3 else token for token in query_tokens(question)}
+    def names_value(item: Dict[str, Any]) -> bool:
+        words = {token[:-1] if token.endswith("s") and len(token) > 3 else token for token in tokenize(item["value"])}
+        return bool(words & asked)
+    # BM25 keeps only its top documents; also scan every sampled value the question names directly.
+    seen_values = {(item["table"], item["column"], str(item["value"])) for item in grounded_values}
+    for document in documents:
+        if document.kind != "value" or document.value is None or not document.column:
+            continue
+        candidate = {"table": document.table, "column": document.column, "value": document.value, "score": 0.0}
+        key = (document.table, document.column, str(document.value))
+        if key not in seen_values and len(str(document.value)) > 2 and names_value(candidate):
+            seen_values.add(key)
+            grounded_values.append(candidate)
+    grounded_values.sort(key=lambda item: not names_value(item))
     return {
         "corpus_size": len(documents),
         "ranked_tables": ranked_tables,

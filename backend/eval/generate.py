@@ -139,7 +139,7 @@ async def generate_item(item: Item, model: str, k: int, with_evidence: bool, bud
 
 async def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--dataset", choices=["trap", "bird"], required=True)
+    parser.add_argument("--dataset", choices=["trap", "bird", "distributor"], required=True)
     parser.add_argument("--limit", type=int)
     parser.add_argument("--k", type=int, default=3, help="candidates per question (primary + k-1 variants)")
     parser.add_argument("--budget", type=float, default=20.0, help="stop once this many USD have been spent in this run")

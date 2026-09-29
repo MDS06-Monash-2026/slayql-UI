@@ -1,17 +1,17 @@
 {
-  "bias": -1.0852,
+  "bias": -1.3203,
   "weights": {
-    "agreement": 1.7755,
-    "single_candidate": 0.9452,
-    "unresolved_blocking": -1.4195,
-    "ambiguity": 0.3429,
-    "warnings": -1.9779,
-    "repairs": 0.643,
-    "empty_result": -0.6758,
+    "agreement": 1.9995,
+    "single_candidate": 1.0832,
+    "unresolved_blocking": -1.3413,
+    "ambiguity": 0.4382,
+    "warnings": -1.5907,
+    "repairs": 0.6722,
+    "empty_result": -0.8224,
     "semantic_invalid": 0.0,
     "approved_definition": 0.0
   },
   "source": "fitted on 267 'bird' fit-split questions",
-  "fitted_at": "2026-09-29T14:33:07.890712+00:00",
-  "commit": "d6fd7b7"
+  "fitted_at": "2026-09-29T15:31:05.991478+00:00",
+  "commit": "8dfba30"
 }

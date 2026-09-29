@@ -33,6 +33,9 @@ async def run_checks(
     findings: List[Finding] = checks.check_sanity(result)
     if tree is None:
         return findings, [], []
+    findings += checks.check_admissions(sql)
+    findings += checks.check_reads_data(tree)
+    findings += checks.check_correlated_subqueries(tree, catalog)
     findings += checks.check_grounding(tree, question, catalog, definitions)
     if not any(f.check == "coverage" for f in findings):
         findings += checks.check_answer_subject(question, catalog, definitions)
