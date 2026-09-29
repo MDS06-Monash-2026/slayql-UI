@@ -229,7 +229,7 @@ function isLikelySqlTurn(text) {
 export default function LiveDemoView({ setView, session, onLogout, onSessionUpdate, theme: propTheme, setTheme: propSetTheme }) {
   // --- Infrastructure & Metadata State ---
   const [models, setModels] = useState([]);
-  const [selectedModelId, setSelectedModelId] = useState('deepseek/deepseek-v4-flash');
+  const [selectedModelId, setSelectedModelId] = useState('deepseek-ai/DeepSeek-V4-Flash-0731');
   const [thinkingEffort, setThinkingEffort] = useState(() => {
     try {
       const stored = localStorage.getItem('slayql_thinking_effort');
@@ -496,7 +496,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
 
 
   const selectedModel = models.find((m) => m.id === selectedModelId) || {
-    name: 'DeepSeek V4 Flash',
+    name: 'DeepSeek V4 Flash (0731)',
     provider: 'DeepSeek',
   };
 

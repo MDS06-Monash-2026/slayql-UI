@@ -398,7 +398,7 @@ A database connection alone is not a maintained connector: the meaning of each t
 - appointing a Data Protection Officer, for organisations that process personal data at scale;
 - for any transfer of personal data outside Malaysia, a destination offering substantially similar protection (usually shown with a transfer impact assessment), or another permitted basis such as consent, contractual necessity or approved contractual clauses.
 
-Malaysian buyers will ask what leaves their server. The honest answer today is that the following go through OpenRouter to the selected model provider, outside Malaysia:
+Malaysian buyers will ask what leaves their server. The honest answer today is that the following go to Together AI, which runs the selected model outside Malaysia:
 
 - the question and the relevant schema;
 - **up to 8 matching database values**, used for grounding (`retrieval.py`, sent at `pipeline.py` line 1324);

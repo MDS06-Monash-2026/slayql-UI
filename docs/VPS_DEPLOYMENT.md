@@ -105,8 +105,8 @@ It should define at least:
 
 ```env
 APP_ENV=production
-OPENROUTER_KEY=<production-key>
-OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+TOGETHER_API_KEY=<production-key>
+LLM_BASE_URL=https://api.together.xyz/v1
 GEMINI_API_KEY=<production-key>
 DATABASE_URL=<supabase-postgresql-uri>
 BACKEND_DATABASE_SCHEMA=slayql

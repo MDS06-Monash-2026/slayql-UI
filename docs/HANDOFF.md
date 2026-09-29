@@ -25,6 +25,16 @@ Every answer in this app passes through a trust layer: deterministic checks, com
 4. **Every published number must come from `backend/eval/results/`** (or the `C-CaSE` run folders, for the engine). The archived docs contain fabricated figures: never quote them.
 5. **AI spending so far is about USD 2 of the USD 20 cap.** Main items: BIRD generated twice (USD 0.70 and 0.68), the evidence run (USD 0.50), earlier work (about USD 0.20), and trap-set and report tests at a few cents.
 
+## 2a. AI provider: Together AI (since 29 September 2026)
+
+- `backend/app/providers/llm_client.py` (formerly `openrouter_client.py`) calls Together's OpenAI-compatible API.
+- Set `TOGETHER_API_KEY` (or `TOGETHER_AI_KEY`) locally and on the VPS; `OPENROUTER_*` settings are gone.
+- Two models are offered, and the user's choice now runs: `deepseek-ai/DeepSeek-V4-Flash-0731` (default; USD 0.14 in and 0.28 out per million tokens) and `moonshotai/Kimi-K3` (USD 3 and 15).
+- Together reports tokens but not cost, so cost is computed in `usage_cost()`. If Together's prices change, update `CURATED_MODELS`.
+- If a deployment rejects the `reasoning` switch, the client retries once without it and remembers that for the model.
+- At the switch, the Together account returned **402 (out of credit)**, so live calls were verified only against a simulated server (`test_together_*` in `backend/tests/test_backend.py`). After adding credit, run `python .pytest_tmp/together_probe.py deepseek-ai/DeepSeek-V4-Flash-0731` and the same for `moonshotai/Kimi-K3`.
+- Every result in `backend/eval/results/` was generated through OpenRouter before the switch.
+
 ## 3. Branch state
 
 `feature/trust-layer`, not pushed, 17 commits ahead of `main`. New since the last handoff:

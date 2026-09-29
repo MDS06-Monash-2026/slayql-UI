@@ -14,8 +14,8 @@ export default function ModelSelector({
   const searchRef = useRef(null);
 
   const activeModel = models.find((m) => m.id === selectedModelId) || models[0] || {
-    id: 'deepseek/deepseek-v4-flash',
-    name: 'DeepSeek V4 Flash',
+    id: 'deepseek-ai/DeepSeek-V4-Flash-0731',
+    name: 'DeepSeek V4 Flash (0731)',
     provider: 'DeepSeek',
     description: 'Server execution model for the current test deployment.',
   };

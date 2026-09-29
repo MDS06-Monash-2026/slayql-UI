@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 
 from backend.app.config import settings
 from backend.app.catalog.discovery import CatalogService
-from backend.app.providers.openrouter_client import openrouter_client, ModelInfo
+from backend.app.providers.llm_client import llm_client, ModelInfo
 from backend.app.agent.effort import DEFAULT_THINKING_EFFORT, ThinkingEffort
 from backend.app.agent.pipeline import SlayQLPipeline, RUN_METADATA_STORE
 from backend.app.queries.validator import SqlValidator
@@ -60,7 +60,7 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     yield
-    await openrouter_client.aclose()
+    await llm_client.aclose()
 
 
 app = FastAPI(
@@ -141,7 +141,7 @@ class LoginRequest(BaseModel):
 
 class CreateRunRequest(BaseModel):
     question: str
-    model_id: Optional[str] = "deepseek/deepseek-v4-flash"
+    model_id: Optional[str] = "deepseek-ai/DeepSeek-V4-Flash-0731"
     connection_id: Optional[str] = None
     conversation_id: Optional[str] = None
     thinking_effort: ThinkingEffort = DEFAULT_THINKING_EFFORT
@@ -295,12 +295,12 @@ def _ensure_workbench_credit(request: Request) -> None:
         raise HTTPException(status_code=402, detail="Not enough credits for this AI operation.")
 
 
-def _openrouter_configured() -> bool:
-    return bool(settings.OPENROUTER_KEY or settings.OPENROUTER_API_KEY)
+def _llm_configured() -> bool:
+    return bool(llm_client.api_key)
 
 
-def _ensure_openrouter_credit(request: Request) -> None:
-    if not _openrouter_configured():
+def _ensure_ai_credit(request: Request) -> None:
+    if not _llm_configured():
         return
     session = _session_from_request(request, required=True)
     profile = account_store.get(session["user"]["id"])
@@ -308,9 +308,9 @@ def _ensure_openrouter_credit(request: Request) -> None:
         raise HTTPException(status_code=402, detail="Not enough credits for this AI operation.")
 
 
-def _consume_openrouter_credit(request: Request, reason: str) -> Optional[int]:
+def _consume_ai_credit(request: Request, reason: str) -> Optional[int]:
     session = _session_from_request(request)
-    if not session or not _openrouter_configured():
+    if not session or not _llm_configured():
         return session.get("user", {}).get("credits") if session else None
     profile = account_store.consume_credit(session["user"]["id"], 1, reason)
     if not profile:
@@ -447,7 +447,7 @@ async def health_check():
     return {
         "status": "healthy",
         "environment": settings.APP_ENV,
-        "active_models_count": len(await openrouter_client.list_models()),
+        "active_models_count": len(await llm_client.list_models()),
         "sqlite_demo_ready": settings.demo_connections_enabled,
         "default_connection_id": default_connection_id(),
         "backend_database": control_database.backend,
@@ -455,7 +455,7 @@ async def health_check():
 
 @app.get("/api/v1/models")
 async def list_models(q: Optional[str] = Query(default=None, max_length=100)) -> List[ModelInfo]:
-    return await openrouter_client.list_models(q)
+    return await llm_client.list_models(q)
 
 # Dynamic Connections Store
 DYNAMIC_CONNECTIONS: Dict[str, Dict[str, Any]] = {}
@@ -1001,7 +1001,7 @@ async def create_trusted_report(connection_id: str, req: TrustedReportRequest, r
     conn = _connection_metadata(connection_id, _owner_id(request))
     if not conn:
         raise HTTPException(status_code=404, detail="Database connection not found.")
-    _ensure_openrouter_credit(request)
+    _ensure_ai_credit(request)
     try:
         ctx = await _report_context(conn, connection_id, request)
     except Exception as exc:
@@ -1013,7 +1013,7 @@ async def create_trusted_report(connection_id: str, req: TrustedReportRequest, r
                 yield json.dumps(event, default=str) + "\n"
                 if event.get("type") == "report":
                     # Charge only for a report that was actually built.
-                    credits = _consume_openrouter_credit(request, "Trusted report generation")
+                    credits = _consume_ai_credit(request, "Trusted report generation")
                     yield json.dumps({"type": "credits", "credits_remaining": credits}) + "\n"
         except HTTPException as exc:
             yield json.dumps({"type": "error", "detail": exc.detail}) + "\n"
@@ -1041,7 +1041,7 @@ async def revise_trusted_report_item(connection_id: str, req: ReportReviseReques
     conn = _connection_metadata(connection_id, _owner_id(request))
     if not conn:
         raise HTTPException(status_code=404, detail="Database connection not found.")
-    _ensure_openrouter_credit(request)
+    _ensure_ai_credit(request)
     ctx = await _report_context(conn, connection_id, request)
     if not ctx.llm:
         raise HTTPException(status_code=503, detail="Changing a figure needs the AI provider, which is not configured.")
@@ -1049,7 +1049,7 @@ async def revise_trusted_report_item(connection_id: str, req: ReportReviseReques
         response = await trusted_report.revise_item(req.report, req.instruction, req.item, req.kind, ctx)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    response["credits_remaining"] = _consume_openrouter_credit(request, "Trusted report figure edit")
+    response["credits_remaining"] = _consume_ai_credit(request, "Trusted report figure edit")
     return response
 
 

@@ -26,7 +26,7 @@ from backend.app.agent.rbp import RBPGraphEngine
 from backend.app.catalog.discovery import CatalogSchema
 from backend.app.config import settings
 from backend.app.knowledge.store import knowledge_store
-from backend.app.providers.openrouter_client import openrouter_client
+from backend.app.providers.llm_client import llm_client
 from backend.app.queries.executor import ExecutionResult
 from backend.app.queries.validator import SqlValidator
 from backend.app.verification import candidate_from_result, verify
@@ -114,7 +114,7 @@ async def make_context(*, connection_id: str, catalog: CatalogSchema, dialect: s
     return ReportContext(
         connection_id=connection_id, catalog=catalog, dialect=dialect, execute=execute, owner_id=owner_id,
         definitions=definitions, model=model,
-        llm=bool(openrouter_client.api_key) and not str(openrouter_client.api_key).startswith("mock_") if llm is None else llm,
+        llm=bool(llm_client.api_key) and not str(llm_client.api_key).startswith("mock_") if llm is None else llm,
     )
 
 
@@ -177,8 +177,8 @@ async def _complete_json(ctx: ReportContext, system: str, payload: Dict[str, Any
     content: List[str] = []
     usage: Dict[str, Any] = {}
     try:
-        async for event in openrouter_client._stream_completion(
-            requested_model_id=settings.OPENROUTER_EXECUTION_MODEL,
+        async for event in llm_client._stream_completion(
+            requested_model_id=settings.EXECUTION_MODEL,
             messages=[{"role": "system", "content": system}, {"role": "user", "content": json.dumps(payload, ensure_ascii=False, default=str)}],
             session_id=None, max_tokens=max_tokens, reasoning_effort="minimal", fallback_text="", use_requested_model=True,
         ):
@@ -633,7 +633,7 @@ def assemble(plan: Dict[str, Any], kpis: List[Dict[str, Any]], panels: List[Dict
         "trust": trust_summary(kpis + panels),
         "meta": {
             "planner": planner,
-            "model": settings.OPENROUTER_EXECUTION_MODEL if ctx.llm else None,
+            "model": settings.EXECUTION_MODEL if ctx.llm else None,
             "dialect": ctx.dialect,
             "definitions": [{"term": d.get("term"), "version": d.get("version")} for d in ctx.definitions],
             "confidence_model": ctx.model.get("source", "default prior"),

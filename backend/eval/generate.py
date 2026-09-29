@@ -21,7 +21,7 @@ from typing import Any, Dict, List
 import backend.eval  # noqa: F401  (must come first: forces the local control database)
 from backend.app.agent.candidates import generate_variants
 from backend.app.config import settings
-from backend.app.providers.openrouter_client import openrouter_client
+from backend.app.providers.llm_client import llm_client
 from backend.app.queries.validator import SqlValidator
 from backend.app.verification import repair_feedback, run_checks
 from backend.eval.harness import MAX_ROWS, Item, cache_path, catalog_for, context_for, load_items, make_runner
@@ -52,7 +52,7 @@ async def _one_sql(ctx: Dict[str, Any], model: str, feedback: str = "") -> Dict[
 
     async def consume() -> None:
         nonlocal usage, completed
-        async for event in openrouter_client.stream_sql(
+        async for event in llm_client.stream_sql(
             requested_model_id=model,
             question=ctx["question"],
             dialect="sqlite",
@@ -146,11 +146,11 @@ async def main() -> None:
     parser.add_argument("--budget", type=float, default=20.0, help="stop once this many USD have been spent in this run")
     parser.add_argument("--concurrency", type=int, default=4)
     parser.add_argument("--with-evidence", action="store_true", help="append BIRD's evidence hint to each question")
-    parser.add_argument("--model", default=settings.OPENROUTER_EXECUTION_MODEL)
+    parser.add_argument("--model", default=settings.EXECUTION_MODEL)
     args = parser.parse_args()
 
-    if not openrouter_client.api_key:
-        raise SystemExit("No OpenRouter key configured.")
+    if not llm_client.api_key:
+        raise SystemExit("No Together AI key configured (TOGETHER_API_KEY).")
     items = load_items(args.dataset, args.limit)
     todo = [item for item in items if not cache_path(item, args.model, args.k, args.with_evidence).exists()]
     print(f"{len(items)} questions, {len(items) - len(todo)} cached, {len(todo)} to generate with {args.model} (k={args.k})")

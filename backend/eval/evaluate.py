@@ -164,7 +164,7 @@ async def main() -> None:
     parser.add_argument("--limit", type=int)
     parser.add_argument("--k", type=int, default=3)
     parser.add_argument("--with-evidence", action="store_true")
-    parser.add_argument("--model", default=settings.OPENROUTER_EXECUTION_MODEL)
+    parser.add_argument("--model", default=settings.EXECUTION_MODEL)
     parser.add_argument("--fit", action="store_true", help="fit the confidence model on this dataset's 'fit' half (saved to results/calibration-<dataset>.json)")
     args = parser.parse_args()
 

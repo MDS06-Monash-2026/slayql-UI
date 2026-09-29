@@ -15,7 +15,7 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 from backend.app.agent.rbp import RBPGraphEngine
 from backend.app.catalog.discovery import CatalogSchema
-from backend.app.providers.openrouter_client import ProviderError, TEST_EXECUTION_MODEL, openrouter_client
+from backend.app.providers.llm_client import ProviderError, TEST_EXECUTION_MODEL, llm_client
 from backend.app.workbench.gemini_agent import _fallback_chat_intent
 
 
@@ -307,7 +307,7 @@ class DeepSeekOrchestrator:
             return {"ok": False, "error": "Unknown orchestrator tool."}
 
         try:
-            async for event in openrouter_client.stream_tool_agent(
+            async for event in llm_client.stream_tool_agent(
                 model_id=self.model,
                 messages=messages,
                 tools=tool_definitions(),
@@ -326,7 +326,7 @@ class DeepSeekOrchestrator:
                             await emit("orchestrator.response_delta", {
                                 "delta": delta,
                                 "model": self.model,
-                                "mode": "openrouter_tool_calling",
+                                "mode": "llm_tool_calling",
                             })
                 elif event_type in {"reasoning_delta", "reasoning_detail"}:
                     delta = str(event.get("delta") or "")
@@ -447,7 +447,7 @@ class DeepSeekOrchestrator:
             decision.update({"intent": fallback["intent"], "is_sql_query": True, "requires_sql": True, "orchestrator_route": "sql_agent", "tool_name": "sql_agent"})
         decision.update({
             "model": "slayql/local-intent" if provider_mode == "local" else self.model,
-            "mode": "local_heuristic" if provider_mode == "local" else ("openrouter_tool_calling" if tool_name else "openrouter_direct"),
+            "mode": "local_heuristic" if provider_mode == "local" else ("llm_tool_calling" if tool_name else "llm_direct"),
             "response_model": self.model,
             "answer": answer or (_fallback_catalog_answer(tool_result, question) if tool_result else ""),
             "reasoning": "".join(reasoning_parts).strip()[-8000:],

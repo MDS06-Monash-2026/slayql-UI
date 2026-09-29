@@ -27,10 +27,10 @@ _ISOLATED_ENV = {
     "CONNECTION_DATA_DIR": str(_TEST_DATA_DIR / "connections"),
     "SQLITE_DEMO_PATH": str(_TEST_DEMO_PATH),
     "FIELD_ENCRYPTION_KEY": Fernet.generate_key().decode(),
-    # No paid provider calls from tests. A "mock_" key makes the OpenRouter
+    # No paid provider calls from tests. A "mock_" key makes the LLM
     # client return its fallback SQL offline; other providers use local fallbacks.
-    "OPENROUTER_KEY": "mock_tests",
-    "OPENROUTER_API_KEY": "",
+    "TOGETHER_API_KEY": "mock_tests",
+    "TOGETHER_AI_KEY": "",
     "OPENAI_API_KEY": "",
     "ANTHROPIC_API_KEY": "",
     "DEEPSEEK_API_KEY": "",

@@ -24,10 +24,10 @@ from backend.app.config import settings
 from backend.app.connections.registry import get_connection, get_credentials, get_sqlite_path, require_sqlite_path
 from backend.app.connections.runtime import get_external_catalog, sqlglot_dialect
 from backend.app.history.conversation_store import conversation_store
-from backend.app.providers.openrouter_client import (
+from backend.app.providers.llm_client import (
     TEST_EXECUTION_MODEL,
     ProviderError,
-    openrouter_client,
+    llm_client,
 )
 from backend.app import privacy
 from backend.app.knowledge.store import knowledge_store
@@ -97,7 +97,7 @@ class SlayQLPipeline:
     ) -> Dict[str, Any]:
         run_id = f"run_{uuid.uuid4().hex[:12]}"
         conv_id = conversation_id or f"conv_{uuid.uuid4().hex[:12]}"
-        execution_model_id = openrouter_client.execution_model_id(model_id)
+        execution_model_id = llm_client.execution_model_id(model_id)
         RUN_EVENTS_STORE[run_id] = []
         RUN_CANCEL_FLAGS[run_id] = False
         RUN_NOTIFIERS[run_id] = asyncio.Event()
@@ -757,7 +757,7 @@ class SlayQLPipeline:
             response = {
                 "answer": answer,
                 "model": orchestrator_model or metadata["execution_model_id"],
-                "mode": intent_decision.get("mode", "openrouter_tool_calling"),
+                "mode": intent_decision.get("mode", "llm_tool_calling"),
             }
         else:
             response = await gemini_workbench_agent.answer_general_question(
@@ -1036,7 +1036,7 @@ class SlayQLPipeline:
         metadata["status"] = "running"
         question = metadata["question"]
         requested_model_id = metadata["requested_model_id"]
-        execution_model_id = openrouter_client.execution_model_id(requested_model_id)
+        execution_model_id = llm_client.execution_model_id(requested_model_id)
         connection_id = metadata["connection_id"]
         conversation_id = metadata["conversation_id"]
         thinking_profile = get_thinking_profile(metadata["thinking_effort"])
@@ -1183,7 +1183,7 @@ class SlayQLPipeline:
                 "intent.validator_completed",
                 {
                     "model": intent_decision.get("model", execution_model_id),
-                    "mode": intent_decision.get("mode", "openrouter_tool_calling"),
+                    "mode": intent_decision.get("mode", "llm_tool_calling"),
                     "intent": intent_decision["intent"],
                     "is_sql_query": intent_decision["is_sql_query"],
                     "requires_sql": intent_decision["requires_sql"],
@@ -1504,7 +1504,7 @@ class SlayQLPipeline:
                         "phase": "sql",
                         "requested_model_id": requested_model_id,
                         "execution_model_id": execution_model_id,
-                        "provider": "SlayQL metadata planner" if deterministic_sql else "OpenRouter",
+                        "provider": "SlayQL metadata planner" if deterministic_sql else "Together AI",
                         "is_repair": attempt > 1,
                         "thinking_effort": thinking_profile.name,
                         "provider_reasoning_effort": thinking_profile.provider_sql_effort,
@@ -1538,7 +1538,7 @@ class SlayQLPipeline:
                         }
                     provider_stream = deterministic_stream()
                 else:
-                    provider_stream = openrouter_client.stream_sql(
+                    provider_stream = llm_client.stream_sql(
                         requested_model_id=requested_model_id,
                         question=effective_question,
                         dialect=dialect,
@@ -1656,7 +1656,7 @@ class SlayQLPipeline:
                         "revision": attempt,
                         "sql": candidate_sql,
                         "dialect": dialect,
-                        "generation_source": "openrouter",
+                        "generation_source": "llm",
                     },
                 )
                 validation = SqlValidator.validate_and_sanitize(
@@ -2096,12 +2096,12 @@ class SlayQLPipeline:
                             "phase": "answer",
                             "requested_model_id": requested_model_id,
                             "execution_model_id": execution_model_id,
-                            "provider": "OpenRouter",
+                            "provider": "Together AI",
                             "thinking_effort": thinking_profile.name,
                             "provider_reasoning_effort": thinking_profile.provider_answer_effort,
                         },
                     )
-                    async for answer_event in openrouter_client.stream_answer(
+                    async for answer_event in llm_client.stream_answer(
                         requested_model_id=requested_model_id,
                         question=question,
                         sql=final_sql,

@@ -1,3 +1,4 @@
+import json
 import pytest
 from backend.app.config import settings
 from backend.app.db.seed_demo import seed_sqlite_demo
@@ -7,7 +8,7 @@ from backend.app.agent.pipeline import SlayQLPipeline
 from backend.app.agent.effort import THINKING_PROFILES, get_thinking_profile
 from backend.app.queries.validator import SqlValidator
 from backend.app.queries.executor import QueryExecutor
-from backend.app.providers.openrouter_client import ProviderError, openrouter_client
+from backend.app.providers.llm_client import ProviderError, llm_client
 from backend.app.workbench.gemini_agent import (
     GEMINI_WORKBENCH_MODEL,
     _fallback_chat_intent,
@@ -82,7 +83,7 @@ def test_persist_user_message_updates_thread_atomically():
         conversation_id="conv_atomic",
         owner_id="owner_atomic",
         connection_id="sqlite_demo",
-        selected_model_id="deepseek/deepseek-v4-flash",
+        selected_model_id="deepseek-ai/DeepSeek-V4-Flash-0731",
         title="First question",
         content="First question",
         created_at=timestamp,
@@ -91,7 +92,7 @@ def test_persist_user_message_updates_thread_atomically():
         conversation_id="conv_atomic",
         owner_id="owner_atomic",
         connection_id="sqlite_demo",
-        selected_model_id="deepseek/deepseek-v4-flash",
+        selected_model_id="deepseek-ai/DeepSeek-V4-Flash-0731",
         title="Second question",
         content="Second question",
         created_at="2026-08-26T00:00:01+00:00",
@@ -245,11 +246,11 @@ def test_semantic_validator_rejects_safe_but_wrong_fallback_sql():
 
 
 @pytest.mark.asyncio
-async def test_missing_openrouter_key_never_returns_silent_sql_fallback(monkeypatch):
-    monkeypatch.setattr(openrouter_client, "api_key", None)
+async def test_missing_llm_key_never_returns_silent_sql_fallback(monkeypatch):
+    monkeypatch.setattr(llm_client, "api_key", None)
     with pytest.raises(ProviderError, match="not configured"):
-        async for _event in openrouter_client.stream_sql(
-            requested_model_id="deepseek/deepseek-v4-flash",
+        async for _event in llm_client.stream_sql(
+            requested_model_id="deepseek-ai/DeepSeek-V4-Flash-0731",
             question="List customers",
             dialect="sqlite",
             schema_context="TABLE customers (id INTEGER)",
@@ -333,13 +334,71 @@ async def test_query_executor():
     assert result.chart_recommendation["type"] in ("bar", "pie", "line")
 
 @pytest.mark.asyncio
-async def test_openrouter_model_list():
-    models = await openrouter_client.list_models()
-    assert len(models) >= 5
-    model_ids = [m.id for m in models]
-    assert "anthropic/claude-sonnet-5" in model_ids
-    assert "openai/gpt-5.6-terra" in model_ids
-    assert "deepseek/deepseek-v4-flash" in model_ids
+async def test_llm_model_list():
+    from backend.app.providers.llm_client import DEEPSEEK_MODEL, KIMI_MODEL
+
+    models = await llm_client.list_models()
+    assert [m.id for m in models] == [DEEPSEEK_MODEL, KIMI_MODEL]
+    # The user's pick runs when it is offered; anything else falls back to the default.
+    assert llm_client.execution_model_id(KIMI_MODEL) == KIMI_MODEL
+    assert llm_client.execution_model_id("openai/gpt-5.6-terra") == DEEPSEEK_MODEL
+
+
+def _sse(*chunks):
+    return "".join(f"data: {json.dumps(chunk)}\n\n" for chunk in chunks) + "data: [DONE]\n\n"
+
+
+@pytest.mark.asyncio
+async def test_together_stream_is_parsed_priced_and_retried_without_reasoning():
+    import httpx
+    from backend.app.providers.llm_client import DEEPSEEK_MODEL, LLMClient, usage_cost
+
+    requests = []
+
+    def together(request):
+        body = json.loads(request.content)
+        requests.append(body)
+        if "reasoning" in body:
+            return httpx.Response(400, json={"error": {"message": "unknown parameter: reasoning"}})
+        return httpx.Response(200, text=_sse(
+            {"id": "r1", "model": DEEPSEEK_MODEL, "choices": [{"delta": {"content": "<thi"}}]},
+            {"choices": [{"delta": {"content": "nk>plan the join</think>```sql\nSELECT COUNT(*) "}}]},
+            {"choices": [{"delta": {"content": "FROM orders\n```"}, "finish_reason": "stop"}]},
+            {"choices": [], "usage": {"prompt_tokens": 1000, "completion_tokens": 200, "total_tokens": 1200}},
+        ), headers={"content-type": "text/event-stream"})
+
+    client = LLMClient()
+    client.api_key = "test-key"
+    client._http_client = httpx.AsyncClient(transport=httpx.MockTransport(together))
+    events = [e async for e in client.stream_sql(
+        requested_model_id=DEEPSEEK_MODEL, question="How many orders?", dialect="sqlite",
+        schema_context="TABLE orders (id)", grounding_hints="", retrieval_context="", reasoning_effort="medium",
+    )]
+    completed = events[-1]
+    assert completed["extracted_sql"] == "SELECT COUNT(*) FROM orders"
+    assert completed["reasoning"] == "plan the join"
+    assert "<think>" not in completed["content"]
+    assert completed["usage"]["cost"] == pytest.approx(usage_cost(DEEPSEEK_MODEL, {"prompt_tokens": 1000, "completion_tokens": 200}))
+    assert completed["usage"]["cost"] == pytest.approx((1000 * 0.14 + 200 * 0.28) / 1e6)
+    # The first request carried the reasoning switch, the retry did not, and later calls skip it.
+    assert "reasoning" in requests[0] and "reasoning" not in requests[1]
+    assert requests[1]["stream_options"] == {"include_usage": True}
+    assert DEEPSEEK_MODEL in client._no_reasoning_param
+
+
+@pytest.mark.asyncio
+async def test_together_out_of_credit_is_a_clear_provider_error():
+    import httpx
+    from backend.app.providers.llm_client import KIMI_MODEL, LLMClient
+
+    client = LLMClient()
+    client.api_key = "test-key"
+    client._http_client = httpx.AsyncClient(transport=httpx.MockTransport(
+        lambda request: httpx.Response(402, json={"error": {"type": "credit_limit"}})))
+    with pytest.raises(ProviderError, match="out of credit"):
+        async for _ in client.stream_answer(requested_model_id=KIMI_MODEL, question="q", sql="SELECT 1",
+                                            columns=["a"], rows=[[1]], session_id=None):
+            pass
 
 
 def test_sqlite_catalog_resolves_foreign_keys_without_a_target_column(tmp_path):

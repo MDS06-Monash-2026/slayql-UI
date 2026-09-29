@@ -23,15 +23,14 @@ class Settings(BaseSettings):
         "*"
     ]
     
-    # AI Providers & OpenRouter
-    OPENROUTER_KEY: Optional[str] = None
-    # Legacy migration alias. New deployments should set OPENROUTER_KEY.
-    OPENROUTER_API_KEY: Optional[str] = None
-    OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
-    OPENROUTER_EXECUTION_MODEL: str = "deepseek/deepseek-v4-flash"
-    # Report composition can use a stronger model without changing the SQL
-    # execution model used by interactive queries.
-    DEFAULT_MODEL: str = "deepseek/deepseek-v4-flash"
+    # AI provider: Together AI (OpenAI-compatible). TOGETHER_AI_KEY is accepted
+    # as an alias for TOGETHER_API_KEY.
+    TOGETHER_API_KEY: Optional[str] = None
+    TOGETHER_AI_KEY: Optional[str] = None
+    LLM_BASE_URL: str = "https://api.together.xyz/v1"
+    # Default model; users may pick any model in providers/llm_client.CURATED_MODELS.
+    EXECUTION_MODEL: str = "deepseek-ai/DeepSeek-V4-Flash-0731"
+    DEFAULT_MODEL: str = "deepseek-ai/DeepSeek-V4-Flash-0731"
     
     # Direct Provider Keys (fallback or direct use)
     OPENAI_API_KEY: Optional[str] = None
