@@ -123,7 +123,7 @@ function buildVegaSpec(idiom, rows, columns, recommendation, colors, isDark) {
         color: colors.palette[0],
       },
       encoding: {
-        text: { aggregate: 'sum', field: y, type: 'quantitative', format: ',.2f' },
+        text: { aggregate: 'sum', field: y, type: 'quantitative', format: ',.2~f' },
       },
     };
   }

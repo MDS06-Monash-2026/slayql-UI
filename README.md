@@ -120,9 +120,11 @@ DEBUG=false
 LOG_LEVEL=INFO
 
 # AI gateway (used for agentic SQL generation)
-TOGETHER_API_KEY=your_together_api_key_here     # TOGETHER_AI_KEY also works
-LLM_BASE_URL=https://api.together.xyz/v1
-EXECUTION_MODEL=deepseek-ai/DeepSeek-V4-Flash-0731  # or moonshotai/Kimi-K3
+LLM_PROVIDER=opentk                  # opentk (development default) or together
+OPENTK_KEY=your_opentk_key_here       # models: deepseek-v4.1-flash (default), glm-5.3
+TOGETHER_API_KEY=                     # when LLM_PROVIDER=together (TOGETHER_AI_KEY also works);
+                                      # models: deepseek-ai/DeepSeek-V4-Flash-0731, moonshotai/Kimi-K3
+EXECUTION_MODEL=                      # optional; default is the provider's first model
 DEFAULT_MODEL=deepseek/deepseek-v4-flash
 
 # Optional direct provider/workbench keys
@@ -208,7 +210,7 @@ React/Vite SPA
      -> connection registry + catalog discovery
      -> SlayQL retrieval/RBP/BM25 pipeline
      -> sqlglot validator + read-only executor
-     -> Together AI (DeepSeek V4 Flash, Kimi K3) and Gemini clients
+     -> OpenTK or Together AI (two models each) and Gemini clients
      -> SQLite/PostgreSQL/MySQL/Snowflake/SQL Server sources
 ```
 
@@ -234,7 +236,7 @@ backend/app/
 
 - Only one read-only `SELECT`/safe CTE statement is accepted; DML/DDL, stacked statements, system schemas, and unsafe file/database functions are rejected.
 - Queries are parsed and checked against the discovered catalog before execution, with a configurable timeout and maximum result rows.
-- AI requests go to Together AI (and Gemini for workbench features), outside Malaysia. Two models are offered: DeepSeek V4 Flash (0731, the default) and Kimi K3 (about 20 times the cost per token). They contain the user question, the relevant schema, up to 8 database values that match the question (for grounding), and, at every thinking effort above minimal, up to 25 result rows for the written answer. At high and max effort, result profiles are also sent for chart planning. Credentials, control-database secrets, and full databases are never sent to providers. Enable privacy mode to mask personal-data columns before anything is sent.
+- AI requests go to the configured provider, OpenTK (development default) or Together AI (and Gemini for workbench features), outside Malaysia. Each provider offers two models: OpenTK has DeepSeek V4.1 Flash (default) and GLM 5.3; Together has DeepSeek V4 Flash 0731 and Kimi K3 (about 20 times the cost per token). They contain the user question, the relevant schema, up to 8 database values that match the question (for grounding), and, at every thinking effort above minimal, up to 25 result rows for the written answer. At high and max effort, result profiles are also sent for chart planning. Credentials, control-database secrets, and full databases are never sent to providers. Enable privacy mode to mask personal-data columns before anything is sent.
 - Result rows are not written to the control database; history stores run metadata, SQL, status, and result summaries.
 - Provider and database failures are surfaced as recoverable UI states rather than silently switching providers.
 

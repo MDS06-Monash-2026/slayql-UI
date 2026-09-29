@@ -1,6 +1,6 @@
 # SlayQL: the story for the final report and slides
 
-Written 27 September 2026 for the team, to adapt into the final report, poster and slides. All results below were generated with `deepseek/deepseek-v4-flash` through OpenRouter. On 29 September the app moved to Together AI (`deepseek-ai/DeepSeek-V4-Flash-0731` by default, or `moonshotai/Kimi-K3`). New evaluation runs use Together and a separate cache; say which provider and model produced any number you quote. Every number here comes from a results file named beside it. Re-run the evaluation before quoting a number if the code has changed since this date.
+Written 27 September 2026 for the team, to adapt into the final report, poster and slides. All results below were generated with `deepseek/deepseek-v4-flash` through OpenRouter. On 29 September the app moved to a configurable provider: OpenTK in development (`deepseek-v4.1-flash`, `glm-5.3`), or Together AI (`deepseek-ai/DeepSeek-V4-Flash-0731`, `moonshotai/Kimi-K3`). New evaluation runs use a separate cache for each model; say which provider and model produced any number you quote. Every number here comes from a results file named beside it. Re-run the evaluation before quoting a number if the code has changed since this date.
 
 ## 1. The one-paragraph story
 

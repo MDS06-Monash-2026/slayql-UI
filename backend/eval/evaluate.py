@@ -23,6 +23,7 @@ from typing import Any, Dict, List, Optional
 
 import backend.eval  # noqa: F401  (must come first: forces the local control database)
 from backend.app.config import settings
+from backend.app.providers.llm_client import llm_client
 from backend.app.queries.executor import ExecutionResult
 from backend.app.verification import candidate_from_result, confidence, run_checks, verify
 from backend.app.verification.consensus import cluster, normalize_value
@@ -164,7 +165,7 @@ async def main() -> None:
     parser.add_argument("--limit", type=int)
     parser.add_argument("--k", type=int, default=3)
     parser.add_argument("--with-evidence", action="store_true")
-    parser.add_argument("--model", default=settings.EXECUTION_MODEL)
+    parser.add_argument("--model", default=llm_client.execution_model)
     parser.add_argument("--fit", action="store_true", help="fit the confidence model on this dataset's 'fit' half (saved to results/calibration-<dataset>.json)")
     args = parser.parse_args()
 

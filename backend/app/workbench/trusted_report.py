@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import re
 import time
 from dataclasses import dataclass, field
@@ -33,6 +34,8 @@ from backend.app.verification import candidate_from_result, verify
 from backend.app.verification.checks import DATE_COLUMN, STATUS_COLUMN
 from backend.app.verification.learning import workspace_learning
 from backend.app.workbench import insights
+
+logger = logging.getLogger(__name__)
 
 CHARTS = {"line", "area", "bar", "bar_h", "stacked_bar", "table"}
 FORMATS = {"number", "currency", "percent"}
@@ -178,7 +181,7 @@ async def _complete_json(ctx: ReportContext, system: str, payload: Dict[str, Any
     usage: Dict[str, Any] = {}
     try:
         async for event in llm_client._stream_completion(
-            requested_model_id=settings.EXECUTION_MODEL,
+            requested_model_id=llm_client.execution_model,
             messages=[{"role": "system", "content": system}, {"role": "user", "content": json.dumps(payload, ensure_ascii=False, default=str)}],
             session_id=None, max_tokens=max_tokens, reasoning_effort="minimal", fallback_text="", use_requested_model=True,
         ):
@@ -186,7 +189,9 @@ async def _complete_json(ctx: ReportContext, system: str, payload: Dict[str, Any
                 content.append(event.get("delta", ""))
             elif event.get("type") in {"usage", "completed"} and event.get("usage"):
                 usage = event["usage"]
-    except Exception:
+    except Exception as error:
+        # The caller falls back to a deterministic plan or summary; record why.
+        logger.warning("Report model call failed (%s): %s", type(error).__name__, str(error)[:200])
         return None
     ctx.usage["calls"] += 1
     ctx.usage["cost"] += float(usage.get("cost") or 0)
@@ -194,10 +199,12 @@ async def _complete_json(ctx: ReportContext, system: str, payload: Dict[str, Any
     text = "".join(content)
     start, end = text.find("{"), text.rfind("}")
     if start < 0 or end <= start:
+        logger.warning("Report model returned no JSON (%d characters)", len(text))
         return None
     try:
         value = json.loads(text[start:end + 1])
     except ValueError:
+        logger.warning("Report model returned invalid JSON (%d characters)", len(text))
         return None
     return value if isinstance(value, dict) else None
 
@@ -633,7 +640,7 @@ def assemble(plan: Dict[str, Any], kpis: List[Dict[str, Any]], panels: List[Dict
         "trust": trust_summary(kpis + panels),
         "meta": {
             "planner": planner,
-            "model": settings.EXECUTION_MODEL if ctx.llm else None,
+            "model": llm_client.execution_model if ctx.llm else None,
             "dialect": ctx.dialect,
             "definitions": [{"term": d.get("term"), "version": d.get("version")} for d in ctx.definitions],
             "confidence_model": ctx.model.get("source", "default prior"),

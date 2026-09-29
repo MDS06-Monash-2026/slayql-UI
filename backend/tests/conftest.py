@@ -29,7 +29,10 @@ _ISOLATED_ENV = {
     "FIELD_ENCRYPTION_KEY": Fernet.generate_key().decode(),
     # No paid provider calls from tests. A "mock_" key makes the LLM
     # client return its fallback SQL offline; other providers use local fallbacks.
-    "TOGETHER_API_KEY": "mock_tests",
+    "LLM_PROVIDER": "opentk",
+    "OPENTK_KEY": "mock_tests",
+    "OPENTK_API_KEY": "",
+    "TOGETHER_API_KEY": "",
     "TOGETHER_AI_KEY": "",
     "OPENAI_API_KEY": "",
     "ANTHROPIC_API_KEY": "",

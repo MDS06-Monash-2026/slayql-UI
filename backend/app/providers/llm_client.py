@@ -1,8 +1,10 @@
-"""Together AI streaming client used by the SQL agent and the report pipeline.
+"""Streaming client for the OpenAI-compatible chat API the app uses.
 
-Together exposes an OpenAI-compatible chat API. It does not report a cost per
-request, so cost is computed from the published per-token prices below; the
-evaluation budget caps and the report cost display depend on it.
+The provider is a setting (LLM_PROVIDER): "opentk" (the testing environment,
+default) or "together". Each offers exactly two models, and the user's choice
+runs. Neither provider reports a cost per request: Together's published prices
+are used to compute cost; OpenTK publishes none, so its cost is unknown (0) and
+only token counts are tracked.
 """
 
 from __future__ import annotations
@@ -18,11 +20,6 @@ from pydantic import BaseModel, Field
 from backend.app.config import settings
 
 
-DEEPSEEK_MODEL = "deepseek-ai/DeepSeek-V4-Flash-0731"
-KIMI_MODEL = "moonshotai/Kimi-K3"
-TEST_EXECUTION_MODEL = DEEPSEEK_MODEL
-
-
 class ProviderError(RuntimeError):
     """A public-safe provider failure with no credential or upstream body."""
 
@@ -33,6 +30,7 @@ class ModelInfo(BaseModel):
     provider: str
     description: str
     context_length: int = 0
+    # USD per million tokens; 0 when the provider does not publish a price.
     input_price: float = 0.0
     output_price: float = 0.0
     cached_input_price: float = 0.0
@@ -40,27 +38,49 @@ class ModelInfo(BaseModel):
     tags: List[str] = Field(default_factory=list)
 
 
-# Prices are USD per million tokens, from Together's model list (September 2026).
-CURATED_MODELS: List[ModelInfo] = [
-    ModelInfo(
-        id=DEEPSEEK_MODEL, name="DeepSeek V4 Flash (0731)", provider="DeepSeek",
-        description="Fast, low-cost default for SQL generation and checking.",
-        context_length=1048576, input_price=0.14, output_price=0.28, cached_input_price=0.03,
-        tags=["default", "fast"],
-    ),
-    ModelInfo(
-        id=KIMI_MODEL, name="Kimi K3", provider="Moonshot AI",
-        description="Larger model for harder questions; about 20 times the cost per token.",
-        context_length=1048576, input_price=3.0, output_price=15.0, cached_input_price=0.3,
-        tags=["deep"],
-    ),
-]
+PROVIDERS: Dict[str, Dict[str, Any]] = {
+    "opentk": {
+        "label": "OpenTK",
+        "base_url": "https://opentk.ai/v1",
+        "key_settings": ("OPENTK_KEY", "OPENTK_API_KEY"),
+        "models": [
+            ModelInfo(id="deepseek-v4.1-flash", name="DeepSeek V4.1 Flash", provider="DeepSeek",
+                      description="Default for SQL generation and checking (OpenTK testing environment; price not published).",
+                      tags=["default", "fast"]),
+            ModelInfo(id="glm-5.3", name="GLM 5.3", provider="Zhipu AI",
+                      description="Alternative model for harder questions (OpenTK testing environment; price not published).",
+                      tags=["deep"]),
+        ],
+    },
+    "together": {
+        "label": "Together AI",
+        "base_url": "https://api.together.xyz/v1",
+        "key_settings": ("TOGETHER_API_KEY", "TOGETHER_AI_KEY"),
+        # Prices from Together's model list (September 2026).
+        "models": [
+            ModelInfo(id="deepseek-ai/DeepSeek-V4-Flash-0731", name="DeepSeek V4 Flash (0731)", provider="DeepSeek",
+                      description="Fast, low-cost default for SQL generation and checking.",
+                      context_length=1048576, input_price=0.14, output_price=0.28, cached_input_price=0.03,
+                      tags=["default", "fast"]),
+            ModelInfo(id="moonshotai/Kimi-K3", name="Kimi K3", provider="Moonshot AI",
+                      description="Larger model for harder questions; about 20 times the cost per token.",
+                      context_length=1048576, input_price=3.0, output_price=15.0, cached_input_price=0.3,
+                      tags=["deep"]),
+        ],
+    },
+}
+
+PROVIDER_ID = settings.LLM_PROVIDER.lower() if settings.LLM_PROVIDER.lower() in PROVIDERS else "opentk"
+PROVIDER = PROVIDERS[PROVIDER_ID]
+CURATED_MODELS: List[ModelInfo] = PROVIDER["models"]
 MODEL_IDS = {model.id for model in CURATED_MODELS}
-_PRICES = {model.id: model for model in CURATED_MODELS}
+DEFAULT_MODEL, ALTERNATE_MODEL = CURATED_MODELS[0].id, CURATED_MODELS[1].id
+TEST_EXECUTION_MODEL = DEFAULT_MODEL
+_PRICES = {model.id: model for provider in PROVIDERS.values() for model in provider["models"]}
 
 
 def usage_cost(model_id: str, usage: Dict[str, Any]) -> float:
-    """USD cost of one call from its token usage (cached prompt tokens are cheaper)."""
+    """USD cost of one call from its token usage (cached prompt tokens are cheaper); 0 if unpriced."""
     model = _PRICES.get(model_id)
     if not model or not usage:
         return 0.0
@@ -116,16 +136,16 @@ class ProviderCompletionResponse(BaseModel):
     estimated_cost_usd: float = 0.0
     model_id: str = TEST_EXECUTION_MODEL
     requested_model_id: str = TEST_EXECUTION_MODEL
-    provider_name: str = "Together AI"
+    provider_name: str = PROVIDER["label"]
     finish_reason: Optional[str] = None
 
 
 class LLMClient:
     def __init__(self) -> None:
-        # TOGETHER_API_KEY is the documented name; TOGETHER_AI_KEY is accepted too.
-        self.api_key = settings.TOGETHER_API_KEY or settings.TOGETHER_AI_KEY
-        self.base_url = settings.LLM_BASE_URL.rstrip("/")
-        self.execution_model = settings.EXECUTION_MODEL if settings.EXECUTION_MODEL in MODEL_IDS else TEST_EXECUTION_MODEL
+        self.provider = PROVIDER["label"]
+        self.api_key = next((getattr(settings, name, None) for name in PROVIDER["key_settings"] if getattr(settings, name, None)), None)
+        self.base_url = (settings.LLM_BASE_URL or PROVIDER["base_url"]).rstrip("/")
+        self.execution_model = settings.EXECUTION_MODEL if settings.EXECUTION_MODEL in MODEL_IDS else DEFAULT_MODEL
         self._http_client: Optional[httpx.AsyncClient] = None
         # Models whose deployment rejected the reasoning switch, so it is not sent again.
         self._no_reasoning_param: set = set()
@@ -502,7 +522,7 @@ class LLMClient:
         if hidden:
             reasoning_parts.append(hidden)
         if usage:
-            # Together reports tokens, not money; price them here.
+            # Providers report tokens, not money; price them here (0 when unpriced).
             usage = {**usage, "cost": round(usage_cost(execution_model_id, usage), 8)}
             yield {"type": "usage", "usage": usage}
 
@@ -517,7 +537,7 @@ class LLMClient:
             "requested_model_id": requested_model_id,
             "model_id": execution_model_id,
             "resolved_model_id": resolved_model_id or execution_model_id,
-            "resolved_provider": "Together AI",
+            "resolved_provider": self.provider,
             "response_id": response_id,
             "reasoning_effort": reasoning_effort,
             "tool_calls": [tool_calls[index] for index in sorted(tool_calls)],

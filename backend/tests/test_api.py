@@ -4,6 +4,7 @@ import threading
 
 import pytest
 import httpx
+from backend.app.providers.llm_client import ALTERNATE_MODEL, DEFAULT_MODEL
 from backend.app.main import ACTIVE_SESSIONS, app
 
 @pytest.mark.asyncio
@@ -56,8 +57,7 @@ async def test_api_models():
         resp = await client.get("/api/v1/models")
         assert resp.status_code == 200
         models = resp.json()
-        assert [m["id"] for m in models] == ["deepseek-ai/DeepSeek-V4-Flash-0731", "moonshotai/Kimi-K3"]
-        assert all(m["input_price"] > 0 for m in models)
+        assert [m["id"] for m in models] == [DEFAULT_MODEL, ALTERNATE_MODEL]
 
 @pytest.mark.asyncio
 async def test_api_connections_and_catalog():
@@ -283,13 +283,13 @@ async def test_agent_stream_is_replayable_and_persists_assistant_thread():
         assert create_resp.status_code == 200
         run = create_resp.json()
         # A model that is not offered falls back to the default.
-        assert run["execution_model_id"] == "deepseek-ai/DeepSeek-V4-Flash-0731"
+        assert run["execution_model_id"] == DEFAULT_MODEL
         assert run["thinking_effort"] == "high"
 
         stream_resp = await client.get(run["events_url"])
         assert stream_resp.status_code == 200
         assert "BM25 schema indexing" in stream_resp.text
-        assert '"execution_model_id": "deepseek-ai/DeepSeek-V4-Flash-0731"' in stream_resp.text
+        assert f'"execution_model_id": "{DEFAULT_MODEL}"' in stream_resp.text
         assert "event: visualization.agent_started" in stream_resp.text
         assert "event: sql.semantic_validation_completed" in stream_resp.text
         assert "gemini-3.5-flash-lite" in stream_resp.text
@@ -317,7 +317,7 @@ async def test_agent_stream_is_replayable_and_persists_assistant_thread():
         thread = thread_resp.json()
         assert [message["role"] for message in thread["messages"]] == ["user", "assistant"]
         assert thread["messages"][-1]["payload"]["status"] == "success"
-        assert thread["messages"][-1]["payload"]["execution_model_id"] == "deepseek-ai/DeepSeek-V4-Flash-0731"
+        assert thread["messages"][-1]["payload"]["execution_model_id"] == DEFAULT_MODEL
         assert thread["messages"][-1]["payload"]["thinking_effort"] == "high"
         assert thread["messages"][-1]["payload"]["stream_events"]
         assert thread["messages"][-1]["payload"]["semantic_validation"]["is_semantically_valid"] is True

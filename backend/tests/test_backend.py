@@ -8,7 +8,7 @@ from backend.app.agent.pipeline import SlayQLPipeline
 from backend.app.agent.effort import THINKING_PROFILES, get_thinking_profile
 from backend.app.queries.validator import SqlValidator
 from backend.app.queries.executor import QueryExecutor
-from backend.app.providers.llm_client import ProviderError, llm_client
+from backend.app.providers.llm_client import ALTERNATE_MODEL, DEFAULT_MODEL, ProviderError, llm_client
 from backend.app.workbench.gemini_agent import (
     GEMINI_WORKBENCH_MODEL,
     _fallback_chat_intent,
@@ -83,7 +83,7 @@ def test_persist_user_message_updates_thread_atomically():
         conversation_id="conv_atomic",
         owner_id="owner_atomic",
         connection_id="sqlite_demo",
-        selected_model_id="deepseek-ai/DeepSeek-V4-Flash-0731",
+        selected_model_id=DEFAULT_MODEL,
         title="First question",
         content="First question",
         created_at=timestamp,
@@ -92,7 +92,7 @@ def test_persist_user_message_updates_thread_atomically():
         conversation_id="conv_atomic",
         owner_id="owner_atomic",
         connection_id="sqlite_demo",
-        selected_model_id="deepseek-ai/DeepSeek-V4-Flash-0731",
+        selected_model_id=DEFAULT_MODEL,
         title="Second question",
         content="Second question",
         created_at="2026-08-26T00:00:01+00:00",
@@ -250,7 +250,7 @@ async def test_missing_llm_key_never_returns_silent_sql_fallback(monkeypatch):
     monkeypatch.setattr(llm_client, "api_key", None)
     with pytest.raises(ProviderError, match="not configured"):
         async for _event in llm_client.stream_sql(
-            requested_model_id="deepseek-ai/DeepSeek-V4-Flash-0731",
+            requested_model_id=DEFAULT_MODEL,
             question="List customers",
             dialect="sqlite",
             schema_context="TABLE customers (id INTEGER)",
@@ -335,13 +335,14 @@ async def test_query_executor():
 
 @pytest.mark.asyncio
 async def test_llm_model_list():
-    from backend.app.providers.llm_client import DEEPSEEK_MODEL, KIMI_MODEL
+    from backend.app.providers.llm_client import PROVIDER_ID
 
     models = await llm_client.list_models()
-    assert [m.id for m in models] == [DEEPSEEK_MODEL, KIMI_MODEL]
+    assert PROVIDER_ID == "opentk"
+    assert [m.id for m in models] == ["deepseek-v4.1-flash", "glm-5.3"]
     # The user's pick runs when it is offered; anything else falls back to the default.
-    assert llm_client.execution_model_id(KIMI_MODEL) == KIMI_MODEL
-    assert llm_client.execution_model_id("openai/gpt-5.6-terra") == DEEPSEEK_MODEL
+    assert llm_client.execution_model_id(ALTERNATE_MODEL) == ALTERNATE_MODEL
+    assert llm_client.execution_model_id("openai/gpt-5.6-terra") == DEFAULT_MODEL
 
 
 def _sse(*chunks):
@@ -349,9 +350,9 @@ def _sse(*chunks):
 
 
 @pytest.mark.asyncio
-async def test_together_stream_is_parsed_priced_and_retried_without_reasoning():
+async def test_llm_stream_is_parsed_priced_and_retried_without_reasoning():
     import httpx
-    from backend.app.providers.llm_client import DEEPSEEK_MODEL, LLMClient, usage_cost
+    from backend.app.providers.llm_client import LLMClient, usage_cost
 
     requests = []
 
@@ -361,7 +362,7 @@ async def test_together_stream_is_parsed_priced_and_retried_without_reasoning():
         if "reasoning" in body:
             return httpx.Response(400, json={"error": {"message": "unknown parameter: reasoning"}})
         return httpx.Response(200, text=_sse(
-            {"id": "r1", "model": DEEPSEEK_MODEL, "choices": [{"delta": {"content": "<thi"}}]},
+            {"id": "r1", "model": DEFAULT_MODEL, "choices": [{"delta": {"content": "<thi"}}]},
             {"choices": [{"delta": {"content": "nk>plan the join</think>```sql\nSELECT COUNT(*) "}}]},
             {"choices": [{"delta": {"content": "FROM orders\n```"}, "finish_reason": "stop"}]},
             {"choices": [], "usage": {"prompt_tokens": 1000, "completion_tokens": 200, "total_tokens": 1200}},
@@ -371,32 +372,35 @@ async def test_together_stream_is_parsed_priced_and_retried_without_reasoning():
     client.api_key = "test-key"
     client._http_client = httpx.AsyncClient(transport=httpx.MockTransport(together))
     events = [e async for e in client.stream_sql(
-        requested_model_id=DEEPSEEK_MODEL, question="How many orders?", dialect="sqlite",
+        requested_model_id=DEFAULT_MODEL, question="How many orders?", dialect="sqlite",
         schema_context="TABLE orders (id)", grounding_hints="", retrieval_context="", reasoning_effort="medium",
     )]
     completed = events[-1]
     assert completed["extracted_sql"] == "SELECT COUNT(*) FROM orders"
     assert completed["reasoning"] == "plan the join"
     assert "<think>" not in completed["content"]
-    assert completed["usage"]["cost"] == pytest.approx(usage_cost(DEEPSEEK_MODEL, {"prompt_tokens": 1000, "completion_tokens": 200}))
-    assert completed["usage"]["cost"] == pytest.approx((1000 * 0.14 + 200 * 0.28) / 1e6)
+    # OpenTK publishes no prices, so cost is unknown (0) while tokens are kept.
+    assert completed["usage"]["cost"] == 0 and completed["usage"]["total_tokens"] == 1200
+    # Priced providers (Together) are costed from their published per-token prices.
+    together = usage_cost("deepseek-ai/DeepSeek-V4-Flash-0731", {"prompt_tokens": 1000, "completion_tokens": 200})
+    assert together == pytest.approx((1000 * 0.14 + 200 * 0.28) / 1e6)
     # The first request carried the reasoning switch, the retry did not, and later calls skip it.
     assert "reasoning" in requests[0] and "reasoning" not in requests[1]
     assert requests[1]["stream_options"] == {"include_usage": True}
-    assert DEEPSEEK_MODEL in client._no_reasoning_param
+    assert DEFAULT_MODEL in client._no_reasoning_param
 
 
 @pytest.mark.asyncio
-async def test_together_out_of_credit_is_a_clear_provider_error():
+async def test_llm_out_of_credit_is_a_clear_provider_error():
     import httpx
-    from backend.app.providers.llm_client import KIMI_MODEL, LLMClient
+    from backend.app.providers.llm_client import LLMClient
 
     client = LLMClient()
     client.api_key = "test-key"
     client._http_client = httpx.AsyncClient(transport=httpx.MockTransport(
         lambda request: httpx.Response(402, json={"error": {"type": "credit_limit"}})))
     with pytest.raises(ProviderError, match="out of credit"):
-        async for _ in client.stream_answer(requested_model_id=KIMI_MODEL, question="q", sql="SELECT 1",
+        async for _ in client.stream_answer(requested_model_id=ALTERNATE_MODEL, question="q", sql="SELECT 1",
                                             columns=["a"], rows=[[1]], session_id=None):
             pass
 

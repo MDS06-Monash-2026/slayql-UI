@@ -141,7 +141,7 @@ class LoginRequest(BaseModel):
 
 class CreateRunRequest(BaseModel):
     question: str
-    model_id: Optional[str] = "deepseek-ai/DeepSeek-V4-Flash-0731"
+    model_id: Optional[str] = None
     connection_id: Optional[str] = None
     conversation_id: Optional[str] = None
     thinking_effort: ThinkingEffort = DEFAULT_THINKING_EFFORT
@@ -1223,7 +1223,7 @@ async def create_agent_run(req: CreateRunRequest, request: Request):
     occurred_at = datetime.now(timezone.utc).isoformat()
     run_response = SlayQLPipeline.create_run(
         question=req.question.strip(),
-        model_id=req.model_id or settings.DEFAULT_MODEL,
+        model_id=req.model_id or llm_client.execution_model,
         connection_id=connection_id,
         conversation_id=conversation_id,
         owner_id=owner_id,
@@ -1256,7 +1256,7 @@ async def create_agent_run(req: CreateRunRequest, request: Request):
         conversation_id=conversation_id,
         owner_id=owner_id,
         connection_id=connection_id,
-        model_id=req.model_id or settings.DEFAULT_MODEL,
+        model_id=req.model_id or llm_client.execution_model,
         question=req.question.strip(),
         occurred_at=occurred_at,
         prior_persistence_task=prior_persistence_task,

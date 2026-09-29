@@ -14,10 +14,10 @@ export default function ModelSelector({
   const searchRef = useRef(null);
 
   const activeModel = models.find((m) => m.id === selectedModelId) || models[0] || {
-    id: 'deepseek-ai/DeepSeek-V4-Flash-0731',
-    name: 'DeepSeek V4 Flash (0731)',
-    provider: 'DeepSeek',
-    description: 'Server execution model for the current test deployment.',
+    id: '',
+    name: 'Default model',
+    provider: 'AI model',
+    description: 'The server default model.',
   };
 
   useEffect(() => {
@@ -42,7 +42,7 @@ export default function ModelSelector({
       .some((v) => v.toLowerCase().includes(needle));
   });
 
-  const formatPrice = (price) => (price ? `$${Number(price).toFixed(2)}/M` : 'Free');
+  const formatPrice = (price) => (price ? `$${Number(price).toFixed(2)}/M` : 'Price n/a');
 
   const grouped = filteredModels.reduce((acc, m) => {
     const p = m.provider || 'Other';
@@ -144,7 +144,7 @@ export default function ModelSelector({
                 ref={searchRef}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search Claude, GPT, Gemini..."
+                placeholder="Search models..."
                 className={`w-full pl-8 pr-3 py-2 rounded-xl text-xs outline-none transition-all ${
                   isDark
                     ? 'bg-[#0f0f11] border border-[#27272a] text-white placeholder-neutral-500 focus:border-indigo-500 focus:bg-[#141417]'

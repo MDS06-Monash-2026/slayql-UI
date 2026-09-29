@@ -105,8 +105,9 @@ It should define at least:
 
 ```env
 APP_ENV=production
-TOGETHER_API_KEY=<production-key>
-LLM_BASE_URL=https://api.together.xyz/v1
+LLM_PROVIDER=opentk              # or together
+OPENTK_KEY=<key>                 # when LLM_PROVIDER=opentk
+TOGETHER_API_KEY=<key>           # when LLM_PROVIDER=together
 GEMINI_API_KEY=<production-key>
 DATABASE_URL=<supabase-postgresql-uri>
 BACKEND_DATABASE_SCHEMA=slayql

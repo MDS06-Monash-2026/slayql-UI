@@ -23,14 +23,19 @@ class Settings(BaseSettings):
         "*"
     ]
     
-    # AI provider: Together AI (OpenAI-compatible). TOGETHER_AI_KEY is accepted
-    # as an alias for TOGETHER_API_KEY.
+    # AI provider (OpenAI-compatible chat API): "opentk" (testing environment,
+    # models deepseek-v4.1-flash and glm-5.3) or "together" (DeepSeek-V4-Flash-0731
+    # and Kimi-K3). Models are defined in providers/llm_client.PROVIDERS.
+    LLM_PROVIDER: str = "opentk"
+    OPENTK_KEY: Optional[str] = None
+    OPENTK_API_KEY: Optional[str] = None
     TOGETHER_API_KEY: Optional[str] = None
     TOGETHER_AI_KEY: Optional[str] = None
-    LLM_BASE_URL: str = "https://api.together.xyz/v1"
-    # Default model; users may pick any model in providers/llm_client.CURATED_MODELS.
-    EXECUTION_MODEL: str = "deepseek-ai/DeepSeek-V4-Flash-0731"
-    DEFAULT_MODEL: str = "deepseek-ai/DeepSeek-V4-Flash-0731"
+    # Empty means the provider's own URL.
+    LLM_BASE_URL: str = ""
+    # Default model; empty means the provider's first model.
+    EXECUTION_MODEL: str = ""
+    DEFAULT_MODEL: str = ""
     
     # Direct Provider Keys (fallback or direct use)
     OPENAI_API_KEY: Optional[str] = None
