@@ -50,6 +50,12 @@ PROVIDERS: Dict[str, Dict[str, Any]] = {
             ModelInfo(id="glm-5.3", name="GLM 5.3", provider="Zhipu AI",
                       description="Alternative model for harder questions (OpenTK testing environment; price not published).",
                       tags=["deep"]),
+            ModelInfo(id="gpt-5.6-luna", name="GPT-5.6 Luna", provider="OpenAI",
+                      description="Fast model for high-volume work such as evaluation runs (OpenTK; price not published).",
+                      tags=["fast"]),
+            ModelInfo(id="gpt-6.1-sol", name="GPT-6.1 Sol", provider="OpenAI",
+                      description="Strongest model on OpenTK, for difficult questions (price not published).",
+                      tags=["deep"]),
         ],
     },
     "together": {

@@ -26,7 +26,7 @@ import json
 from typing import Any, Dict, List, Optional
 
 import backend.eval  # noqa: F401  (forces the local control database)
-from backend.app.providers.llm_client import llm_client
+from backend.app.providers.llm_client import ProviderError, llm_client
 from backend.eval.harness import CACHE_DIR, RESULTS_DIR, Item, catalog_for, load_items, make_runner, run_readings, with_definitions
 from backend.eval.evaluate import same_result
 from backend.app.workbench.trusted_report import schema_text
@@ -55,13 +55,21 @@ You have at most %d turns, so decide by then.""" % MAX_ANALYST_STEPS
 
 
 async def _ask(model: str, messages: List[Dict[str, str]], max_tokens: int = 1500) -> Optional[Dict[str, Any]]:
-    content: List[str] = []
-    async for event in llm_client._stream_completion(
-        requested_model_id=model, messages=messages, session_id=None, max_tokens=max_tokens,
-        reasoning_effort="minimal", fallback_text="", use_requested_model=True,
-    ):
-        if event.get("type") == "content_delta":
-            content.append(event.get("delta", ""))
+    for attempt in range(6):
+        content: List[str] = []
+        try:
+            async for event in llm_client._stream_completion(
+                requested_model_id=model, messages=messages, session_id=None, max_tokens=max_tokens,
+                reasoning_effort="minimal", fallback_text="", use_requested_model=True,
+            ):
+                if event.get("type") == "content_delta":
+                    content.append(event.get("delta", ""))
+            break
+        except ProviderError:
+            # Rate limits come and go; a provider error is never recorded as the person's answer.
+            if attempt == 5:
+                raise
+            await asyncio.sleep(20 * (attempt + 1))
     text = "".join(content)
     start, end = text.find("{"), text.rfind("}")
     if start < 0 or end <= start:

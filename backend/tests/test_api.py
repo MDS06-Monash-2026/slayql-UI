@@ -4,7 +4,7 @@ import threading
 
 import pytest
 import httpx
-from backend.app.providers.llm_client import ALTERNATE_MODEL, DEFAULT_MODEL
+from backend.app.providers.llm_client import ALTERNATE_MODEL, CURATED_MODELS, DEFAULT_MODEL
 from backend.app.main import ACTIVE_SESSIONS, app
 
 @pytest.mark.asyncio
@@ -58,7 +58,7 @@ async def test_api_models():
         resp = await client.get("/api/v1/models")
         assert resp.status_code == 200
         models = resp.json()
-        assert [m["id"] for m in models] == [DEFAULT_MODEL, ALTERNATE_MODEL]
+        assert [m["id"] for m in models] == [m.id for m in CURATED_MODELS] and models[0]["id"] == DEFAULT_MODEL
 
 @pytest.mark.asyncio
 async def test_api_connections_and_catalog():

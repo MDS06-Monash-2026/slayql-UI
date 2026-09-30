@@ -339,7 +339,7 @@ async def test_llm_model_list():
 
     models = await llm_client.list_models()
     assert PROVIDER_ID == "opentk"
-    assert [m.id for m in models] == ["deepseek-v4.1-flash", "glm-5.3"]
+    assert [m.id for m in models] == ["deepseek-v4.1-flash", "glm-5.3", "gpt-5.6-luna", "gpt-6.1-sol"]
     # The user's pick runs when it is offered; anything else falls back to the default.
     assert llm_client.execution_model_id(ALTERNATE_MODEL) == ALTERNATE_MODEL
     assert llm_client.execution_model_id("openai/gpt-5.6-terra") == DEFAULT_MODEL
