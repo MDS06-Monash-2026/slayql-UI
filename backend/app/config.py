@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     EXECUTION_MODEL: str = ""
     # Model for difficult work (High/Max effort, report planning); empty means the provider's second model.
     DEEP_MODEL: str = ""
+    # Models to try when one fails before answering, e.g. "gpt-5.6-luna:deepseek-v4.1-flash,gpt-6.1-sol:glm-5.3".
+    # Empty means the provider's built-in chains.
+    FALLBACK_MODELS: str = ""
     DEFAULT_MODEL: str = ""
     
     # Direct Provider Keys (fallback or direct use)

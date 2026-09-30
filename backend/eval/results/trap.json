@@ -9,8 +9,8 @@
   "penalty": 4.0,
   "threshold": 0.8,
   "calibration": "default prior (not yet calibrated)",
-  "commit": "3ba1fce",
-  "evaluated_at": "2026-09-30T03:25:02.357354+00:00",
+  "commit": "e9c6d69",
+  "evaluated_at": "2026-09-30T13:29:41.081553+00:00",
   "total_generation_cost_usd": 0.0325,
   "splits": {
     "test": {
@@ -4159,7 +4159,9 @@
         "correct": true,
         "sql": "WITH max_date AS (\n  SELECT MAX(created_at) AS latest FROM support_cases\n)\nSELECT COUNT(*) AS support_cases_last_30_days\nFROM support_cases, max_date\nWHERE created_at >= DATE(latest, '-30 days');",
         "repaired": false,
-        "findings": []
+        "findings": [
+          "\"last 30 days\" is measured from the latest data, not from today"
+        ]
       },
       "B2": {
         "outcome": "answer",
@@ -4186,7 +4188,14 @@
         },
         "blocking": false,
         "options": 0,
-        "findings": [],
+        "findings": [
+          {
+            "check": "period",
+            "severity": "info",
+            "title": "\"last 30 days\" is measured from the latest data, not from today",
+            "detail": "support_cases.created_at ends on 2026-06-24 19:00:00, before today (2026-09-30), so the period is counted back from where the data ends. Ask again with dates if you meant the calendar period."
+          }
+        ],
         "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,

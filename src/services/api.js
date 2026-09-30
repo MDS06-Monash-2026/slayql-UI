@@ -41,6 +41,26 @@ function getAuthHeaders() {
 
 // --- Auth Endpoints ---
 
+async function passwordResetCall(path, body) {
+  const res = await fetch(`${API_BASE}/auth/password-reset/${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || 'The request failed. Try again.');
+  return data;
+}
+
+/** Email a one-time reset link (the reply is the same whether or not the account exists). */
+export function requestPasswordReset(email) {
+  return passwordResetCall('request', { email });
+}
+
+export function confirmPasswordReset(token, password) {
+  return passwordResetCall('confirm', { token, password });
+}
+
 export async function loginOrganization({ email, password, organization_name, is_reviewer = false, role = null }) {
   const res = await fetch(`${API_BASE}/auth/login`, {
     method: 'POST',
@@ -416,6 +436,24 @@ export async function streamReport(connectionId, { question, title = '' }, onEve
 /** Re-run a saved report's checked SQL on current data (no AI, no credits). */
 export function refreshReport(connectionId, report) {
   return jsonRequest(`/connections/${encodeURIComponent(connectionId)}/reports/refresh`, { method: 'POST', body: { report } });
+}
+
+/** Reports saved on the server for this data source (newest first, without bodies). */
+export function fetchSavedReports(connectionId) {
+  return jsonRequest(`/connections/${encodeURIComponent(connectionId)}/saved-reports`);
+}
+
+/** Save a report; pass the id of an existing saved report to update it. */
+export function saveReportToServer(connectionId, report, id = null) {
+  return jsonRequest(`/connections/${encodeURIComponent(connectionId)}/saved-reports`, { method: 'POST', body: { report, id } });
+}
+
+export function fetchSavedReport(reportId) {
+  return jsonRequest(`/saved-reports/${encodeURIComponent(reportId)}`);
+}
+
+export function deleteSavedReport(reportId) {
+  return jsonRequest(`/saved-reports/${encodeURIComponent(reportId)}`, { method: 'DELETE' });
 }
 
 /** Ready-made report packs this data source supports (e.g. the weekly distributor pack). */

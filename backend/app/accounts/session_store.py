@@ -30,6 +30,12 @@ class SessionStore:
             ).mappings().first()
         return dict(row) if row else None
 
+    def delete_for_user(self, user_id: str) -> int:
+        """Sign a user out everywhere (after a password reset)."""
+        with self.database.engine.begin() as conn:
+            result = conn.execute(delete(self.sessions).where(self.sessions.c.user_id == user_id))
+        return result.rowcount
+
     def delete(self, token: str) -> bool:
         with self.database.engine.begin() as conn:
             result = conn.execute(delete(self.sessions).where(self.sessions.c.token == token))

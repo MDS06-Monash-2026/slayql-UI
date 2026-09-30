@@ -10,6 +10,7 @@ only token counts are tracked.
 from __future__ import annotations
 
 import json
+import logging
 import re
 import time
 from typing import Any, AsyncGenerator, Awaitable, Callable, Dict, List, Optional, Tuple
@@ -18,6 +19,8 @@ import httpx
 from pydantic import BaseModel, Field
 
 from backend.app.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class ProviderError(RuntimeError):
@@ -59,6 +62,7 @@ PROVIDERS: Dict[str, Dict[str, Any]] = {
                       tags=["deep"]),
         ],
     },
+    # (OpenTK fallbacks are set below the table.)
     "together": {
         "label": "Together AI",
         "base_url": "https://api.together.xyz/v1",
@@ -77,6 +81,20 @@ PROVIDERS: Dict[str, Dict[str, Any]] = {
     },
 }
 
+# When a model fails before answering (rate limit, outage), try these next, in order.
+BUILT_IN_FALLBACKS: Dict[str, Dict[str, List[str]]] = {
+    "opentk": {
+        "gpt-5.6-luna": ["deepseek-v4.1-flash"],
+        "gpt-6.1-sol": ["glm-5.3", "gpt-5.6-luna"],
+        "deepseek-v4.1-flash": ["gpt-5.6-luna"],
+        "glm-5.3": ["gpt-6.1-sol"],
+    },
+    "together": {
+        "deepseek-ai/DeepSeek-V4-Flash-0731": ["moonshotai/Kimi-K3"],
+        "moonshotai/Kimi-K3": ["deepseek-ai/DeepSeek-V4-Flash-0731"],
+    },
+}
+
 PROVIDER_ID = settings.LLM_PROVIDER.lower() if settings.LLM_PROVIDER.lower() in PROVIDERS else "opentk"
 PROVIDER = PROVIDERS[PROVIDER_ID]
 CURATED_MODELS: List[ModelInfo] = list(PROVIDER["models"])
@@ -90,6 +108,28 @@ MODEL_IDS = {model.id for model in CURATED_MODELS}
 DEFAULT_MODEL = settings.EXECUTION_MODEL or CURATED_MODELS[0].id
 ALTERNATE_MODEL = DEEP_MODEL = settings.DEEP_MODEL or CURATED_MODELS[1].id
 TEST_EXECUTION_MODEL = DEFAULT_MODEL
+
+
+def _fallback_table() -> Dict[str, List[str]]:
+    table = {model: list(chain) for model, chain in BUILT_IN_FALLBACKS.get(PROVIDER_ID, {}).items()}
+    for entry in (settings.FALLBACK_MODELS or "").split(","):
+        if ":" in entry:
+            model, backup = (part.strip() for part in entry.split(":", 1))
+            if model and backup:
+                table[model] = [backup] + [m for m in table.get(model, []) if m != backup]
+    return table
+
+
+FALLBACKS = _fallback_table()
+
+
+def fallback_chain(model_id: str) -> List[str]:
+    """The model, then the offered models to try if it fails before answering."""
+    chain = [model_id]
+    for backup in FALLBACKS.get(model_id, []) + [DEFAULT_MODEL]:
+        if backup in MODEL_IDS and backup not in chain:
+            chain.append(backup)
+    return chain
 _PRICES = {model.id: model for provider in PROVIDERS.values() for model in provider["models"]}
 
 
@@ -407,7 +447,30 @@ class LLMClient:
                 )
                 yield {"type": "tool_call_completed", "tool_call": call, "result": result, "round": round_number}
 
-    async def _stream_completion(
+    async def _stream_completion(self, **kwargs: Any) -> AsyncGenerator[Dict[str, Any], None]:
+        """Stream one completion; if the model fails before producing anything, try its fallbacks.
+
+        A call that has already streamed output is never retried, so an answer is never
+        stitched together from two models.
+        """
+        first = self.execution_model_id(kwargs["requested_model_id"], use_requested_model=kwargs.get("use_requested_model", False))
+        chain = fallback_chain(first)
+        for index, model_id in enumerate(chain):
+            produced = False
+            try:
+                async for event in self._stream_completion_once(**{**kwargs, "requested_model_id": model_id}):
+                    produced = True
+                    if index and event.get("type") == "completed":
+                        event["fallback_from"] = first
+                    yield event
+                return
+            except ProviderError as error:
+                last = index == len(chain) - 1
+                if produced or last or str(error) == "The AI provider is not configured.":
+                    raise
+                logger.warning("Model %s failed (%s); trying %s", model_id, error, chain[index + 1])
+
+    async def _stream_completion_once(
         self,
         *,
         requested_model_id: str,

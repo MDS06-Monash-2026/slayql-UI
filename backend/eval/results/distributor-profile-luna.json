@@ -9,8 +9,8 @@
   "penalty": 4.0,
   "threshold": 0.8,
   "calibration": "default prior (not yet calibrated)",
-  "commit": "e6fb72c",
-  "evaluated_at": "2026-09-30T03:42:05.254516+00:00",
+  "commit": "e9c6d69",
+  "evaluated_at": "2026-09-30T13:13:48.913031+00:00",
   "total_generation_cost_usd": 0.0,
   "splits": {
     "test": {

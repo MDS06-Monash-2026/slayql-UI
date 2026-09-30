@@ -16,7 +16,17 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { fetchReportTemplates, refreshReport, reviseReportItem, runReportTemplate, streamReport } from '../../services/api';
+import {
+  deleteSavedReport,
+  fetchReportTemplates,
+  fetchSavedReport,
+  fetchSavedReports,
+  refreshReport,
+  reviseReportItem,
+  runReportTemplate,
+  saveReportToServer,
+  streamReport,
+} from '../../services/api';
 import ReportCanvas from './ReportCanvas';
 import ScheduleEmail from './ScheduleEmail';
 
@@ -36,15 +46,40 @@ const STAGES = [
 // Matches MAX_PANELS in backend/app/workbench/trusted_report.py.
 const MAX_PANELS = 6;
 
-const storageKey = (connectionId) => `slayql:trusted-reports:${connectionId}`;
+// Reports used to be saved in the browser only; they are moved to the server once.
+const legacyStorageKey = (connectionId) => `slayql:trusted-reports:${connectionId}`;
 
-function loadSaved(connectionId) {
+function legacySaved(connectionId) {
   try {
-    const value = JSON.parse(localStorage.getItem(storageKey(connectionId)) || '[]');
+    const value = JSON.parse(localStorage.getItem(legacyStorageKey(connectionId)) || '[]');
     return Array.isArray(value) ? value : [];
   } catch {
     return [];
   }
+}
+
+const migrations = new Map();
+
+async function migrateLegacy(connectionId) {
+  const legacy = legacySaved(connectionId);
+  if (!legacy.length) return;
+  localStorage.removeItem(legacyStorageKey(connectionId));
+  try {
+    for (const entry of [...legacy].reverse()) {
+      if (entry?.report) await saveReportToServer(connectionId, entry.report);
+    }
+  } catch (err) {
+    // Not signed in or offline: keep them in the browser and try again next time.
+    localStorage.setItem(legacyStorageKey(connectionId), JSON.stringify(legacy));
+    throw err;
+  }
+}
+
+async function loadSaved(connectionId) {
+  // Run the one-time move once per data source, even if the component mounts twice.
+  if (!migrations.has(connectionId)) migrations.set(connectionId, migrateLegacy(connectionId).catch(() => migrations.delete(connectionId)));
+  await migrations.get(connectionId);
+  return fetchSavedReports(connectionId);
 }
 
 function summarizeTrust(report) {
@@ -62,7 +97,7 @@ export default function ReportStudio({ connectionId, isDark = false, onDirtyChan
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const [saved, setSaved] = useState(() => (connectionId ? loadSaved(connectionId) : []));
+  const [saved, setSaved] = useState([]);
   const [savedId, setSavedId] = useState(null);
   const [savedSnapshot, setSavedSnapshot] = useState('');
   const [editing, setEditing] = useState(null);
@@ -72,7 +107,8 @@ export default function ReportStudio({ connectionId, isDark = false, onDirtyChan
   const abortRef = useRef(null);
 
   useEffect(() => {
-    setSaved(connectionId ? loadSaved(connectionId) : []);
+    setSaved([]);
+    if (connectionId) loadSaved(connectionId).then(setSaved).catch(() => {});
     setReport(null);
     setSavedId(null);
     setSavedSnapshot('');
@@ -87,23 +123,20 @@ export default function ReportStudio({ connectionId, isDark = false, onDirtyChan
 
   const isDirty = Boolean(report && !busy && JSON.stringify(report) !== savedSnapshot);
 
-  const save = useCallback(() => {
+  const save = useCallback(async () => {
     if (!report || !connectionId) return false;
-    const id = savedId || `rpt_${Date.now().toString(36)}`;
-    const entry = { id, title: report.title, question: report.question, savedAt: new Date().toISOString(), report };
-    const next = [entry, ...saved.filter((item) => item.id !== id)].slice(0, 12);
     try {
-      localStorage.setItem(storageKey(connectionId), JSON.stringify(next));
-    } catch {
-      setError('This browser could not store the report. Export it instead.');
+      const stored = await saveReportToServer(connectionId, report, savedId);
+      setSavedId(stored.id);
+      setSavedSnapshot(JSON.stringify(report));
+      setSaved(await fetchSavedReports(connectionId));
+      setMessage('Saved to your account. Open it from Saved reports on any device, and refresh it for free.');
+      return true;
+    } catch (err) {
+      setError(err.status === 401 ? 'Sign in to save reports.' : err.message || 'The report could not be saved. Export it instead.');
       return false;
     }
-    setSaved(next);
-    setSavedId(id);
-    setSavedSnapshot(JSON.stringify(report));
-    setMessage('Saved. Open it later from Saved reports and refresh it for free.');
-    return true;
-  }, [report, connectionId, savedId, saved]);
+  }, [report, connectionId, savedId]);
 
   useEffect(() => {
     onDirtyChange?.(isDirty);
@@ -236,20 +269,28 @@ export default function ReportStudio({ connectionId, isDark = false, onDirtyChan
     }
   };
 
-  const open = (entry) => {
-    setReport(entry.report);
-    setQuestion(entry.report.question || question);
-    setSavedId(entry.id);
-    setSavedSnapshot(JSON.stringify(entry.report));
+  const open = async (entry) => {
     setShowSaved(false);
-    setMessage(`Opened "${entry.title}". Refresh to run it on today's data.`);
+    try {
+      const { report: stored } = await fetchSavedReport(entry.id);
+      setReport(stored);
+      setQuestion(stored.question || question);
+      setSavedId(entry.id);
+      setSavedSnapshot(JSON.stringify(stored));
+      setMessage(`Opened "${entry.title}". Refresh to run it on today's data.`);
+    } catch (err) {
+      setError(err.message || 'The saved report could not be opened.');
+    }
   };
 
-  const removeSaved = (id) => {
-    const next = saved.filter((item) => item.id !== id);
-    localStorage.setItem(storageKey(connectionId), JSON.stringify(next));
-    setSaved(next);
-    if (savedId === id) setSavedId(null);
+  const removeSaved = async (id) => {
+    try {
+      await deleteSavedReport(id);
+      setSaved((items) => items.filter((item) => item.id !== id));
+      if (savedId === id) setSavedId(null);
+    } catch (err) {
+      setError(err.message || 'The saved report could not be deleted.');
+    }
   };
 
   const exportJson = () => {
@@ -291,7 +332,7 @@ export default function ReportStudio({ connectionId, isDark = false, onDirtyChan
                   <div key={entry.id} className="flex items-center gap-1 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800">
                     <button type="button" onClick={() => open(entry)} className="min-w-0 flex-1 px-2.5 py-2 text-left">
                       <p className="truncate text-xs font-semibold text-slate-800 dark:text-slate-100">{entry.title}</p>
-                      <p className="text-[11px] text-slate-500">Saved {new Date(entry.savedAt).toLocaleString()}</p>
+                      <p className="text-[11px] text-slate-500">Saved {new Date(entry.updated_at).toLocaleString()}</p>
                     </button>
                     <button type="button" onClick={() => removeSaved(entry.id)} title="Delete saved report" className="rounded p-2 text-slate-400 hover:text-rose-600">
                       <Trash2 className="h-3.5 w-3.5" />

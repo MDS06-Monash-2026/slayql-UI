@@ -6,6 +6,7 @@ import ProfileView from './views/ProfileView';
 import DatabaseCenterView from './views/DatabaseCenterView';
 import ReviewQueueView from './views/ReviewQueueView';
 import DefinitionsView from './views/DefinitionsView';
+import ResetPasswordView from './views/ResetPasswordView';
 import ArenaPlayerView from './views/ArenaPlayerView';
 import ArenaScreenView from './views/ArenaScreenView';
 import ArenaHostView from './views/ArenaHostView';
@@ -29,6 +30,7 @@ const SLUG_TO_VIEW = {
   '/': 'landing',
   '/landing': 'landing',
   '/login': 'login',
+  '/reset-password': 'reset-password',
   '/app': 'demo',
   '/demo': 'demo',
   '/live-demo': 'demo',
@@ -57,6 +59,7 @@ const SLUG_TO_VIEW = {
 const VIEW_TO_SLUG = {
   landing: '/',
   login: '/login',
+  'reset-password': '/reset-password',
   demo: '/app',
   databases: '/database-lab',
   profile: '/profile',
@@ -85,6 +88,7 @@ function getViewFromLocation() {
   if (target.startsWith('/play')) return 'play';
   if (target.startsWith('/arena/screen')) return 'arena-screen';
   if (target.startsWith('/arena/host')) return 'arena-host';
+  if (target.startsWith('/reset-password')) return 'reset-password';
   if (target.startsWith('/login')) {
     return 'login';
   }
@@ -270,6 +274,7 @@ export default function App() {
       )}
       {view === 'review' && <ReviewQueueView setView={changeView} session={session} />}
       {view === 'definitions' && <DefinitionsView setView={changeView} session={session} />}
+      {view === 'reset-password' && <ResetPasswordView setView={changeView} />}
       {view === 'play' && <ArenaPlayerView />}
       {view === 'arena-screen' && <ArenaScreenView />}
       {view === 'arena-host' && <ArenaHostView session={session} />}

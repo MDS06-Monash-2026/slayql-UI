@@ -97,3 +97,35 @@ async def test_scheduling_needs_an_analyst_and_sending_refreshes_the_report(monk
         assert (await client.delete(f"/api/v1/report-schedules/{schedule['id']}", headers=headers)).status_code == 200
         # The demo database is not AutoCount, so it has no distributor pack.
         assert (await client.get("/api/v1/connections/sqlite_demo/report-templates", headers=headers)).json() == []
+
+
+@pytest.mark.asyncio
+async def test_saved_reports_live_on_the_server_and_only_their_owner_sees_them():
+    import httpx
+    from backend.app import main
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=main.app), base_url="http://test") as client:
+        assert (await client.get("/api/v1/connections/sqlite_demo/saved-reports")).status_code == 401
+        owner = (await client.post("/api/v1/auth/login", json={"is_reviewer": True})).json()
+        headers = {"Authorization": f"Bearer {owner['token']}"}
+        report = {"title": "Monthly revenue", "question": "How is revenue trending?", "kpis": [{"id": "k", "value": 1}], "panels": []}
+        created = (await client.post("/api/v1/connections/sqlite_demo/saved-reports", json={"report": report}, headers=headers)).json()
+        assert created["id"].startswith("rpt_") and created["title"] == "Monthly revenue"
+        # Saving again with the id updates the same report.
+        updated = (await client.post("/api/v1/connections/sqlite_demo/saved-reports",
+                                     json={"id": created["id"], "report": {**report, "title": "Revenue v2"}}, headers=headers)).json()
+        assert updated["id"] == created["id"]
+        listed = (await client.get("/api/v1/connections/sqlite_demo/saved-reports", headers=headers)).json()
+        assert [r["title"] for r in listed if r["id"] == created["id"]] == ["Revenue v2"]
+        full = (await client.get(f"/api/v1/saved-reports/{created['id']}", headers=headers)).json()
+        assert full["report"]["kpis"][0]["value"] == 1
+
+        other = (await client.post("/api/v1/auth/login", json={
+            "email": "saved.other@example.com", "name": "Other", "organization_name": "Other Co", "password": "another-pass-1",
+        })).json()
+        other_headers = {"Authorization": f"Bearer {other['token']}"}
+        assert (await client.get(f"/api/v1/saved-reports/{created['id']}", headers=other_headers)).status_code == 404
+        assert not [r for r in (await client.get("/api/v1/connections/sqlite_demo/saved-reports", headers=other_headers)).json()
+                    if r["id"] == created["id"]]
+        assert (await client.delete(f"/api/v1/saved-reports/{created['id']}", headers=other_headers)).status_code == 404
+        assert (await client.delete(f"/api/v1/saved-reports/{created['id']}", headers=headers)).status_code == 200

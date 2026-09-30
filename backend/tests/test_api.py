@@ -624,3 +624,39 @@ async def test_passwords_roles_and_organisation_scoping():
         assert mine["id"] in visible and other["id"] not in visible
         resolved = await client.post(f"/api/v1/review-items/{other['id']}/resolve", json={"resolution": "dismissed"}, headers=owner_h)
         assert resolved.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_password_reset_links_work_once_and_sign_out_old_sessions(monkeypatch):
+    from backend.app import main
+    from backend.app.accounts.password_reset import password_reset_store
+
+    sent = []
+    monkeypatch.setattr(main, "email_configured", lambda: True)
+    monkeypatch.setattr(main, "_dispatch_reset_email", lambda to, link: sent.append((to, link)))
+    email = "reset.me@example.com"
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        old = (await client.post("/api/v1/auth/login", json={"email": email, "name": "R", "organization_name": "Reset Co", "password": "first-password"})).json()
+        old_headers = {"Authorization": f"Bearer {old['token']}"}
+        # Unknown addresses get the same reply and no email.
+        unknown = await client.post("/api/v1/auth/password-reset/request", json={"email": "nobody.here@example.com"})
+        assert unknown.status_code == 200 and not sent
+        reply = await client.post("/api/v1/auth/password-reset/request", json={"email": email})
+        assert reply.json() == unknown.json()
+        assert sent and sent[0][0] == email and "/reset-password?token=" in sent[0][1]
+        token = sent[0][1].split("token=")[1]
+
+        assert (await client.post("/api/v1/auth/password-reset/confirm", json={"token": token, "password": "short"})).status_code == 400
+        done = await client.post("/api/v1/auth/password-reset/confirm", json={"token": token, "password": "second-password"})
+        assert done.status_code == 200, done.text
+        # One use only; the old session is signed out; old password refused, new one works.
+        assert (await client.post("/api/v1/auth/password-reset/confirm", json={"token": token, "password": "third-password"})).status_code == 400
+        assert (await client.get("/api/v1/my-answers", headers=old_headers)).status_code == 401
+        wrong = await client.post("/api/v1/auth/login", json={"email": email, "organization_name": "Reset Co", "password": "first-password"})
+        assert wrong.status_code == 401
+        right = await client.post("/api/v1/auth/login", json={"email": email, "organization_name": "Reset Co", "password": "second-password"})
+        assert right.status_code == 200
+        # At most three links an hour per account.
+        for _ in range(4):
+            await client.post("/api/v1/auth/password-reset/request", json={"email": email})
+        assert password_reset_store.recent_requests(main.stable_user_id(email)) == 3

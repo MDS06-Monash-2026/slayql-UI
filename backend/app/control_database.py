@@ -264,6 +264,31 @@ class ControlDatabase:
             Column("correct", Integer, nullable=False, server_default="0"),
             Column("fitted_at", String, nullable=False),
         )
+        # One-time password reset links: only a hash of each token is stored.
+        self.password_resets = Table(
+            "password_resets",
+            self.metadata,
+            Column("token_hash", String, primary_key=True),
+            Column("user_id", String, nullable=False),
+            Column("created_at", String, nullable=False),
+            Column("expires_at", String, nullable=False),
+            Column("used_at", String),
+        )
+        Index("idx_password_resets_user", self.password_resets.c.user_id, self.password_resets.c.created_at)
+        # Reports saved from Report Studio, per user and data source.
+        self.saved_reports = Table(
+            "saved_reports",
+            self.metadata,
+            Column("id", String, primary_key=True),
+            Column("owner_id", String, nullable=False),
+            Column("connection_id", String, nullable=False),
+            Column("title", String, nullable=False),
+            Column("question", Text, nullable=False, server_default=""),
+            Column("report", Text, nullable=False),
+            Column("created_at", String, nullable=False),
+            Column("updated_at", String, nullable=False),
+        )
+        Index("idx_saved_reports_owner", self.saved_reports.c.owner_id, self.saved_reports.c.connection_id)
         # Saved reports emailed on a schedule (the weekly pack), refreshed without AI each time.
         self.report_schedules = Table(
             "report_schedules",

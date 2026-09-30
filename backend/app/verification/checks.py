@@ -190,6 +190,28 @@ async def check_definitions(
         for definition in definitions:
             terms = [definition.get("term", "")] + list(definition.get("synonyms") or [])
             if not any(term and re.search(rf"\b{re.escape(term.lower())}\b", lowered_question) for term in terms):
+                # The rule for "sales" applied to "how many invoices were issued": say so, since the
+                # question never chose it (cancelled invoices were still issued).
+                table = str(definition.get("table") or "").lower()
+                column = str(definition.get("column") or "").lower()
+                named = re.sub(r"^is_?", "", column)[:6]
+                # "How many completed orders": a filter value the question names was chosen by the user.
+                where = select.args.get("where")
+                chosen = [str(node.this).lower() for node in where.find_all(exp.Literal) if node.is_string] if where is not None else []
+                chosen += [value.lower() for value in re.findall(r"'([^']*)'", str(definition.get("filter_sql") or ""))]
+                names_filter = named in lowered_question or any(len(v) >= 4 and v[:6] in lowered_question for v in chosen)
+                if (column and table in tables and (table, column) in filtered and not names_filter
+                        and _counts_documents_of(question, table, catalog)
+                        and not any(f.data.get("spread_column") == (table, column) for f in findings if f.data)):
+                    findings.append(Finding(
+                        check="definition",
+                        severity="warning",
+                        title=f"Applies the approved rule for \"{definition['term']}\" to a question that does not mention it",
+                        detail=(f"The query filters {definition.get('table')} with {definition.get('filter_sql')}, the approved "
+                                f"meaning of \"{definition['term']}\". This question asks about something else, so check "
+                                "whether those records should be left out here."),
+                        data={"definition_id": definition.get("id"), "spread": True, "spread_column": (table, column)},
+                    ))
                 continue
             table = str(definition.get("table") or "").lower()
             column = str(definition.get("column") or "").lower()
@@ -299,6 +321,26 @@ async def check_definitions(
     return findings, options, used
 
 
+def _counts_documents_of(question: str, table: str, catalog: CatalogSchema) -> bool:
+    """"How many invoices were issued": a count of the table's own documents. Leaving cancelled
+    ones out is a choice there; for "customers who bought" or "unpaid invoices" it is expected.
+    The first counted noun that names a table decides ("how many customers have unpaid invoices"
+    counts customers)."""
+    from backend.app.agent.retrieval import QUERY_ALIASES, tokenize
+
+    match = COUNT_QUESTION.search(question or "")
+    if not match:
+        return False
+    names = {name.lower(): name.lower() for name in catalog.tables}
+    for word in tokenize(match.group(1)):
+        stem = _stem(word)
+        for candidate in [stem, word] + QUERY_ALIASES.get(stem, []) + QUERY_ALIASES.get(word, []):
+            named = names.get(candidate) or names.get(_stem(candidate))
+            if named:
+                return named == table
+    return False
+
+
 def _replace_select(tree: exp.Expression, old: exp.Select, new: exp.Select) -> exp.Expression:
     if old is tree:
         root_with = tree.args.get("with_") or tree.args.get("with")
@@ -313,6 +355,17 @@ def _replace_select(tree: exp.Expression, old: exp.Select, new: exp.Select) -> e
     return copy
 
 
+# "Last month", "this year", "bulan lepas": periods whose meaning depends on the reference date.
+RELATIVE_PERIOD = re.compile(
+    r"\b(last|this|previous|past|current)\s+(\d+\s+)?(day|week|month|quarter|year)s?\b|\b(year|month)[- ]to[- ]date\b|\bytd\b|\bmtd\b"
+    r"|\b(bulan|tahun|minggu|suku)\s+(lepas|ini|lalu)\b|\b(yesterday|today|semalam)\b",
+    re.I,
+)
+
+
+SHORT_PERIOD = re.compile(r"day|week|month|yesterday|today|semalam|mtd|minggu|bulan", re.I)
+
+
 async def check_periods(
     tree: exp.Expression,
     sql: str,
@@ -320,11 +373,14 @@ async def check_periods(
     run_sql: SqlRunner,
     result: ExecutionResult,
     today: Optional[date] = None,
+    question: str = "",
 ) -> List[Finding]:
     """Check date filters against the dates actually present in the data."""
     findings: List[Finding] = []
     today = today or date.today()
     reported_now = False
+    relative = RELATIVE_PERIOD.search(question or "")
+    stated = False
     for select in tree.find_all(exp.Select):
         select_sources = sql_scope.sources(select, catalog)
         where = select.args.get("where")
@@ -357,6 +413,22 @@ async def check_periods(
                     data={"column": key, "min": first, "max": last},
                 ))
                 uses_now, reported_now = False, True
+            elif (relative and not stated and not NOW_TOKENS.search(where.sql()) and last_date
+                  and last_date < today - timedelta(days=30) and result.rows
+                  # A day, week or month counted from today would hold no data, so a non-empty answer
+                  # was counted from where the data ends. A year or quarter may overlap: need MAX(date).
+                  and (SHORT_PERIOD.search(relative.group(0))
+                       or re.search(rf"max\s*\(\s*(\w+\.)?\"?{re.escape(column.name)}\"?\s*\)", sql, re.I))):
+                # Measured from where the data ends: right, but a reader may assume the calendar. Say so.
+                findings.append(Finding(
+                    check="period",
+                    severity="info",
+                    title=f"\"{relative.group(0)}\" is measured from the latest data, not from today",
+                    detail=(f"{key} ends on {last}, before today ({today}), so the period is counted back from "
+                            f"where the data ends. Ask again with dates if you meant the calendar period."),
+                    data={"column": key, "max": last, "assumption": True},
+                ))
+                stated = True
             if _has_time_component(last):
                 for literal in _upper_bounds(where, column):
                     if DATE_ONLY.match(literal):

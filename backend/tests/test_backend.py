@@ -474,3 +474,44 @@ def test_everyday_work_uses_the_fast_model_and_difficult_work_the_deep_one():
     # A model the user picked always wins, even for difficult work.
     assert llm_client.model_for_effort(DEFAULT_MODEL, "max") == DEFAULT_MODEL
     assert llm_client.model_for_effort("not-a-model", "low") == DEFAULT_MODEL
+
+
+@pytest.mark.asyncio
+async def test_a_failing_model_falls_back_before_any_output_but_never_mid_answer(monkeypatch):
+    from backend.app.providers import llm_client as module
+    from backend.app.providers.llm_client import ProviderError, fallback_chain, llm_client
+
+    first = llm_client.execution_model
+    chain = fallback_chain(first)
+    assert chain[0] == first and len(chain) >= 2
+    tried = []
+
+    async def fake_once(**kwargs):
+        tried.append(kwargs["requested_model_id"])
+        if kwargs["requested_model_id"] == first:
+            raise ProviderError("The AI provider is rate-limiting requests; try again shortly.")
+        yield {"type": "content_delta", "delta": "OK"}
+        yield {"type": "completed", "content": "OK"}
+
+    monkeypatch.setattr(llm_client, "_stream_completion_once", fake_once)
+    events = [e async for e in llm_client._stream_completion(
+        requested_model_id=first, messages=[], session_id=None, max_tokens=5,
+        reasoning_effort="minimal", fallback_text="")]
+    assert tried == chain[:2]
+    assert events[-1]["fallback_from"] == first
+
+    # Output already streamed: the error is raised, not retried on another model.
+    tried.clear()
+
+    async def fails_midway(**kwargs):
+        tried.append(kwargs["requested_model_id"])
+        yield {"type": "content_delta", "delta": "SELECT"}
+        raise ProviderError("The AI provider request failed.")
+
+    monkeypatch.setattr(llm_client, "_stream_completion_once", fails_midway)
+    with pytest.raises(ProviderError):
+        async for _ in llm_client._stream_completion(
+            requested_model_id=first, messages=[], session_id=None, max_tokens=5,
+            reasoning_effort="minimal", fallback_text=""):
+            pass
+    assert tried == [first]

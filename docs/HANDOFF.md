@@ -52,6 +52,15 @@ Every answer in this app passes through a trust layer: deterministic checks, com
 - **Settings:** `EMAIL`/`APP_PASS` (or `SMTP_USER`/`SMTP_PASSWORD`), `EMAIL_NOTIFICATIONS`, `REPORT_SCHEDULER`, `PUBLIC_APP_URL`. Add them on the VPS before deploying if email is wanted there.
 - **Evaluation:** `--definitions pack` and `--profile` on `generate.py`/`evaluate.py`; `backend/eval/human_loop.py` replays clarify and hand-off outcomes with a second model as the user and the analyst. Not yet run: OpenTK was rate-limited and Together out of credit on 30 September (see section 6).
 
+## 2c. Added later on 30 September 2026 (deployed separately)
+
+- **Model fallback** (`llm_client._stream_completion`): if a model fails before producing anything (rate limit, outage, timeout) the call is retried on the next model: Luna → DeepSeek V4.1 Flash, Sol → GLM 5.3 → Luna. A call that already streamed output is never switched. `FALLBACK_MODELS` overrides the chains.
+- **Approved rule applied elsewhere:** a count of a table's own documents ("how many invoices were issued") that silently applies another term's approved filter (sales excludes cancelled invoices) now carries a caveat naming the rule.
+- **Relative periods:** "last month" measured from today on data that ended earlier is rewritten without a model call to count back from the data's last date (`verification/repairs.py`, all dialects), and the answer states that assumption under the result.
+- **Saved reports on the server** (`workbench/saved_reports.py`, table `saved_reports`): available on any device; reports saved in the browser before are moved to the server once.
+- **Password reset by email** (`accounts/password_reset.py`, table `password_resets`): one-time links for 30 minutes, at most 3 per hour, the same reply whether or not the account exists, and every existing session signed out after a reset. "Forgot password?" on the sign-in page; `/reset-password` page.
+- New settings: `FALLBACK_MODELS` (optional). New tables are created automatically.
+
 ## 3. Branch state
 
 `feature/trust-layer`, not pushed, 17 commits ahead of `main`. New since the last handoff:
@@ -121,7 +130,7 @@ Tests: `python -m pytest -q` passes 111 (30 September). `npm run build` passes.
    python -m backend.eval.human_loop --dataset distributor --human-model glm-5.3   # moonshotai/Kimi-K3 on Together
    python -m backend.eval.human_loop --dataset trap --human-model glm-5.3
    ```
-   Add `--model gpt-5.6-luna --label luna` to the generate/evaluate commands, and `--label luna --human-model gpt-6.1-sol` to `human_loop`. The earlier distributor numbers (section 5.4 of the report) used OpenTK's `deepseek-v4.1-flash` and stay in `distributor.json`.
+   Always pass `--model`: the default is now Luna, so re-scoring the DeepSeek results needs `--model deepseek-v4.1-flash` (distributor) or `--model deepseek/deepseek-v4-flash` (trap and BIRD), or it overwrites them. Add `--model gpt-5.6-luna --label luna` to the generate/evaluate commands, and `--label luna --human-model gpt-6.1-sol` to `human_loop`. The earlier distributor numbers (section 5.4 of the report) used OpenTK's `deepseek-v4.1-flash` and stay in `distributor.json`.
 6. **Known gaps:**
    - a question whose SQL silently drops the asked-for concept (`ms-15`);
    - counting rows instead of distinct entities (the arena's deliberate verifier-miss card);

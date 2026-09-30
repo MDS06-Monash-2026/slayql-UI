@@ -9,8 +9,8 @@
   "penalty": 4.0,
   "threshold": 0.8,
   "calibration": "default prior (not yet calibrated)",
-  "commit": "e6fb72c",
-  "evaluated_at": "2026-09-30T03:35:27.471650+00:00",
+  "commit": "e9c6d69",
+  "evaluated_at": "2026-09-30T13:13:25.081206+00:00",
   "total_generation_cost_usd": 0.0,
   "splits": {
     "test": {
@@ -1487,18 +1487,18 @@
           },
           {
             "coverage": 0.7368,
-            "risk": 0.0714,
+            "risk": 0.0,
             "threshold": 0.8808
           },
           {
             "coverage": 0.7895,
-            "risk": 0.0667,
+            "risk": 0.0,
             "threshold": 0.8808
           },
           {
             "coverage": 0.8421,
             "risk": 0.0625,
-            "threshold": 0.8808
+            "threshold": 0.8176
           },
           {
             "coverage": 0.8947,
@@ -1516,15 +1516,15 @@
             "threshold": 0.8022
           }
         ],
-        "aurc": 0.0193
+        "aurc": 0.0121
       },
       "calibration_B3": {
-        "ece": 0.0537,
+        "ece": 0.057,
         "reliability_diagram": [
           {
             "bin": 8,
             "n": 13,
-            "confidence": 0.8627,
+            "confidence": 0.8578,
             "accuracy": 0.9231
           },
           {
@@ -2458,7 +2458,9 @@
         "correct": false,
         "sql": "SELECT COUNT(*) AS InvoiceCount\nFROM IV\nWHERE Cancelled <> 'T'\n  AND date(DocDate) >= (\n      SELECT date(MAX(DocDate), '-30 days')\n      FROM IV\n  )\n  AND date(DocDate) <= (\n      SELECT date(MAX(DocDate))\n      FROM IV\n  );",
         "repaired": false,
-        "findings": []
+        "findings": [
+          "Applies the approved rule for \"sales\" to a question that does not mention it"
+        ]
       },
       "B2": {
         "outcome": "answer",
@@ -2467,17 +2469,17 @@
         "sql": "SELECT COUNT(*) AS InvoiceCount\nFROM IV\nWHERE Cancelled <> 'T'\n  AND date(DocDate) >= (\n      SELECT date(MAX(DocDate), '-30 days')\n      FROM IV\n  )\n  AND date(DocDate) <= (\n      SELECT date(MAX(DocDate))\n      FROM IV\n  );"
       },
       "B3": {
-        "outcome": "confident",
+        "outcome": "caveat",
         "correct": false,
         "sql": "SELECT COUNT(*) AS InvoiceCount\nFROM IV\nWHERE Cancelled <> 'T'\n  AND date(DocDate) >= (\n      SELECT date(MAX(DocDate), '-30 days')\n      FROM IV\n  )\n  AND date(DocDate) <= (\n      SELECT date(MAX(DocDate))\n      FROM IV\n  );",
         "preview": "32",
-        "p": 0.8808,
+        "p": 0.8176,
         "features": {
           "agreement": 1.0,
           "single_candidate": 0.0,
           "unresolved_blocking": 0.0,
           "ambiguity": 0.0,
-          "warnings": 0.0,
+          "warnings": 1.0,
           "repairs": 0.0,
           "empty_result": 0.0,
           "semantic_invalid": 0.0,
@@ -2485,18 +2487,25 @@
         },
         "blocking": false,
         "options": 0,
-        "findings": [],
+        "findings": [
+          {
+            "check": "definition",
+            "severity": "warning",
+            "title": "Applies the approved rule for \"sales\" to a question that does not mention it",
+            "detail": "The query filters IV with Cancelled <> 'T', the approved meaning of \"sales\". This question asks about something else, so check whether those records should be left out here."
+          }
+        ],
         "clarify_options": [],
         "selected_correct": false,
         "reading_match": false,
-        "warning": false
+        "warning": true
       },
       "B3_c1": {
-        "outcome": "confident",
+        "outcome": "caveat",
         "correct": false
       },
       "B3_c4": {
-        "outcome": "confident",
+        "outcome": "caveat",
         "correct": false
       },
       "B3_c9": {

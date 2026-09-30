@@ -1,5 +1,6 @@
 import asyncio
 import re
+import threading
 import json
 import logging
 import uuid
@@ -58,6 +59,8 @@ from backend.app.workbench.health import inspect_sqlite_health
 from backend.app.workbench import trusted_report
 from backend.app.workbench.report_packs import available_templates, build_template
 from backend.app.workbench.schedules import render_email, schedule_store
+from backend.app.workbench.saved_reports import saved_report_store
+from backend.app.accounts.password_reset import LINK_MINUTES, MAX_PER_HOUR, password_reset_store
 from backend.app.notifications.mailer import EmailNotConfigured, email_configured, send_email
 
 logger = logging.getLogger(__name__)
@@ -398,6 +401,72 @@ async def login(req: LoginRequest):
     session_store.save(session_token, profile["id"], authenticated_at)
     ACTIVE_SESSIONS[session_token] = session_data
     return session_data
+
+class PasswordResetRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=320)
+
+
+class PasswordResetConfirm(BaseModel):
+    token: str = Field(min_length=10, max_length=200)
+    password: str = Field(max_length=200)
+
+
+RESET_SENT = {"sent": True, "message": "If that email has a SlayQL account, a reset link is on its way. It works for 30 minutes."}
+
+
+def _send_reset_email(to: str, link: str) -> None:
+    text = "\n".join([
+        f"Someone asked to reset the SlayQL password for {to}.",
+        "",
+        f"Choose a new password here (the link works once, for {LINK_MINUTES} minutes):",
+        link,
+        "",
+        "If you did not ask for this, ignore this email; your password stays the same.",
+        "",
+        "SlayQL",
+    ])
+    html = (f"<p>Someone asked to reset the SlayQL password for {to}.</p>"
+            f"<p><a href=\"{link}\">Choose a new password</a>. The link works once, for {LINK_MINUTES} minutes.</p>"
+            "<p style=\"color:#64748b\">If you did not ask for this, ignore this email; your password stays the same.</p>")
+    try:
+        send_email(to, "Reset your SlayQL password", text, html)
+    except Exception:
+        logger.exception("Could not send a password reset email")
+
+
+def _dispatch_reset_email(to: str, link: str) -> None:
+    """Send in the background so the reply takes the same time whether or not an email goes out."""
+    threading.Thread(target=_send_reset_email, args=(to, link), daemon=True).start()
+
+
+@app.post("/api/v1/auth/password-reset/request")
+async def request_password_reset(req: PasswordResetRequest, request: Request):
+    """Email a one-time reset link. The reply is the same whether or not the account exists."""
+    if not email_configured():
+        raise HTTPException(status_code=503, detail="Password reset by email is not set up on this server. Ask your administrator.")
+    email = req.email.strip()
+    user_id = stable_user_id(email)
+    if "@" in email and await asyncio.to_thread(access_store.has_password, user_id)             and await asyncio.to_thread(password_reset_store.recent_requests, user_id) < MAX_PER_HOUR:
+        token = await asyncio.to_thread(password_reset_store.create, user_id)
+        base = (settings.PUBLIC_APP_URL or request.headers.get("origin") or "").rstrip("/")
+        _dispatch_reset_email(email, f"{base}/reset-password?token={token}")
+    return RESET_SENT
+
+
+@app.post("/api/v1/auth/password-reset/confirm")
+async def confirm_password_reset(req: PasswordResetConfirm):
+    if len(req.password) < MIN_PASSWORD_LENGTH:
+        raise HTTPException(status_code=400, detail=f"Choose a password of at least {MIN_PASSWORD_LENGTH} characters.")
+    user_id = await asyncio.to_thread(password_reset_store.consume, req.token)
+    if not user_id:
+        raise HTTPException(status_code=400, detail="This reset link is invalid, already used or expired. Ask for a new one.")
+    await asyncio.to_thread(access_store.set_password, user_id, req.password)
+    # Sign out every existing session: whoever knew the old password is locked out.
+    for token in [t for t, s in ACTIVE_SESSIONS.items() if s.get("user", {}).get("id") == user_id]:
+        ACTIVE_SESSIONS.pop(token, None)
+    await asyncio.to_thread(session_store.delete_for_user, user_id)
+    return {"reset": True, "message": "Password changed. Sign in with your new password."}
+
 
 @app.get("/api/v1/session")
 async def get_current_session(request: Request):
@@ -1169,6 +1238,48 @@ async def _deliver_schedule(schedule: Dict[str, Any]) -> str:
             status = f"Failed: {str(exc)[:200]}"
     await asyncio.to_thread(schedule_store.mark_sent, schedule["id"], status)
     return status
+
+
+class SavedReportRequest(BaseModel):
+    report: Dict[str, Any]
+    id: Optional[str] = None
+
+
+def _saved_report_owner(request: Request) -> str:
+    """Saved reports belong to a signed-in user."""
+    return _session_from_request(request, required=True)["user"]["id"]
+
+
+@app.get("/api/v1/connections/{connection_id}/saved-reports")
+async def list_saved_reports(connection_id: str, request: Request):
+    owner_id = _saved_report_owner(request)
+    return await asyncio.to_thread(saved_report_store.list_for, owner_id, connection_id)
+
+
+@app.post("/api/v1/connections/{connection_id}/saved-reports")
+async def save_report(connection_id: str, req: SavedReportRequest, request: Request):
+    owner_id = _saved_report_owner(request)
+    if not _connection_metadata(connection_id, owner_id):
+        raise HTTPException(status_code=404, detail="Database connection not found.")
+    if len(json.dumps(req.report, default=str)) > 5_000_000:
+        raise HTTPException(status_code=413, detail="This report is too large to save.")
+    return await asyncio.to_thread(saved_report_store.save, owner_id=owner_id, connection_id=connection_id,
+                                   report=req.report, report_id=req.id)
+
+
+@app.get("/api/v1/saved-reports/{report_id}")
+async def get_saved_report(report_id: str, request: Request):
+    record = await asyncio.to_thread(saved_report_store.get, report_id, _saved_report_owner(request))
+    if not record:
+        raise HTTPException(status_code=404, detail="Saved report not found.")
+    return record
+
+
+@app.delete("/api/v1/saved-reports/{report_id}")
+async def delete_saved_report(report_id: str, request: Request):
+    if not await asyncio.to_thread(saved_report_store.delete, report_id, _saved_report_owner(request)):
+        raise HTTPException(status_code=404, detail="Saved report not found.")
+    return {"deleted": True}
 
 
 @app.get("/api/v1/report-schedules")

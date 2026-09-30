@@ -124,7 +124,7 @@ export default function DatabaseCenterView({ setView, session, theme: propTheme,
 
   const confirmDashboardLeave = () => {
     if (activeSection === 'dashboard' && dashboardDirty) {
-      const save = window.confirm('This dashboard has unsaved changes. Save it locally before leaving?');
+      const save = window.confirm('This report has unsaved changes. Save it to your account before leaving?');
       if (save) dashboardSaveRef.current?.();
     }
     return true;

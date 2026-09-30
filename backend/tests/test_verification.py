@@ -339,6 +339,42 @@ async def test_which_questions_about_things_the_data_lacks_are_handed_off():
 
 
 @pytest.mark.asyncio
+async def test_an_approved_rule_applied_to_another_question_is_a_caveat():
+    from pathlib import Path
+    from backend.data.seed_autocount_sample import build
+
+    path = str(build(Path(settings.CONNECTION_DATA_DIR) / "autocount-spread.db"))
+    catalog = CatalogService.get_sqlite_catalog(path)
+
+    async def run(sql):
+        return await QueryExecutor.execute_sqlite(path, sql)
+
+    sales = {"id": "def_sales", "term": "sales", "synonyms": ["revenue"], "table": "IV", "column": "Cancelled",
+             "filter_sql": "Cancelled <> 'T'", "status": "approved"}
+
+    async def checks(question, sql):
+        return await run_checks(question=question, sql=sql, dialect="sqlite", catalog=catalog, run_sql=run,
+                                result=await run(sql), today=TODAY, definitions=[sales])
+
+    # "Invoices issued" never chose to leave cancelled invoices out.
+    findings, _, used = await checks("How many invoices were issued in 2025?",
+                                     "SELECT COUNT(*) FROM IV WHERE Cancelled <> 'T' AND DocDate >= '2025-01-01' AND DocDate < '2026-01-01'")
+    spread = [f for f in findings if f.data and f.data.get("spread")]
+    assert spread and spread[0].severity == "warning" and '"sales"' in spread[0].title
+    # A sales question uses its own rule; a question that names the filter chose it.
+    findings, _, _ = await checks("What were sales in 2025?",
+                                  "SELECT SUM(TotalExTax) FROM IV WHERE Cancelled <> 'T' AND DocDate >= '2025-01-01' AND DocDate < '2026-01-01'")
+    assert not [f for f in findings if f.data and f.data.get("spread")]
+    # Customers who bought, or unpaid invoices: leaving cancelled invoices out is expected there.
+    findings, _, _ = await checks("How many customers bought from us in 2026?",
+                                  "SELECT COUNT(DISTINCT DebtorCode) FROM IV WHERE Cancelled <> 'T' AND DocDate >= '2026-01-01'")
+    assert not [f for f in findings if f.data and f.data.get("spread")]
+    findings, _, _ = await checks("How many non-cancelled invoices were issued in 2025?",
+                                  "SELECT COUNT(*) FROM IV WHERE Cancelled <> 'T' AND DocDate >= '2025-01-01' AND DocDate < '2026-01-01'")
+    assert not [f for f in findings if f.data and f.data.get("spread")]
+
+
+@pytest.mark.asyncio
 async def test_exclusions_that_remove_nothing_are_blocking_on_autocount_flags():
     from pathlib import Path
     from backend.data.seed_autocount_sample import build
@@ -437,3 +473,40 @@ async def test_adverbs_are_not_missing_subjects():
                                    "SELECT c.full_name, SUM(o.total_amount) FROM customers c JOIN orders o ON o.customer_id = c.id "
                                    "WHERE o.status = 'completed' GROUP BY c.full_name")
     assert not [f for f in findings if f.check == "coverage"]
+
+
+@pytest.mark.asyncio
+async def test_a_relative_period_measured_from_the_data_states_its_assumption():
+    anchored = ("WITH m AS (SELECT MAX(order_date) AS d FROM orders) "
+                "SELECT SUM(o.total_amount) FROM orders o, m WHERE o.status = 'completed' "
+                "AND o.order_date >= date(m.d, 'start of month', '-1 month') AND o.order_date < date(m.d, 'start of month')")
+    findings, _, _ = await _checks("What was the total value of completed orders last month?", anchored)
+    notes = [f for f in findings if f.check == "period" and f.severity == "info"]
+    assert notes and '"last month"' in notes[0].title and notes[0].data["assumption"]
+    # The note never blocks or lowers confidence: it is information, not a problem.
+    assert not [f for f in findings if f.severity in {"blocking", "warning"}]
+    # A question without a relative period needs no note.
+    literal = ("SELECT SUM(total_amount) FROM orders WHERE status = 'completed' "
+               "AND order_date >= '2026-05-01' AND order_date < '2026-06-01'")
+    # Literal dates inside the data answer "last month" from where the data ends too: say so.
+    findings, _, _ = await _checks("What was the total value of completed orders last month?", literal)
+    assert [f for f in findings if f.check == "period" and f.severity == "info"]
+    # A year may overlap the calendar year, so literal dates need no note there.
+    year = ("SELECT SUM(total_amount) FROM orders WHERE status = 'completed' "
+            "AND order_date >= '2026-01-01' AND order_date < '2027-01-01'")
+    findings, _, _ = await _checks("What was the total value of completed orders this year?", year)
+    assert not [f for f in findings if f.check == "period" and f.severity == "info"]
+    findings, _, _ = await _checks("What was the total value of completed orders in May 2026?", anchored)
+    assert not [f for f in findings if f.check == "period" and f.severity == "info"]
+
+
+def test_relative_dates_are_anchored_to_where_the_data_ends_in_every_dialect():
+    from backend.app.verification.repairs import anchor_relative_dates
+
+    sqlite = anchor_relative_dates(
+        "SELECT SUM(total_amount) FROM orders WHERE order_date >= DATE('now', 'start of month', '-1 month')",
+        "sqlite", "2026-06-28 10:00:00")
+    assert "DATE('2026-06-28 10:00:00', 'start of month', '-1 month')" in sqlite
+    assert "CAST('2026-06-28' AS DATE)" in anchor_relative_dates("SELECT 1 FROM t WHERE d >= CURRENT_DATE - 30", "postgres", "2026-06-28")
+    assert "GETDATE" not in anchor_relative_dates("SELECT 1 FROM t WHERE d >= DATEADD(day, -30, GETDATE())", "tsql", "2026-06-28 10:00:00")
+    assert anchor_relative_dates("SELECT 1 FROM t WHERE d >= '2026-01-01'", "sqlite", "2026-06-28") is None

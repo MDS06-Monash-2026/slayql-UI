@@ -46,7 +46,7 @@ async def run_checks(
         tree, question, catalog, run_sql, definitions or []
     )
     findings += definition_findings
-    findings += await checks.check_periods(tree, sql, catalog, run_sql, result, today=today)
+    findings += await checks.check_periods(tree, sql, catalog, run_sql, result, today=today, question=question)
     # A period check that explains an empty result supersedes the generic one.
     if any(f.check == "period" and "No data" in f.title for f in findings):
         findings = [f for f in findings if not (f.check == "sanity" and "no rows" in f.title)]

@@ -33,6 +33,7 @@ from backend.app.providers.llm_client import (
 from backend.app import privacy
 from backend.app.knowledge.store import knowledge_store
 from backend.app.verification.learning import workspace_learning
+from backend.app.verification.repairs import anchor_relative_dates
 from backend.app.queries.executor import ExecutionResult, QueryExecutor
 from backend.app.queries.validator import SqlValidator
 from backend.app.verification import (
@@ -934,6 +935,7 @@ class SlayQLPipeline:
         conversation_messages: List[Dict[str, str]],
         conversation_id: str,
         sql_usage: Dict[str, Any],
+        date_anchor: Optional[str] = None,
     ) -> tuple[Dict[str, Any], str, ExecutionResult]:
         """Generate extra candidates, compare them, check the answer and decide."""
         started = time.perf_counter()
@@ -968,8 +970,11 @@ class SlayQLPipeline:
             if variant.get("error") or not variant.get("sql"):
                 candidates.append(candidate_from_result(candidate_id, variant.get("sql", ""), None, variant.get("error") or "no SQL returned"))
                 continue
+            variant_sql = variant["sql"]
+            if date_anchor:
+                variant_sql = anchor_relative_dates(variant_sql, dialect, date_anchor) or variant_sql
             validation = SqlValidator.validate_and_sanitize(
-                sql=variant["sql"], dialect=dialect, catalog=catalog, max_rows=settings.MAX_RESULT_ROWS
+                sql=variant_sql, dialect=dialect, catalog=catalog, max_rows=settings.MAX_RESULT_ROWS
             )
             if not validation.is_valid:
                 candidates.append(candidate_from_result(candidate_id, variant["sql"], None, validation.error_message or "invalid SQL"))
@@ -1045,6 +1050,7 @@ class SlayQLPipeline:
         requested_model_id = execution_model_id = llm_client.model_for_effort(requested_model_id, thinking_profile.name)
         started = time.perf_counter()
         profile = ""
+        date_anchor: Optional[str] = None
 
         try:
             SlayQLPipeline._emit(
@@ -1852,6 +1858,28 @@ class SlayQLPipeline:
                         result=result,
                         definitions=definitions,
                     )
+                    blocking = [f for f in check_findings if f.severity == "blocking"]
+                    if (len(blocking) == 1 and blocking[0].check == "period" and (blocking[0].data or {}).get("max")
+                            and "today" in blocking[0].title):
+                        # "Last month" measured from today on data that ended earlier: count back from the
+                        # data's last date instead. No model call, so it cannot drift.
+                        anchor = str(blocking[0].data["max"])
+                        anchored_sql = anchor_relative_dates(validation.sanitized_sql, dialect, anchor)
+                        anchored_validation = SqlValidator.validate_and_sanitize(
+                            sql=anchored_sql, dialect=dialect, catalog=catalog, max_rows=settings.MAX_RESULT_ROWS
+                        ) if anchored_sql else None
+                        if anchored_validation is not None and anchored_validation.is_valid:
+                            anchored_result = await SlayQLPipeline._execute_query(connection, connection_id, anchored_validation.sanitized_sql)
+                            if not anchored_result.error:
+                                validation, result, date_anchor = anchored_validation, anchored_result, anchor
+                                SlayQLPipeline._emit(run_id, "verification", "verification.repair_applied", {
+                                    "attempt": attempt, "kind": "date_anchor", "anchor": anchor,
+                                    "summary": f"Relative dates now count back from where the data ends ({anchor}).",
+                                })
+                                check_findings, _, _ = await run_checks(
+                                    question=effective_question, sql=validation.sanitized_sql, dialect=dialect,
+                                    catalog=catalog, run_sql=probe_runner, result=result, definitions=definitions,
+                                )
                     for finding in check_findings:
                         SlayQLPipeline._emit(
                             run_id,
@@ -1913,6 +1941,7 @@ class SlayQLPipeline:
                     definitions_context=definitions_context,
                     penalty=penalty,
                     repairs=attempt_count - 1,
+                    date_anchor=date_anchor,
                     semantic_invalid=not semantic_validation.get("is_semantically_valid", True),
                     thinking_profile=thinking_profile,
                     requested_model_id=requested_model_id,

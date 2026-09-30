@@ -18,6 +18,11 @@ export default function TrustPanel({ verification, dataSent, runId, isDark = fal
           isDark={isDark}
         />
       </div>
+      {(verification.findings || []).filter((f) => f.data?.assumption).map((f) => (
+        <p key={f.title} className={`text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+          <span className="font-semibold">Assumption:</span> {f.title}. {f.detail}
+        </p>
+      ))}
       {verification.outcome === 'clarify' && (
         <ClarifyOptions runId={runId} options={verification.clarify_options || []} isDark={isDark} canApprove={canApprove} />
       )}

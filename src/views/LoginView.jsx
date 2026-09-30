@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import {
   loginOrganization,
+  requestPasswordReset,
   fetchConversations,
   fetchConnections,
   fetchModels,
@@ -33,6 +34,26 @@ export default function LoginView({ setView, onLoginSuccess }) {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStage, setLoadingStage] = useState('');
   const [error, setError] = useState(null);
+  const [resetNotice, setResetNotice] = useState('');
+  const [resetBusy, setResetBusy] = useState(false);
+
+  const sendResetLink = async () => {
+    setError(null);
+    setResetNotice('');
+    if (!email.trim() || !email.includes('@')) {
+      setError('Enter your email above, then choose "Forgot password?".');
+      return;
+    }
+    setResetBusy(true);
+    try {
+      const reply = await requestPasswordReset(email.trim());
+      setResetNotice(reply.message);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setResetBusy(false);
+    }
+  };
 
   // Auto-detect organization domain from email
   const getDetectedOrg = () => {
@@ -225,7 +246,14 @@ export default function LoginView({ setView, onLoginSuccess }) {
                     className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
                   />
                 </div>
-                <p className="mt-1 text-[10px] text-slate-500">First time here? The password you enter now becomes your password.</p>
+                <div className="mt-1 flex items-start justify-between gap-2">
+                  <p className="text-[10px] text-slate-500">First time here? The password you enter now becomes your password.</p>
+                  <button type="button" onClick={sendResetLink} disabled={resetBusy || isLoading}
+                    className="shrink-0 text-[11px] font-semibold text-indigo-600 hover:underline disabled:opacity-50">
+                    {resetBusy ? 'Sending…' : 'Forgot password?'}
+                  </button>
+                </div>
+                {resetNotice && <p className="mt-1.5 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-[11px] text-emerald-800" role="status">{resetNotice}</p>}
               </div>
 
               {detectedOrg && (
