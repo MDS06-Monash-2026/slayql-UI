@@ -6,6 +6,8 @@ import {
   FileText,
   FolderOpen,
   Loader2,
+  Mail,
+  Package,
   Plus,
   Printer,
   RefreshCw,
@@ -14,8 +16,9 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { refreshReport, reviseReportItem, streamReport } from '../../services/api';
+import { fetchReportTemplates, refreshReport, reviseReportItem, runReportTemplate, streamReport } from '../../services/api';
 import ReportCanvas from './ReportCanvas';
+import ScheduleEmail from './ScheduleEmail';
 
 const SUGGESTIONS = [
   'How is revenue trending, and which customer segments and products drive it?',
@@ -64,6 +67,8 @@ export default function ReportStudio({ connectionId, isDark = false, onDirtyChan
   const [savedSnapshot, setSavedSnapshot] = useState('');
   const [editing, setEditing] = useState(null);
   const [showSaved, setShowSaved] = useState(false);
+  const [templates, setTemplates] = useState([]);
+  const [scheduling, setScheduling] = useState(false);
   const abortRef = useRef(null);
 
   useEffect(() => {
@@ -71,6 +76,11 @@ export default function ReportStudio({ connectionId, isDark = false, onDirtyChan
     setReport(null);
     setSavedId(null);
     setSavedSnapshot('');
+  }, [connectionId]);
+
+  useEffect(() => {
+    setTemplates([]);
+    if (connectionId) fetchReportTemplates(connectionId).then(setTemplates).catch(() => {});
   }, [connectionId]);
 
   useEffect(() => () => abortRef.current?.abort(), []);
@@ -155,6 +165,23 @@ export default function ReportStudio({ connectionId, isDark = false, onDirtyChan
       setMessage(note);
     } catch (err) {
       setError(err.message || 'Refresh failed.');
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const runTemplate = async (template) => {
+    setBusy('template');
+    setError('');
+    setStage(null);
+    try {
+      const built = await runReportTemplate(connectionId, template.id);
+      setReport(built);
+      setSavedId(null);
+      setSavedSnapshot('');
+      setMessage('Built from the ready-made pack: every figure was run on the full data and checked. No AI was used, so this was free.');
+    } catch (err) {
+      setError(err.message || 'The pack could not be built.');
     } finally {
       setBusy('');
     }
@@ -304,6 +331,19 @@ export default function ReportStudio({ connectionId, isDark = false, onDirtyChan
             </button>
           ))}
         </div>
+        {templates.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Ready-made for this data</span>
+            {templates.map((template) => (
+              <button key={template.id} type="button" onClick={() => runTemplate(template)} disabled={Boolean(busy) || building}
+                title={template.description}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
+                {busy === 'template' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Package className="h-3.5 w-3.5" />}
+                {template.title} · no AI, free
+              </button>
+            ))}
+          </div>
+        )}
 
         {(building || stage === 'done') && (
           <ol className="mt-3 flex flex-wrap gap-4 text-xs" aria-live="polite">
@@ -344,6 +384,10 @@ export default function ReportStudio({ connectionId, isDark = false, onDirtyChan
               className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
               <Save className="h-4 w-4" /> Save
             </button>
+            <button type="button" onClick={() => setScheduling(!scheduling)} disabled={Boolean(busy)} title="Email this report every week"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
+              <Mail className="h-4 w-4" /> Email weekly
+            </button>
             <button type="button" onClick={() => window.print()} disabled={Boolean(busy)}
               className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
               <Printer className="h-4 w-4" /> Print / PDF
@@ -354,6 +398,10 @@ export default function ReportStudio({ connectionId, isDark = false, onDirtyChan
             </button>
           </div>
         </div>
+      )}
+
+      {scheduling && displayed && (
+        <ScheduleEmail connectionId={connectionId} report={report} onClose={() => setScheduling(false)} />
       )}
 
       {editing && (

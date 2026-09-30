@@ -80,6 +80,10 @@ ALTERNATIVES = {
                 f"SELECT SalesAgent, SUM(TotalIncTax) FROM IV WHERE {LIVE} AND {Y2025} GROUP BY SalesAgent ORDER BY 2 DESC LIMIT 1"],
 }
 
+# With the AutoCount starter pack approved (sales = TotalExTax on non-cancelled invoices),
+# an ambiguous question has one right answer: the first reading above.
+DEFINED = {item_id: readings[0] for item_id, readings in ALTERNATIVES.items()}
+
 # Other SQL whose result is also a correct answer.
 ACCEPT = {
     "dist-02": ["SELECT SalesAgent FROM SalesAgent WHERE IsActive = 'F'"],
@@ -106,6 +110,7 @@ def main() -> None:
             "id": item_id, "db_id": "autocount_sample", "language": language, "trap": trap, "expected": expected,
             "question": question, "gold_sql": gold, "alternatives": ALTERNATIVES.get(item_id, []),
             "gold_preview": preview, "status": "team-written", "author": "team", "accept": ACCEPT.get(item_id, []),
+            "defined_gold": DEFINED.get(item_id, ""),
         }, default=str))
     OUT.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"wrote {len(lines)} items to {OUT}")

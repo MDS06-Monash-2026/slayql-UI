@@ -240,6 +240,17 @@ class KnowledgeStore:
     def count_open(self, owner_ids: Optional[List[str]] = None) -> int:
         return len(self.list_review_items(status="open", limit=500, owner_ids=owner_ids))
 
+    def list_answered(self, owner_id: str, limit: int = 20) -> List[Dict[str, Any]]:
+        """Questions this user raised that an analyst has since dealt with, newest first."""
+        statement = (
+            select(self.reviews)
+            .where(self.reviews.c.owner_id == owner_id, self.reviews.c.status.in_(["resolved", "dismissed"]))
+            .order_by(self.reviews.c.updated_at.desc())
+            .limit(limit)
+        )
+        with self.database.engine.connect() as conn:
+            return [self._review(row) for row in conn.execute(statement).mappings()]
+
     def get_review_item(self, item_id: str) -> Optional[Dict[str, Any]]:
         with self.database.engine.connect() as conn:
             row = conn.execute(select(self.reviews).where(self.reviews.c.id == item_id)).mappings().first()

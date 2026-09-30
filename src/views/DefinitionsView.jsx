@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { BadgeCheck, Loader2, Plus } from 'lucide-react';
 import AnalystNav from '../components/trust/AnalystNav';
+import DefinitionSuggestions from '../components/trust/DefinitionSuggestions';
 import { createDefinition, fetchConnections, fetchDefinitions, updateDefinitionStatus } from '../services/api';
 
 const EMPTY = { term: '', synonyms: '', table_name: '', column_name: '', filter_sql: '', description: '', approve: true };
@@ -12,6 +13,7 @@ export default function DefinitionsView({ setView, session }) {
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const canApprove = ['owner', 'analyst'].includes(session?.user?.access_role);
 
   useEffect(() => {
     fetchConnections().then((list) => {
@@ -82,6 +84,8 @@ export default function DefinitionsView({ setView, session }) {
           </select>
         </div>
         {error && <p className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
+
+        {canApprove && <DefinitionSuggestions key={connectionId} connectionId={connectionId} onApproved={load} />}
 
         <table className="w-full overflow-hidden rounded-2xl border border-slate-200 bg-white text-sm dark:border-slate-800 dark:bg-[#121622] dark:text-slate-200">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-900">

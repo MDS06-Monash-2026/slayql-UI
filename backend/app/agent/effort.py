@@ -5,7 +5,7 @@ from typing import Literal
 
 
 ThinkingEffort = Literal["minimal", "low", "medium", "high", "max"]
-DEFAULT_THINKING_EFFORT: ThinkingEffort = "minimal"
+DEFAULT_THINKING_EFFORT: ThinkingEffort = "medium"
 
 
 @dataclass(frozen=True)

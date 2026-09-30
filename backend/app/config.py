@@ -64,6 +64,21 @@ class Settings(BaseSettings):
     VERIFY_DEFAULT_PENALTY: float = 4.0
     # Mask personal-data columns before values or rows are sent to AI providers.
     PRIVACY_MODE: bool = False
+    # Outgoing email (weekly report packs, answers from the review queue). Gmail by
+    # default: SMTP_USER/SMTP_PASSWORD, or EMAIL/APP_PASS (a Google App Password).
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USER: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
+    EMAIL: Optional[str] = None
+    APP_PASS: Optional[str] = None
+    SMTP_FROM_NAME: str = "SlayQL Reports"
+    # Email askers when an analyst answers their question. Off unless switched on.
+    EMAIL_NOTIFICATIONS: bool = False
+    # Send scheduled report emails from this server (checked every 5 minutes).
+    REPORT_SCHEDULER: bool = True
+    # Where links in emails point.
+    PUBLIC_APP_URL: str = "http://localhost:5173"
     ARENA_MAX_STUMP_PER_PARTICIPANT: int = 3
     MAX_CONNECTION_UPLOAD_BYTES: int = 250 * 1024 * 1024
 

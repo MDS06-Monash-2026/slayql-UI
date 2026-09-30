@@ -29,6 +29,8 @@ class ClarifyOption(BaseModel):
     sql: str
     preview: str
     candidate_id: Optional[str] = None
+    # The company definition this choice stands for, so an analyst can make it the rule.
+    definition: Optional[Dict[str, Any]] = None
 
 
 class CandidateResult(BaseModel):

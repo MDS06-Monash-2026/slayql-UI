@@ -110,11 +110,14 @@ async def verify(
         findings, options, used = checked[selected.candidate_id]
         findings, options = list(findings), list(options)
         if options:
+            chosen = next((o.definition for o in options if o.definition), None)
             options.insert(0, ClarifyOption(
                 label="As calculated (all records)",
                 sql=selected.sql,
                 preview=selected.preview,
                 candidate_id=selected.candidate_id,
+                definition={**chosen, "column_name": None, "filter_sql": "",
+                            "description": "Counts every record."} if chosen else None,
             ))
     else:
         findings.append(Finding(

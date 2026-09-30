@@ -30,7 +30,8 @@ from backend.app.verification.consensus import cluster, normalize_value
 from backend.app.verification.models import result_preview
 from backend.eval import metrics
 from backend.eval.harness import (
-    PROMPT_VERSION, RESULTS_DIR, Item, cache_path, catalog_for, load_items, make_runner, run_readings, split_of,
+    PROMPT_VERSION, RESULTS_DIR, Item, cache_path, catalog_for, load_items, make_runner, pack_definitions, run_readings, split_of,
+    with_definitions,
 )
 
 CONFIGS = ("B0", "B1", "B2", "B3")
@@ -72,7 +73,8 @@ def _decide(features: Dict[str, float], blocking: bool, options: int, model: Dic
     return "handoff", p
 
 
-async def score_item(item: Item, record: Dict[str, Any], golds: List[ExecutionResult]) -> Dict[str, Any]:
+async def score_item(item: Item, record: Dict[str, Any], golds: List[ExecutionResult],
+                     definitions: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
     catalog = catalog_for(str(item.db_path))
     run = make_runner(item.db_path, catalog)
     lenient = item.dataset in ("trap", "distributor")
@@ -102,12 +104,12 @@ async def score_item(item: Item, record: Dict[str, Any], golds: List[ExecutionRe
     # B1: checks with one check-driven repair.
     b1_sql, b1_result, repaired, b1_findings, b1_options = primary_sql, primary_result, False, [], []
     if primary_ok:
-        b1_findings, b1_options, _ = await run_checks(question=item.question, sql=primary_sql, dialect="sqlite", catalog=catalog, run_sql=run, result=primary_result)
+        b1_findings, b1_options, _ = await run_checks(question=item.question, sql=primary_sql, dialect="sqlite", catalog=catalog, run_sql=run, result=primary_result, definitions=definitions)
         if any(f.severity == "blocking" for f in b1_findings) and record.get("check_repair") and record["check_repair"].get("sql"):
             repair_result = await execute(record["check_repair"]["sql"])
             if repair_result is not None and not repair_result.error:
                 b1_sql, b1_result, repaired = record["check_repair"]["sql"], repair_result, True
-                b1_findings, b1_options, _ = await run_checks(question=item.question, sql=b1_sql, dialect="sqlite", catalog=catalog, run_sql=run, result=repair_result)
+                b1_findings, b1_options, _ = await run_checks(question=item.question, sql=b1_sql, dialect="sqlite", catalog=catalog, run_sql=run, result=repair_result, definitions=definitions)
     if not primary_ok:
         b1_outcome = "handoff"
     elif any(f.severity == "blocking" for f in b1_findings):
@@ -138,6 +140,7 @@ async def score_item(item: Item, record: Dict[str, Any], golds: List[ExecutionRe
     verification = await verify(
         question=item.question, dialect="sqlite", catalog=catalog, run_sql=run, candidates=b3_candidates,
         primary_id="cand_primary", penalty=settings.VERIFY_DEFAULT_PENALTY, repairs=int(repaired),
+        definitions=definitions,
     )
     selected = next((c for c in b3_candidates if c.candidate_id == verification.selected_candidate_id), None)
     out["B3"] = {
@@ -148,7 +151,9 @@ async def score_item(item: Item, record: Dict[str, Any], golds: List[ExecutionRe
         "features": verification.features,
         "blocking": any(f.severity == "blocking" for f in verification.findings),
         "options": len(verification.clarify_options),
-        "findings": [{"check": f.check, "severity": f.severity, "title": f.title} for f in verification.findings],
+        "findings": [{"check": f.check, "severity": f.severity, "title": f.title, "detail": f.detail} for f in verification.findings],
+        # What a person would be shown: the readings to choose from (human_loop.py replays these).
+        "clarify_options": [{"label": o.label, "sql": o.sql, "preview": o.preview} for o in verification.clarify_options],
         # correctness of the selected answer, regardless of outcome (for calibration)
         "selected_correct": bool(item.expected == "answer" and selected is not None and matches(selected.result)),
         # A question with several meanings answered with one valid reading, its assumption stated.
@@ -172,20 +177,30 @@ async def main() -> None:
     parser.add_argument("--k", type=int, default=3)
     parser.add_argument("--with-evidence", action="store_true")
     parser.add_argument("--model", default=llm_client.execution_model)
+    parser.add_argument("--definitions", choices=["", "pack"], default="",
+                        help="'pack': score with the starter-pack definitions approved (writes <dataset>-pack.json)")
+    parser.add_argument("--profile", action="store_true", help="score generations made with the data profile")
     parser.add_argument("--fit", action="store_true", help="fit the confidence model on this dataset's 'fit' half (saved to results/calibration-<dataset>.json)")
     args = parser.parse_args()
 
     items = load_items(args.dataset, args.limit)
+    packs: Dict[str, List[Dict[str, Any]]] = {}
+    if args.definitions:
+        items = with_definitions(items)
+        for item in items:
+            if str(item.db_path) not in packs:
+                packs[str(item.db_path)] = await pack_definitions(item.db_path)
     scored: List[Dict[str, Any]] = []
     missing = 0
     for index, item in enumerate(items, 1):
-        path = cache_path(item, args.model, args.k, args.with_evidence)
+        path = cache_path(item, args.model, args.k, args.with_evidence,
+                          "+".join(v for v in (args.definitions, "profile" if args.profile else "") if v))
         if not path.exists():
             missing += 1
             continue
         record = json.loads(path.read_text(encoding="utf-8"))
         golds = await run_readings(item) if item.expected in ("answer", "clarify") else []
-        scored.append(await score_item(item, record, golds))
+        scored.append(await score_item(item, record, golds, packs.get(str(item.db_path))))
         if len(scored) % 50 == 0 or len(scored) == len(items):
             print(f"  {len(scored)}/{len(items)} scored", flush=True)
     if missing:
@@ -238,6 +253,8 @@ async def main() -> None:
         "model": args.model,
         "k": args.k,
         "with_evidence": args.with_evidence,
+        "definitions": args.definitions or "none",
+        "data_profile": args.profile,
         "prompt_version": PROMPT_VERSION,
         "penalty": penalty,
         "threshold": confidence.threshold(penalty),
@@ -276,7 +293,7 @@ async def main() -> None:
     report["items"] = scored
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    suffix = "-evidence" if args.with_evidence else ""
+    suffix = ("-evidence" if args.with_evidence else "") + (f"-{args.definitions}" if args.definitions else "") + ("-profile" if args.profile else "")
     out_path = RESULTS_DIR / f"{args.dataset}{suffix}.json"
     out_path.write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
 

@@ -3,12 +3,13 @@
   "model": "deepseek/deepseek-v4-flash",
   "k": 3,
   "with_evidence": false,
+  "definitions": "none",
   "prompt_version": "v2",
   "penalty": 4.0,
   "threshold": 0.8,
   "calibration": "default prior (not yet calibrated)",
-  "commit": "8dfba30",
-  "evaluated_at": "2026-09-29T15:26:48.448228+00:00",
+  "commit": "2d0acec",
+  "evaluated_at": "2026-09-30T02:43:56.893269+00:00",
   "total_generation_cost_usd": 0.0325,
   "splits": {
     "test": {

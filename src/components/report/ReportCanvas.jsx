@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Line, LineChart, ResponsiveContainer } from 'recharts';
-import { ArrowDownRight, ArrowUpRight, Code2, Loader2, Pencil, ShieldCheck, Table2, BarChart3 } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Check, Code2, Loader2, Pencil, ShieldCheck, Table2, BarChart3 } from 'lucide-react';
 import TrustBadge from '../trust/TrustBadge';
 import DataTablePanel from '../demo/DataTablePanel';
 import ReportChart from './ReportChart';
@@ -161,6 +161,11 @@ function PanelCard({ panel, width = 1, isDark, onEdit, onChoose, busy }) {
             <Options item={panel} onChoose={onChoose} busy={busy} />
             {panel.outcome !== 'clarify' && <div className="mt-2"><Evidence item={panel} /></div>}
           </div>
+        ) : !(panel.rows || []).length ? (
+          <div className="flex items-center gap-2 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300">
+            <Check className="h-4 w-4 shrink-0" aria-hidden="true" />
+            {panel.purpose === 'exception' ? 'None this period: nothing matched, which is good news.' : 'No rows matched this figure on the full data.'}
+          </div>
         ) : view === 'table' ? (
           <DataTablePanel columns={panel.columns || []} rows={panel.rows || []} isDark={isDark} isTruncated={panel.truncated} />
         ) : (
@@ -274,7 +279,7 @@ export default function ReportCanvas({ report, isDark = false, onEdit, onChoose,
         <footer className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-4 text-[11px] text-slate-500 sm:grid-cols-3 dark:border-slate-800 dark:bg-[#141925]">
           <div>
             <p className="font-semibold text-slate-700 dark:text-slate-200">How this report was made</p>
-            <p>{meta.planner === 'model' ? `Planned by ${meta.model}` : 'Planned from the database structure'} · {meta.refreshed ? 'refreshed' : 'generated'} {new Date(meta.generated_at).toLocaleString()}</p>
+            <p>{meta.planner === 'model' ? `Planned by ${meta.model}` : String(meta.planner || '').startsWith('template:') ? 'Ready-made pack (figures written in advance)' : 'Planned from the database structure'} · {meta.refreshed ? 'refreshed' : 'generated'} {new Date(meta.generated_at).toLocaleString()}</p>
             <p>Confidence: {meta.confidence_model}</p>
           </div>
           <div>

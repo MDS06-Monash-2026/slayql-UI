@@ -50,6 +50,7 @@ class Item:
     alternatives: List[str] = field(default_factory=list)
     author: str = "team"  # "team", or who wrote an externally authored held-out item
     accept: List[str] = field(default_factory=list)  # other SQL whose result is also a correct answer
+    defined_gold: str = ""  # the one right answer once the starter-pack definitions are approved
 
 
 def load_items(dataset: str, limit: Optional[int] = None) -> List[Item]:
@@ -65,6 +66,7 @@ def load_items(dataset: str, limit: Optional[int] = None) -> List[Item]:
                 expected=row["expected"], gold_sql=row["gold_sql"], trap=row["trap"],
                 language=row["language"], alternatives=row.get("alternatives", []),
                 author=row.get("author", "team"), accept=row.get("accept", []),
+                defined_gold=row.get("defined_gold", ""),
             ))
     elif dataset == "bird":
         if not BIRD_JSON.exists():
@@ -101,6 +103,7 @@ def context_for(item: Item, catalog: CatalogSchema, with_evidence: bool) -> Dict
     matches = RBPGraphEngine(catalog).match_schema_entities(question)
     return {
         "question": question,
+        "tables": matches["expanded_chain"],
         "schema_context": SlayQLPipeline._schema_context(catalog, matches["expanded_chain"]),
         "retrieval_context": SlayQLPipeline._retrieval_context(matches),
         "grounding_hints": json.dumps(matches["grounded_values"], ensure_ascii=True, default=str),
@@ -138,6 +141,31 @@ async def run_gold(item: Item) -> Optional[ExecutionResult]:
     return await QueryExecutor.execute_sqlite(str(item.db_path), item.gold_sql, TIMEOUT_SECONDS, 100000)
 
 
-def cache_path(item: Item, model: str, k: int, with_evidence: bool) -> Path:
-    key = hashlib.sha1(f"{item.dataset}|{item.id}|{model}|{PROMPT_VERSION}|k{k}|ev{int(with_evidence)}".encode()).hexdigest()[:20]
-    return CACHE_DIR / item.dataset / f"{item.id}-{key}.json"
+def cache_path(item: Item, model: str, k: int, with_evidence: bool, definitions: str = "") -> Path:
+    key = f"{item.dataset}|{item.id}|{model}|{PROMPT_VERSION}|k{k}|ev{int(with_evidence)}"
+    if definitions:
+        key += f"|defs:{definitions}"
+    digest = hashlib.sha1(key.encode()).hexdigest()[:20]
+    return CACHE_DIR / item.dataset / f"{item.id}-{digest}.json"
+
+
+async def pack_definitions(db_path: Path) -> List[Dict[str, Any]]:
+    """The starter pack's recommended definitions for a database, shaped as approved definitions."""
+    from backend.app.knowledge.suggestions import suggest_definitions
+
+    catalog = catalog_for(str(db_path))
+    suggestions = await suggest_definitions(catalog, make_runner(db_path, catalog))
+    definitions = []
+    for suggestion in suggestions:
+        chosen = dict(suggestion["options"][suggestion["recommended"]]["definition"])
+        chosen.update(id=f"pack_{chosen['term']}", status="approved", table=chosen["table_name"], column=chosen["column_name"])
+        definitions.append(chosen)
+    return definitions
+
+
+def with_definitions(items: List[Item]) -> List[Item]:
+    """Once meanings are approved, an ambiguous question has one right answer."""
+    from dataclasses import replace
+
+    return [replace(item, expected="answer", gold_sql=item.defined_gold, alternatives=[]) if item.defined_gold else item
+            for item in items]

@@ -418,6 +418,35 @@ export function refreshReport(connectionId, report) {
   return jsonRequest(`/connections/${encodeURIComponent(connectionId)}/reports/refresh`, { method: 'POST', body: { report } });
 }
 
+/** Ready-made report packs this data source supports (e.g. the weekly distributor pack). */
+export function fetchReportTemplates(connectionId) {
+  return jsonRequest(`/connections/${encodeURIComponent(connectionId)}/report-templates`);
+}
+
+/** Build a report pack on current data. Its figures are written in advance, so no AI is used. */
+export function runReportTemplate(connectionId, templateId) {
+  return jsonRequest(`/connections/${encodeURIComponent(connectionId)}/report-templates/${encodeURIComponent(templateId)}`, { method: 'POST' });
+}
+
+export function fetchReportSchedules() {
+  return jsonRequest('/report-schedules');
+}
+
+export function createReportSchedule({ connectionId, report, recipients, weekday, hour }) {
+  return jsonRequest('/report-schedules', {
+    method: 'POST',
+    body: { connection_id: connectionId, report, recipients, weekday, hour },
+  });
+}
+
+export function deleteReportSchedule(scheduleId) {
+  return jsonRequest(`/report-schedules/${encodeURIComponent(scheduleId)}`, { method: 'DELETE' });
+}
+
+export function sendReportScheduleNow(scheduleId) {
+  return jsonRequest(`/report-schedules/${encodeURIComponent(scheduleId)}/send`, { method: 'POST' });
+}
+
 /** Change one figure, or add one, from a plain-language instruction. */
 export function reviseReportItem(connectionId, { report, instruction, item = null, kind = 'panel' }) {
   return jsonRequest(`/connections/${encodeURIComponent(connectionId)}/reports/revise`, {
@@ -442,7 +471,7 @@ export async function createAgentRun({ question, modelId, connectionId, conversa
       model_id: modelId,
       connection_id: connectionId,
       conversation_id: conversationId || null,
-      thinking_effort: thinkingEffort || 'minimal',
+      thinking_effort: thinkingEffort || 'medium',
     }),
   });
   if (!res.ok) {
@@ -633,4 +662,22 @@ export function createDefinition(connectionId, definition) {
 
 export function updateDefinitionStatus(definitionId, status) {
   return jsonRequest(`/definitions/${definitionId}`, { method: 'PATCH', body: { status } });
+}
+
+// Questions I asked that an analyst has answered, corrected or dismissed.
+export function fetchMyAnswers() {
+  return jsonRequest('/my-answers');
+}
+
+export function fetchMyAnswerResult(itemId) {
+  return jsonRequest(`/my-answers/${itemId}/result`);
+}
+
+export function fetchDefinitionSuggestions(connectionId) {
+  return jsonRequest(`/connections/${connectionId}/definitions/suggestions`);
+}
+
+// "Always use this": make a clarify choice the company's approved definition.
+export function saveClarificationAsDefinition(runId, optionIndex) {
+  return jsonRequest(`/agent-runs/${runId}/clarify/${optionIndex}/definition`, { method: 'POST' });
 }

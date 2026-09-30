@@ -442,3 +442,24 @@ def test_consensus_projection_search_is_bounded():
     started = time.perf_counter()
     results_agree(narrow, wide)
     assert time.perf_counter() - started < 1.0
+
+
+@pytest.mark.asyncio
+async def test_the_data_profile_lists_codes_and_date_ranges_but_not_personal_columns():
+    from pathlib import Path
+    from backend.app.agent.profile import data_profile
+    from backend.app.catalog.discovery import CatalogService
+    from backend.app.queries.executor import QueryExecutor
+
+    db = Path(__file__).resolve().parents[2] / "public" / "autocount-sample.db"
+    catalog = CatalogService.get_sqlite_catalog(str(db))
+
+    async def run(sql):
+        return await QueryExecutor.execute_sqlite(str(db), sql, 10.0, 100)
+
+    profile = await data_profile("profile-test", catalog, ["IV", "CN", "Debtor"], run)
+    # A flag with no 'T' in its samples still shows the data's own codes.
+    assert "IV.Cancelled: 'F' (691), 'T' (16)" in profile
+    assert "CN.Cancelled: 'F' (34)" in profile
+    assert "IV.DocDate: from 2025-01-01 to 2026-09-15" in profile
+    assert "CompanyName" not in profile and "TIN" not in profile

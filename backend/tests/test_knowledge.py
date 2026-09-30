@@ -166,3 +166,102 @@ async def test_review_decisions_recalibrate_that_data_source_only():
         assert status["clean_answer_confidence"] < status["clean_answer_confidence_default"]
         assert workspace_learning.model_for(connection_id)["source"].startswith("learned")
         assert not workspace_learning.model_for("sqlite_demo").get("source", "").startswith("learned")
+
+
+@pytest.mark.asyncio
+async def test_suggestions_show_each_meaning_with_its_number_and_need_an_analyst():
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        denied = await client.get("/api/v1/connections/sqlite_demo/definitions/suggestions")
+        assert denied.status_code in {401, 403}
+        headers = await _reviewer(client)
+        response = await client.get("/api/v1/connections/sqlite_demo/definitions/suggestions", headers=headers)
+        assert response.status_code == 200, response.text
+        for suggestion in response.json():
+            assert len({option["value"] for option in suggestion["options"]}) == len(suggestion["options"])
+            recommended = suggestion["options"][suggestion["recommended"]]["definition"]
+            assert recommended["term"] == suggestion["term"] and recommended["table_name"] == suggestion["table"]
+        missing = await client.get("/api/v1/connections/no_such_connection/definitions/suggestions", headers=headers)
+        assert missing.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_a_clarify_choice_can_become_the_company_definition():
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        session = (await client.post("/api/v1/auth/login", json={"is_reviewer": True})).json()
+        headers = {"Authorization": f"Bearer {session['token']}"}
+        owner = session["user"]["id"]
+        run = SlayQLPipeline.create_run("What is our turnover?", connection_id="sqlite_demo", owner_id=owner)
+        definition = {"term": "turnover", "synonyms": ["sales"], "table_name": "orders", "column_name": "status",
+                      "filter_sql": "status <> 'cancelled'", "description": "Leaves out cancelled orders."}
+        RUN_METADATA_STORE[run["run_id"]]["result"] = {"verification": {"clarify_options": [
+            {"label": "As calculated (all records)", "sql": "SELECT SUM(total_amount) FROM orders", "preview": ""},
+            {"label": "Exclude cancelled orders", "sql": "SELECT 1", "preview": "", "definition": definition},
+        ]}}
+        # Only options that stand for a definition can be saved, and only by an analyst.
+        assert (await client.post(f"/api/v1/agent-runs/{run['run_id']}/clarify/0/definition", headers=headers)).status_code == 404
+        assert (await client.post(f"/api/v1/agent-runs/{run['run_id']}/clarify/1/definition")).status_code in {401, 403}
+        saved = await client.post(f"/api/v1/agent-runs/{run['run_id']}/clarify/1/definition", headers=headers)
+        assert saved.status_code == 200, saved.text
+        assert saved.json()["status"] == "approved" and saved.json()["filter_sql"] == "status <> 'cancelled'"
+        approved = (await client.get("/api/v1/connections/sqlite_demo/definitions?status=approved")).json()
+        assert any(d["term"] == "turnover" for d in approved)
+
+
+@pytest.mark.asyncio
+async def test_definitions_of_someone_elses_connection_are_not_visible():
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/api/v1/connections/conn_not_yours/definitions")
+        assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_the_asker_sees_the_analysts_answer_and_others_do_not():
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        session = (await client.post("/api/v1/auth/login", json={"is_reviewer": True})).json()
+        headers = {"Authorization": f"Bearer {session['token']}"}
+        item = knowledge_store.create_review_item(
+            source="handoff", question="How many customers do we have?", sql="SELECT COUNT(*) FROM customers",
+            owner_id=session["user"]["id"], connection_id="sqlite_demo", outcome="handoff",
+        )
+        resolved = await client.post(f"/api/v1/review-items/{item['id']}/resolve",
+                                     json={"resolution": "confirmed", "note": "Checked against the CRM."}, headers=headers)
+        assert resolved.status_code == 200, resolved.text
+
+        answers = (await client.get("/api/v1/my-answers", headers=headers)).json()
+        mine = next(a for a in answers if a["id"] == item["id"])
+        assert mine["resolution"] == "confirmed" and mine["has_answer"] and mine["note"] == "Checked against the CRM."
+        result = await client.get(f"/api/v1/my-answers/{item['id']}/result", headers=headers)
+        assert result.status_code == 200 and result.json()["row_count"] == 1
+
+        assert (await client.get("/api/v1/my-answers")).status_code == 401
+        other = (await client.post("/api/v1/auth/login", json={
+            "email": "someone.else@example.com", "name": "Someone", "organization_name": "Other Co", "password": "another-pass-1",
+        })).json()
+        denied = await client.get(f"/api/v1/my-answers/{item['id']}/result", headers={"Authorization": f"Bearer {other['token']}"})
+        assert denied.status_code == 404
+
+
+def test_answer_emails_say_what_the_analyst_decided_and_are_off_by_default(monkeypatch):
+    from backend.app.config import settings
+    from backend.app.notifications import answers
+    from backend.app.verification.models import ExecutionResult
+
+    result = ExecutionResult(columns=["count"], column_types=["INTEGER"], rows=[[60]], row_count=1, execution_time_ms=1)
+    item = {"id": "rev_x", "question": "How many customers do we have?", "resolution": "corrected",
+            "resolution_note": "Excludes test accounts.", "reviewed_by": "aisha@example.com", "owner_id": "user_1"}
+    message = answers.compose(item, result, "Kian")
+    assert message["subject"].startswith("Answered: How many customers")
+    assert "corrected the answer" in message["text"] and "Answer: 60" in message["text"]
+    assert "Excludes test accounts." in message["html"] and "Hi Kian," in message["text"]
+    dismissed = answers.compose({**item, "resolution": "dismissed", "resolution_note": ""}, None)
+    assert "cannot be answered from this data" in dismissed["text"] and "Answer:" not in dismissed["text"]
+
+    sent = []
+    monkeypatch.setattr(answers, "send_email", lambda *args: sent.append(args))
+    monkeypatch.setattr(answers, "email_configured", lambda: True)
+    monkeypatch.setattr(answers.account_store, "get", lambda user_id: {"email": "kian@example.com", "name": "Kian Lok"})
+    assert answers.notify_asker(item, result) is False  # off unless EMAIL_NOTIFICATIONS is set
+    monkeypatch.setattr(settings, "EMAIL_NOTIFICATIONS", True)
+    monkeypatch.setattr(answers.account_store, "get", lambda user_id: {"email": "reviewer@slayql.demo"})
+    assert answers.notify_asker(item, result) is False  # demo accounts have no inbox
+    assert sent == []

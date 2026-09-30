@@ -16,14 +16,16 @@ import argparse
 import asyncio
 import json
 import time
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import backend.eval  # noqa: F401  (must come first: forces the local control database)
 from backend.app.agent.candidates import generate_variants
-from backend.app.providers.llm_client import CURATED_MODELS, llm_client
+from backend.app.providers.llm_client import CURATED_MODELS, PROVIDER_ID, llm_client
 from backend.app.queries.validator import SqlValidator
 from backend.app.verification import repair_feedback, run_checks
-from backend.eval.harness import MAX_ROWS, Item, cache_path, catalog_for, context_for, load_items, make_runner
+from backend.app.knowledge.store import KnowledgeStore
+from backend.app.agent.profile import data_profile
+from backend.eval.harness import MAX_ROWS, Item, cache_path, catalog_for, context_for, load_items, make_runner, pack_definitions
 
 EFFORT = "medium"
 REASONING_EFFORT = "medium"
@@ -58,6 +60,7 @@ async def _one_sql(ctx: Dict[str, Any], model: str, feedback: str = "") -> Dict[
             schema_context=ctx["schema_context"],
             grounding_hints=ctx["grounding_hints"],
             retrieval_context=ctx["retrieval_context"],
+            definitions_context=ctx.get("definitions_context", ""),
             repair_feedback=feedback,
             reasoning_effort=REASONING_EFFORT,
             max_tokens=MAX_TOKENS,
@@ -80,9 +83,15 @@ async def _one_sql(ctx: Dict[str, Any], model: str, feedback: str = "") -> Dict[
     }
 
 
-async def generate_item(item: Item, model: str, k: int, with_evidence: bool, budget: Budget) -> Dict[str, Any]:
+async def generate_item(item: Item, model: str, k: int, with_evidence: bool, budget: Budget,
+                        definitions: Optional[List[Dict[str, Any]]] = None, profile: bool = False) -> Dict[str, Any]:
     catalog = catalog_for(str(item.db_path))
     ctx = context_for(item, catalog, with_evidence)
+    if profile:
+        lines = await data_profile(str(item.db_path), catalog, ctx["tables"], make_runner(item.db_path, catalog))
+        if lines:
+            ctx["schema_context"] = f"{ctx['schema_context']}\n\n{lines}"
+    ctx["definitions_context"] = KnowledgeStore.definitions_context(definitions or [])
     run = make_runner(item.db_path, catalog)
     calls: List[Dict[str, Any]] = []
 
@@ -104,7 +113,7 @@ async def generate_item(item: Item, model: str, k: int, with_evidence: bool, bud
     if result is not None and not result.error:
         findings, _, _ = await run_checks(
             question=item.question, sql=final_primary["sql"], dialect="sqlite",
-            catalog=catalog, run_sql=run, result=result,
+            catalog=catalog, run_sql=run, result=result, definitions=definitions,
         )
         hint = repair_feedback(findings)
         if hint:
@@ -116,6 +125,7 @@ async def generate_item(item: Item, model: str, k: int, with_evidence: bool, bud
         count=max(0, k - 1), requested_model_id=model, question=ctx["question"], dialect="sqlite",
         schema_context=ctx["schema_context"], grounding_hints=ctx["grounding_hints"],
         retrieval_context=ctx["retrieval_context"], reasoning_effort=REASONING_EFFORT, max_tokens=MAX_TOKENS,
+        definitions_context=ctx["definitions_context"],
     )
     calls.extend(variants)
     for call in calls:
@@ -146,28 +156,44 @@ async def main() -> None:
     parser.add_argument("--concurrency", type=int, default=4)
     parser.add_argument("--with-evidence", action="store_true", help="append BIRD's evidence hint to each question")
     parser.add_argument("--model", default=llm_client.execution_model)
+    parser.add_argument("--definitions", choices=["", "pack"], default="",
+                        help="'pack': approve the starter-pack definitions SlayQL suggests for each database first")
+    parser.add_argument("--profile", action="store_true", help="add the data profile (codes and date ranges) to generation")
     args = parser.parse_args()
 
     if not llm_client.api_key:
-        raise SystemExit("No Together AI key configured (TOGETHER_API_KEY).")
+        raise SystemExit(f"No API key configured for the {PROVIDER_ID} provider.")
     priced = next((m for m in CURATED_MODELS if m.id == args.model and (m.input_price or m.output_price)), None)
     if not priced:
         print(f"Note: {args.model} has no published price, so --budget cannot stop this run. Use --limit to bound it.")
     items = load_items(args.dataset, args.limit)
-    todo = [item for item in items if not cache_path(item, args.model, args.k, args.with_evidence).exists()]
+    variant = "+".join(v for v in (args.definitions, "profile" if args.profile else "") if v)
+    todo = [item for item in items if not cache_path(item, args.model, args.k, args.with_evidence, variant).exists()]
+    packs: Dict[str, List[Dict[str, Any]]] = {}
+    if args.definitions:
+        for item in items:
+            if str(item.db_path) not in packs:
+                packs[str(item.db_path)] = await pack_definitions(item.db_path)
+        print("Approved definitions:", ", ".join(sorted({d["term"] for pack in packs.values() for d in pack})) or "none")
     print(f"{len(items)} questions, {len(items) - len(todo)} cached, {len(todo)} to generate with {args.model} (k={args.k})")
 
     budget = Budget(args.budget)
     semaphore = asyncio.Semaphore(args.concurrency)
     done = 0
+    failed: List[str] = []
 
     async def worker(item: Item) -> None:
         nonlocal done
         async with semaphore:
             if budget.exhausted:
                 return
-            record = await generate_item(item, args.model, args.k, args.with_evidence, budget)
-            path = cache_path(item, args.model, args.k, args.with_evidence)
+            record = await generate_item(item, args.model, args.k, args.with_evidence, budget, packs.get(str(item.db_path)), args.profile)
+            calls = record["primary_attempts"] + record["variants"]
+            if not any(call.get("sql") for call in calls):
+                # A provider outage is not the model's answer: leave it uncached so a re-run retries it.
+                failed.append(f"{item.id}: {calls[0].get('error')}")
+                return
+            path = cache_path(item, args.model, args.k, args.with_evidence, variant)
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps(record, default=str), encoding="utf-8")
             done += 1
@@ -177,6 +203,10 @@ async def main() -> None:
     await asyncio.gather(*(worker(item) for item in todo))
     if budget.exhausted:
         print(f"Stopped at the USD {args.budget} budget cap; re-run to resume.")
+    if failed:
+        print(f"{len(failed)} questions got no SQL at all (provider errors) and were not cached; re-run to retry:")
+        for line in failed[:5]:
+            print("  ", line)
     print(f"Finished: {done} generated, USD {budget.spent:.4f} spent this run.")
 
 

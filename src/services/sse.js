@@ -151,7 +151,7 @@ export function connectNewRunEventStream(
         model_id: modelId,
         connection_id: connectionId,
         conversation_id: conversationId || null,
-        thinking_effort: thinkingEffort || 'minimal',
+        thinking_effort: thinkingEffort || 'medium',
       }),
       signal,
     }),

@@ -4,7 +4,7 @@ import EvidencePanel from './EvidencePanel';
 import ClarifyOptions from './ClarifyOptions';
 
 // Outcome, evidence and (for ambiguous questions) the interpretations to choose from.
-export default function TrustPanel({ verification, dataSent, runId, isDark = false }) {
+export default function TrustPanel({ verification, dataSent, runId, isDark = false, canApprove = false }) {
   if (!verification) return null;
   const approved = Boolean(verification.verified_query || (verification.definitions_used || []).length);
   return (
@@ -19,7 +19,7 @@ export default function TrustPanel({ verification, dataSent, runId, isDark = fal
         />
       </div>
       {verification.outcome === 'clarify' && (
-        <ClarifyOptions runId={runId} options={verification.clarify_options || []} isDark={isDark} />
+        <ClarifyOptions runId={runId} options={verification.clarify_options || []} isDark={isDark} canApprove={canApprove} />
       )}
       <EvidencePanel
         verification={verification}

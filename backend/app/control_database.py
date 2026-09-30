@@ -264,6 +264,26 @@ class ControlDatabase:
             Column("correct", Integer, nullable=False, server_default="0"),
             Column("fitted_at", String, nullable=False),
         )
+        # Saved reports emailed on a schedule (the weekly pack), refreshed without AI each time.
+        self.report_schedules = Table(
+            "report_schedules",
+            self.metadata,
+            Column("id", String, primary_key=True),
+            Column("owner_id", String, nullable=False),
+            Column("connection_id", String, nullable=False),
+            Column("title", String, nullable=False),
+            Column("report", Text, nullable=False),
+            Column("recipients", Text, nullable=False),
+            Column("weekday", Integer, nullable=False),
+            Column("hour", Integer, nullable=False),
+            Column("active", Integer, nullable=False, server_default="1"),
+            Column("next_run_at", String, nullable=False),
+            Column("last_sent_at", String),
+            Column("last_status", String),
+            Column("created_at", String, nullable=False),
+            Column("updated_at", String, nullable=False),
+        )
+        Index("idx_report_schedules_due", self.report_schedules.c.active, self.report_schedules.c.next_run_at)
         # Trust or Bust study responses (consenting, anonymous participants only).
         self.arena_responses = Table(
             "arena_responses",

@@ -40,7 +40,7 @@ const INDEX_MAP = THINKING_EFFORT_LEVELS.reduce((acc, lvl, i) => {
   return acc;
 }, {});
 
-export default function ThinkingEffortSelector({ value = 'minimal', onChange, disabled = false, isDark = false }) {
+export default function ThinkingEffortSelector({ value = 'medium', onChange, disabled = false, isDark = false }) {
   const activeIdx = INDEX_MAP[value] !== undefined ? INDEX_MAP[value] : 0;
   const activeLevel = THINKING_EFFORT_LEVELS[activeIdx];
 

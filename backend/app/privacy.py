@@ -38,13 +38,16 @@ def mask_rows(columns: List[str], rows: List[List[Any]]) -> List[List[Any]]:
     return [[MASK if index in personal else value for index, value in enumerate(row)] for row in rows]
 
 
-def disclosure(*, grounding: List[Dict[str, Any]], answer_columns: List[str], answer_rows: int, answer_sent: bool) -> Dict[str, Any]:
+def disclosure(*, grounding: List[Dict[str, Any]], answer_columns: List[str], answer_rows: int, answer_sent: bool,
+               profiled: bool = False) -> Dict[str, Any]:
     """Plain record of what a run sent to AI providers, for the evidence panel."""
     masked_values = sum(1 for item in grounding if item.get("value") == MASK)
     masked_columns = [name for name in answer_columns if enabled() and is_personal(name)]
     sent = ["the question", "the relevant table structure"]
     if grounding:
         sent.append(f"{len(grounding)} matching database values" + (f" ({masked_values} masked)" if masked_values else ""))
+    if profiled:
+        sent.append("the values of status and code columns, with counts, and date ranges (no personal columns)")
     if answer_sent and answer_rows:
         rows = min(answer_rows, 25)
         sent.append(f"{rows} result rows for the written answer" + (f" (masked: {', '.join(masked_columns)})" if masked_columns else ""))

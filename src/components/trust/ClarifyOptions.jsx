@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Check, Loader2 } from 'lucide-react';
-import { chooseClarification } from '../../services/api';
+import { BadgeCheck, Check, Loader2 } from 'lucide-react';
+import { chooseClarification, saveClarificationAsDefinition } from '../../services/api';
 
 function formatCell(value) {
   if (value === null || value === undefined) return 'NULL';
@@ -11,8 +11,10 @@ function formatCell(value) {
   return String(value);
 }
 
-export default function ClarifyOptions({ runId, options = [], isDark = false }) {
+export default function ClarifyOptions({ runId, options = [], isDark = false, canApprove = false }) {
   const [chosen, setChosen] = useState(null);
+  const [saved, setSaved] = useState('');
+  const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(null);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
@@ -36,7 +38,21 @@ export default function ClarifyOptions({ runId, options = [], isDark = false }) 
     }
   };
 
+  const saveAsDefinition = async () => {
+    setSaving(true);
+    setError('');
+    try {
+      const definition = await saveClarificationAsDefinition(runId, chosen);
+      setSaved(definition.term);
+    } catch (err) {
+      setError(err.status === 403 ? 'Only an owner or analyst can set company definitions.' : err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const rows = result?.rows || [];
+  const chosenDefinition = chosen !== null ? options[chosen]?.definition : null;
   const single = rows.length === 1 && rows[0].length === 1;
 
   return (
@@ -86,9 +102,27 @@ export default function ClarifyOptions({ runId, options = [], isDark = false }) 
               </tbody>
             </table>
           )}
-          <p className={`mt-1 text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-            An analyst can save this choice as the company's definition, so everyone gets the same number.
-          </p>
+          {saved ? (
+            <p className={`mt-2 flex items-center gap-1 text-[11px] font-semibold ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>
+              <BadgeCheck className="h-3.5 w-3.5" aria-hidden="true" /> Saved. Every answer about "{saved}" now uses this meaning.
+            </p>
+          ) : canApprove && chosenDefinition ? (
+            <button
+              type="button"
+              onClick={saveAsDefinition}
+              disabled={saving}
+              className={`mt-2 inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-semibold disabled:opacity-60 ${
+                isDark ? 'border-sky-700 text-sky-300 hover:bg-sky-950/60' : 'border-sky-300 text-sky-700 hover:bg-sky-100'
+              }`}
+            >
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <BadgeCheck className="h-3.5 w-3.5" aria-hidden="true" />}
+              Always use this for "{chosenDefinition.term}"
+            </button>
+          ) : (
+            <p className={`mt-1 text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+              An owner or analyst can save this choice as the company's definition, so everyone gets the same number.
+            </p>
+          )}
         </div>
       )}
     </div>

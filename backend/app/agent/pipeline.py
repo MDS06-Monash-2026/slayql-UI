@@ -17,6 +17,7 @@ from backend.app.agent.effort import (
     get_thinking_profile,
 )
 from backend.app.agent.candidates import generate_variants
+from backend.app.agent.profile import data_profile
 from backend.app.agent.rbp import RBPGraphEngine
 from backend.app.agent.orchestrator import deepseek_orchestrator
 from backend.app.catalog.discovery import CatalogService
@@ -1041,6 +1042,7 @@ class SlayQLPipeline:
         conversation_id = metadata["conversation_id"]
         thinking_profile = get_thinking_profile(metadata["thinking_effort"])
         started = time.perf_counter()
+        profile = ""
 
         try:
             SlayQLPipeline._emit(
@@ -1449,6 +1451,12 @@ class SlayQLPipeline:
 
             dialect = SlayQLPipeline._dialect(connection.get("engine", "sqlite"))
             schema_context = SlayQLPipeline._schema_context(catalog, chain)
+            # The data's own codes and date ranges, so filters use 'T' rather than a guessed 'Y'.
+            profile = await data_profile(
+                connection_id, catalog, chain, SlayQLPipeline._probe_runner(connection, connection_id, catalog, dialect)
+            )
+            if profile:
+                schema_context = f"{schema_context}\n\n{profile}"
             retrieval_context = SlayQLPipeline._retrieval_context(entity_matches)
             grounded_values = privacy.mask_grounding(grounded_values)
             grounding_context = json.dumps(grounded_values, ensure_ascii=True, default=str)
@@ -2238,6 +2246,7 @@ class SlayQLPipeline:
                 "verification": verification_payload,
                 "data_sent": privacy.disclosure(
                     grounding=grounded_values,
+                    profiled=bool(profile),
                     answer_columns=execution_result.columns,
                     answer_rows=len(execution_result.rows),
                     answer_sent=thinking_profile.use_model_answer,

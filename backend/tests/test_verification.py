@@ -63,6 +63,10 @@ async def test_unfiltered_statuses_offer_a_clarification():
     assert ambiguity and ambiguity[0].severity == "ambiguity"
     assert set(ambiguity[0].data["excluded"]) == {"cancelled", "refunded"}
     assert options and "cancelled" in options[0].label
+    # The choice carries the company definition it stands for ("always use this").
+    definition = options[0].definition
+    assert definition["term"] == "revenue" and "sales" in definition["synonyms"]
+    assert definition["table_name"] == "orders" and "'cancelled'" in definition["filter_sql"]
 
 
 @pytest.mark.asyncio
@@ -266,6 +270,7 @@ async def test_autocount_style_ledger_traps_are_caught():
                                         "SELECT SUM(TotalIncTax) FROM IV WHERE DocDate >= '2025-01-01' AND DocDate < '2026-01-01'")
     assert any(f.check == "definition" and "Cancelled" in f.title for f in findings)
     assert options and "Cancelled" in options[0].label
+    assert options[0].definition["filter_sql"] == "Cancelled <> 'T'"
     # Invoice lines multiply invoice totals.
     findings, _, _ = await checks("What were our total sales from rice?",
                                   "SELECT SUM(i.TotalIncTax) FROM IV i JOIN IVDTL d ON d.DocKey = i.DocKey JOIN Item t ON t.ItemCode = d.ItemCode "
@@ -405,3 +410,30 @@ async def test_admissions_in_comments_and_what_is_our_x_questions():
     assert findings == [] or not [f for f in findings if f.check == "coverage" and "warehouse" in f.title]
     findings, _, _ = await _checks("What is our carbon footprint?", "SELECT COUNT(*) FROM support_cases")
     assert [f for f in findings if f.check == "coverage" and f.severity == "blocking"]
+
+
+@pytest.mark.asyncio
+async def test_quantity_times_unit_cost_is_line_level_but_added_totals_still_fan_out():
+    # Cost of goods: each line's quantity times its product's cost. Products repeat per line by design.
+    cost = ("SELECT SUM(oi.quantity * p.cost_price) FROM order_items oi JOIN products p ON p.id = oi.product_id "
+            "JOIN orders o ON o.id = oi.order_id WHERE o.status = 'completed'")
+    findings, _, _ = await _checks("What was the cost of goods sold on completed orders?", cost)
+    assert not [f for f in findings if f.check == "grain"]
+    # Adding an order-level total to line values still counts each order once per line.
+    added = ("SELECT SUM(o.total_amount + oi.subtotal) FROM orders o JOIN order_items oi ON oi.order_id = o.id "
+             "WHERE o.status = 'completed'")
+    findings, _, _ = await _checks("What is revenue plus line subtotals on completed orders?", added)
+    assert [f for f in findings if f.check == "grain" and f.severity == "blocking"]
+    # And a product of two order-level columns is not rescued by the lines it is joined to.
+    scaled = ("SELECT SUM(o.total_amount * o.discount_amount) FROM orders o JOIN order_items oi ON oi.order_id = o.id "
+              "WHERE o.status = 'completed'")
+    findings, _, _ = await _checks("What is total amount times discount on completed orders?", scaled)
+    assert [f for f in findings if f.check == "grain" and f.severity == "blocking"]
+
+
+@pytest.mark.asyncio
+async def test_adverbs_are_not_missing_subjects():
+    findings, _, _ = await _checks("What customers still owe us on completed orders?",
+                                   "SELECT c.full_name, SUM(o.total_amount) FROM customers c JOIN orders o ON o.customer_id = c.id "
+                                   "WHERE o.status = 'completed' GROUP BY c.full_name")
+    assert not [f for f in findings if f.check == "coverage"]

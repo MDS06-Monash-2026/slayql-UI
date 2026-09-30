@@ -499,6 +499,11 @@ async def run_item(item: Dict[str, Any], kind: str, ctx: ReportContext, *, repai
         "repaired": repaired,
         "duration_ms": int((time.perf_counter() - started) * 1000),
     })
+    if (kind == "panel" and out.get("purpose") == "exception" and not result.rows
+            and not any(f["severity"] == "blocking" for f in out["findings"])):
+        # An exception list with nothing in it ("items with no sales") is the good-news answer.
+        out["findings"] = [f for f in out["findings"] if f["title"] != "The query returned no rows"]
+        out.update({"outcome": "confident", "summary": "Nothing to report: no rows matched."})
     if kind == "kpi":
         problem = _kpi_values(out, result)
         if problem:

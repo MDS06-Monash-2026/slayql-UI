@@ -48,6 +48,7 @@ import SignOutModal from '../components/demo/SignOutModal';
 import ReportModal from '../components/demo/ReportModal';
 import AssistantTablePreview from '../components/demo/AssistantTablePreview';
 import TrustPanel from '../components/trust/TrustPanel';
+import AnalystAnswers from '../components/trust/AnalystAnswers';
 import EmptyChatState from '../components/demo/EmptyChatState';
 
 import {
@@ -72,7 +73,7 @@ function normalizeDraftSql(value) {
     .replace(/\s*```\s*$/i, '');
 }
 
-const ConversationAssistantMessage = React.memo(function ConversationAssistantMessage({ message, isDark = false }) {
+const ConversationAssistantMessage = React.memo(function ConversationAssistantMessage({ message, isDark = false, canApprove = false }) {
   const payload = message.payload || {};
   const isSqlQuery = payload.is_sql_query !== false;
   const rows = Array.isArray(payload.rows) ? payload.rows : [];
@@ -110,6 +111,7 @@ const ConversationAssistantMessage = React.memo(function ConversationAssistantMe
           dataSent={payload.data_sent}
           runId={String(message.id || '').replace(/^msg_/, '')}
           isDark={isDark}
+          canApprove={canApprove}
         />
       )}
       {isSqlQuery && payload.reasoning && (
@@ -213,6 +215,9 @@ const ConversationAssistantMessage = React.memo(function ConversationAssistantMe
   );
 });
 
+// v2: the default moved to three compared queries, the setting the evaluation measured.
+const EFFORT_STORAGE_KEY = 'slayql_thinking_effort_v2';
+
 const DEFAULT_EXPLORE_SUGGESTIONS = [
   { label: 'Top revenue drivers', prompt: 'Show top 10 customers ranked by total spend this year with order counts.' },
   { label: 'Customer retention', prompt: 'Which customers made repeat purchases in the last 90 days?' },
@@ -233,10 +238,10 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
   const [selectedModelId, setSelectedModelId] = useState('');
   const [thinkingEffort, setThinkingEffort] = useState(() => {
     try {
-      const stored = localStorage.getItem('slayql_thinking_effort');
-      return THINKING_EFFORT_LEVELS.some((level) => level.id === stored) ? stored : 'minimal';
+      const stored = localStorage.getItem(EFFORT_STORAGE_KEY);
+      return THINKING_EFFORT_LEVELS.some((level) => level.id === stored) ? stored : 'medium';
     } catch {
-      return 'minimal';
+      return 'medium';
     }
   });
   const [connections, setConnections] = useState([]);
@@ -273,6 +278,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
 
   const userName = session?.user?.name || 'Enterprise Reviewer';
   const userRole = session?.user?.role || 'Lead Architect';
+  const canReview = ['owner', 'analyst'].includes(session?.user?.access_role);
   const avatarInitials = session?.user?.avatar_initials || 'ER';
 
   const [messages, setMessages] = useState([]);
@@ -352,7 +358,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
 
   useEffect(() => {
     try {
-      localStorage.setItem('slayql_thinking_effort', thinkingEffort);
+      localStorage.setItem(EFFORT_STORAGE_KEY, thinkingEffort);
     } catch {
       // Storage can be unavailable in private or embedded contexts.
     }
@@ -1061,7 +1067,9 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
                 <span className="flex-1 text-left font-bold">AI Database Lab</span>
               </button>
 
-              {['owner', 'analyst'].includes(session?.user?.access_role) && (
+              <AnalystAnswers enabled={Boolean(session)} />
+
+              {canReview && (
               <button
                 onClick={() => setView('review')}
                 className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-200/60 transition-all"
@@ -1449,7 +1457,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
                     </div>
                   </div>
                 ) : (
-                  <ConversationAssistantMessage message={msg} isDark={theme === 'dark'} />
+                  <ConversationAssistantMessage message={msg} isDark={theme === 'dark'} canApprove={canReview} />
                 )}
               </div>
             ))}

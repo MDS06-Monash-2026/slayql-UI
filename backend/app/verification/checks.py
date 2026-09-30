@@ -43,6 +43,8 @@ def _similar(literal: str, values: List[str]) -> Optional[str]:
     return next((v for v in values if close and v.lower() == close[0]), None)
 CASE_INSENSITIVE_ENGINES = {"mysql", "sqlserver", "mssql"}
 FLAG_VALUES = TRUE_VALUES | {"f", "n", "0", "false", "no"}
+# Words for the same measure: approving one meaning of "sales" also settles "revenue" and "jualan".
+SALES_WORDS = ["sales", "revenue", "turnover", "jualan", "hasil", "pendapatan"]
 # Measures whose business meaning depends on which statuses count.
 MEASURE_TERMS = re.compile(
     r"\b(revenue|sales|income|turnover|earnings?|gmv|takings|jualan|hasil|pendapatan|untung)\b", re.I
@@ -64,17 +66,38 @@ async def check_grain(tree: exp.Expression, catalog: CatalogSchema, run_sql: Sql
             continue
         select_sources = sql_scope.sources(select, catalog)
         at_risk: Dict[str, tuple[sql_scope.Source, str, str]] = {}
+        keyed: Dict[str, tuple[sql_scope.Source, str]] = {}
+        # Tables each aggregate reads, and those it only multiplies by another table's column:
+        # in SUM(l.Qty * i.UnitCost) the item's cost is a rate applied to each invoice line.
+        aggregate_aliases: List[tuple[set, set]] = []
         for aggregate in select.find_all(exp.Sum, exp.Avg, exp.Count):
             if sql_scope.owning_select(aggregate) is not select:
                 continue
             if isinstance(aggregate, exp.Count) and (aggregate.args.get("distinct") or isinstance(aggregate.this, exp.Distinct)):
                 continue
+            aliases, unscaled = set(), set()
             for column in aggregate.find_all(exp.Column):
                 source = sql_scope.column_source(column, select_sources)
                 key = sql_scope.primary_key(source.table) if source else None
+                if source and key:
+                    alias = source.alias.lower()
+                    aliases.add(alias)
+                    keyed.setdefault(alias, (source, key))
+                    product = column.find_ancestor(exp.Mul)
+                    if product is not None and any(node is aggregate for node in product.walk()):
+                        product = None  # SUM(x) * 2: the product is outside the aggregate
+                    partners = {
+                        other.alias.lower() for other in (
+                            sql_scope.column_source(c, select_sources) for c in (product.find_all(exp.Column) if product else [])
+                        ) if other is not None and other.alias.lower() != alias
+                    }
+                    if not partners:
+                        unscaled.add(alias)
                 if source and key and column.name.lower() != key.lower():
                     at_risk.setdefault(source.alias.lower(), (source, key, aggregate.sql()))
-        for source, key, aggregate_sql in at_risk.values():
+            aggregate_aliases.append((aliases, aliases - unscaled))
+
+        async def repetition(source: sql_scope.Source, key: str):
             probe = sql_scope.strip_shape(sql_scope.with_root_ctes(select, tree))
             probe.set("expressions", [
                 exp.alias_(exp.Count(this=exp.Star()), "n_rows"),
@@ -83,9 +106,42 @@ async def check_grain(tree: exp.Expression, catalog: CatalogSchema, run_sql: Sql
             probe_sql = probe.sql()
             result = await run_sql(probe_sql)
             if result.error or not result.rows:
+                return probe_sql, None
+            return probe_sql, (result.rows[0][0] or 0, result.rows[0][1] or 0)
+
+        clean: Dict[str, bool] = {}
+
+        async def is_clean(alias: str) -> bool:
+            """True when the joins leave each row of this table exactly once."""
+            if alias not in clean:
+                _, counts = await repetition(*keyed[alias])
+                clean[alias] = bool(counts and counts[1] and counts[0] == counts[1])
+            return clean[alias]
+
+        for alias, (source, key, aggregate_sql) in at_risk.items():
+            probe_sql, counts = await repetition(source, key)
+            if not counts:
                 continue
-            n_rows, n_keys = result.rows[0][0] or 0, result.rows[0][1] or 0
+            n_rows, n_keys = counts
+            clean[alias] = bool(n_keys and n_rows == n_keys)
             if n_keys and n_rows > n_keys:
+                # Every aggregate using this table also uses a table that is not repeated,
+                # so it is computed at that finer level (quantity x unit cost per line).
+                involved = [(aliases, scaled) for aliases, scaled in aggregate_aliases if alias in aliases]
+                computed_finer = bool(involved) and all(alias in scaled for _, scaled in involved)
+                for aliases, _ in involved:
+                    if not computed_finer:
+                        break
+                    finer = False
+                    for other in aliases - {alias}:
+                        if await is_clean(other):
+                            finer = True
+                            break
+                    if not finer:
+                        computed_finer = False
+                        break
+                if computed_finer:
+                    continue
                 ratio = n_rows / n_keys
                 table = source.table.name
                 findings.append(Finding(
@@ -223,10 +279,21 @@ async def check_definitions(
                     ),
                     data={"table": source.table.name, "column": column.name, "excluded": negative},
                 ))
+                term = MEASURE_TERMS.search(question).group(0).lower()
+                synonyms = [w for w in SALES_WORDS if w != term] if term in SALES_WORDS else []
+                if len(negative) == 1:
+                    rule = f"{column.name} <> '" + str(negative[0]).replace("'", "''") + "'"
+                else:
+                    rule = f"{column.name} NOT IN ({values})"
                 options.append(ClarifyOption(
                     label=f"Exclude {excluded}",
                     sql=variant_sql,
                     preview=result_preview(variant_result),
+                    definition={
+                        "term": term, "synonyms": synonyms, "table_name": source.table.name,
+                        "column_name": column.name, "filter_sql": rule,
+                        "description": f"Leaves out {excluded}.",
+                    },
                 ))
                 break
     return findings, options, used
@@ -610,7 +677,9 @@ SUBJECT_QUESTION = re.compile(
 NOT_SUBJECTS = {"is", "are", "was", "were", "of", "one", "ones", "do", "does", "did", "has", "have", "the", "a", "an",
                 "kind", "type", "types", "percentage", "percent", "proportion", "ratio", "amount", "number", "total", "yang",
                 "time", "year", "month", "day", "date", "had", "made", "make", "sold", "bought", "got", "gave",
-                "can", "will", "should", "would", "most", "least", "best", "worst"}
+                "can", "will", "should", "would", "most", "least", "best", "worst",
+                # Adverbs end the subject: "what customers still owe", "which items never sold".
+                "still", "also", "just", "only", "ever", "never", "already", "currently", "really", "usually", "often"}
 
 
 def _entity_table(words: List[str], catalog: CatalogSchema) -> Optional[Any]:

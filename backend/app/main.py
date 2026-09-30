@@ -1,4 +1,5 @@
 import asyncio
+import re
 import json
 import logging
 import uuid
@@ -43,6 +44,7 @@ from backend.app.feedback.store import chat_report_store
 from backend.app.arena.routes import build_router as build_arena_router
 from backend.app.knowledge.routes import build_router as build_knowledge_router
 from backend.app.knowledge.store import knowledge_store
+from backend.app.knowledge.suggestions import suggest_definitions
 from backend.app.accounts.store import account_store, stable_user_id
 from backend.app.accounts.session_store import session_store
 from backend.app.workbench.gemini_agent import (
@@ -54,14 +56,34 @@ from backend.app.workbench.gemini_agent import (
 )
 from backend.app.workbench.health import inspect_sqlite_health
 from backend.app.workbench import trusted_report
+from backend.app.workbench.report_packs import available_templates, build_template
+from backend.app.workbench.schedules import render_email, schedule_store
+from backend.app.notifications.mailer import EmailNotConfigured, email_configured, send_email
 
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    scheduler = asyncio.create_task(_schedule_loop()) if settings.REPORT_SCHEDULER else None
     yield
+    if scheduler:
+        scheduler.cancel()
     await llm_client.aclose()
+
+
+async def _schedule_loop() -> None:
+    """Send scheduled reports when they fall due."""
+    while True:
+        try:
+            if email_configured():
+                for schedule in await asyncio.to_thread(schedule_store.claim_due):
+                    await _deliver_schedule(schedule)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Scheduled report delivery failed")
+        await asyncio.sleep(300)
 
 
 app = FastAPI(
@@ -1078,6 +1100,122 @@ async def create_trusted_report(connection_id: str, req: TrustedReportRequest, r
     return StreamingResponse(stream(), media_type="application/x-ndjson")
 
 
+class ReportScheduleRequest(BaseModel):
+    connection_id: str
+    report: Dict[str, Any]
+    recipients: List[str] = Field(min_length=1, max_length=10)
+    weekday: int = Field(default=0, ge=0, le=6)
+    hour: int = Field(default=8, ge=0, le=23)
+
+
+EMAIL_ADDRESS = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+async def _pack_context(conn: Dict[str, Any], connection_id: str, owner_id: Optional[str]):
+    catalog = await asyncio.to_thread(_catalog_for_connection, conn, connection_id)
+
+    async def execute(sql: str):
+        return await SlayQLPipeline._execute_query(conn, connection_id, sql)
+
+    return await trusted_report.make_context(
+        connection_id=connection_id, catalog=catalog, dialect=SlayQLPipeline._dialect(conn.get("engine", "sqlite")),
+        execute=execute, owner_id=owner_id, llm=False,
+    )
+
+
+@app.get("/api/v1/connections/{connection_id}/report-templates")
+async def list_report_templates(connection_id: str, request: Request):
+    """Ready-made report packs this data source supports."""
+    conn = _connection_metadata(connection_id, _owner_id(request))
+    if not conn:
+        raise HTTPException(status_code=404, detail="Database connection not found.")
+    catalog = await asyncio.to_thread(_catalog_for_connection, conn, connection_id)
+    return available_templates(catalog, SlayQLPipeline._dialect(conn.get("engine", "sqlite")))
+
+
+@app.post("/api/v1/connections/{connection_id}/report-templates/{template_id}")
+async def run_report_template(connection_id: str, template_id: str, request: Request):
+    """Build a report pack on current data. Figures are written in advance, so no AI is used."""
+    owner_id = _owner_id(request)
+    conn = _connection_metadata(connection_id, owner_id)
+    if not conn:
+        raise HTTPException(status_code=404, detail="Database connection not found.")
+    ctx = await _pack_context(conn, connection_id, owner_id)
+    spec = build_template(template_id, ctx.catalog, ctx.dialect)
+    if not spec:
+        raise HTTPException(status_code=404, detail="This report pack does not fit this data source.")
+    report = await trusted_report.refresh(spec, ctx)
+    report["meta"]["planner"] = f"template:{template_id}"
+    return report
+
+
+async def _deliver_schedule(schedule: Dict[str, Any]) -> str:
+    """Refresh a scheduled report on current data and email it. Returns a short status."""
+    conn = _connection_metadata(schedule["connection_id"], schedule["owner_id"])
+    if not conn:
+        status = "The data source is no longer available."
+    else:
+        try:
+            ctx = await _pack_context(conn, schedule["connection_id"], schedule["owner_id"])
+            report = await trusted_report.refresh(schedule["report"], ctx)
+            message = render_email(report, settings.PUBLIC_APP_URL)
+            for recipient in schedule["recipients"]:
+                await asyncio.to_thread(send_email, recipient, message["subject"], message["text"], message["html"])
+            status = f"Sent to {len(schedule['recipients'])} recipient(s); {report['trust'].get('confident', 0) + report['trust'].get('caveat', 0)} of {len(report['kpis']) + len(report['panels'])} figures passed."
+        except EmailNotConfigured as exc:
+            status = str(exc)
+        except Exception as exc:
+            logger.exception("Could not deliver schedule %s", schedule["id"])
+            status = f"Failed: {str(exc)[:200]}"
+    await asyncio.to_thread(schedule_store.mark_sent, schedule["id"], status)
+    return status
+
+
+@app.get("/api/v1/report-schedules")
+async def list_report_schedules(request: Request):
+    session = _session_from_request(request, required=True)
+    return await asyncio.to_thread(schedule_store.list_for, session["user"]["id"])
+
+
+@app.post("/api/v1/report-schedules")
+async def create_report_schedule(req: ReportScheduleRequest, request: Request):
+    """Email a saved report every week. Owners and analysts only: it sends mail on the company's behalf."""
+    session = _require_admin(request)
+    if not _connection_metadata(req.connection_id, session["user"]["id"]):
+        raise HTTPException(status_code=404, detail="Database connection not found.")
+    recipients = [address.strip() for address in req.recipients if address.strip()]
+    invalid = [address for address in recipients if not EMAIL_ADDRESS.match(address)]
+    if invalid or not recipients:
+        raise HTTPException(status_code=400, detail=f"Not an email address: {', '.join(invalid) or 'none given'}")
+    report = {key: req.report.get(key) for key in ("title", "subtitle", "question", "kpis", "panels")}
+    if not (report.get("kpis") or report.get("panels")):
+        raise HTTPException(status_code=400, detail="The report has no figures to send.")
+    return await asyncio.to_thread(
+        schedule_store.create, owner_id=session["user"]["id"], connection_id=req.connection_id,
+        report=report, recipients=recipients, weekday=req.weekday, hour=req.hour,
+    )
+
+
+@app.delete("/api/v1/report-schedules/{schedule_id}")
+async def delete_report_schedule(schedule_id: str, request: Request):
+    session = _session_from_request(request, required=True)
+    if not await asyncio.to_thread(schedule_store.delete, schedule_id, session["user"]["id"]):
+        raise HTTPException(status_code=404, detail="Schedule not found.")
+    return {"deleted": True}
+
+
+@app.post("/api/v1/report-schedules/{schedule_id}/send")
+async def send_report_schedule_now(schedule_id: str, request: Request):
+    """Send a scheduled report now, to check what recipients will receive."""
+    session = _require_admin(request)
+    schedule = await asyncio.to_thread(schedule_store.get, schedule_id)
+    if not schedule or schedule["owner_id"] != session["user"]["id"]:
+        raise HTTPException(status_code=404, detail="Schedule not found.")
+    if not email_configured():
+        raise HTTPException(status_code=503, detail="Email is not set up on this server.")
+    return {"status": await _deliver_schedule(schedule)}
+
+
 @app.post("/api/v1/connections/{connection_id}/reports/refresh")
 async def refresh_trusted_report(connection_id: str, req: ReportRefreshRequest, request: Request):
     """Re-run a saved report's checked SQL on current data. Uses no AI, so it is free."""
@@ -1600,6 +1738,17 @@ async def _try_sql(connection_id: str, sql: str) -> Optional[str]:
     return result.error
 
 
+async def _execute_for_connection(connection_id: str, sql: str):
+    """Validate and run a statement on a connection; the result (with .error set if it fails)."""
+    try:
+        validation = await asyncio.to_thread(_validate_for_connection, connection_id, sql)
+    except HTTPException:
+        return None
+    if not validation.is_valid:
+        return None
+    return await SlayQLPipeline._execute_query(get_connection(connection_id), connection_id, validation.sanitized_sql)
+
+
 async def _run_clarify_option(run_id: str, option_index: int, request: Request) -> Optional[Dict[str, Any]]:
     """Execute a clarification option the server offered for this run."""
     metadata = RUN_METADATA_STORE.get(run_id)
@@ -1622,6 +1771,39 @@ async def _run_clarify_option(run_id: str, option_index: int, request: Request) 
     return {"label": option["label"], "sql": validation.sanitized_sql, **result.model_dump()}
 
 
+def _require_connection(connection_id: str, request: Request) -> Dict[str, Any]:
+    """The connection, if the caller may use it (their own, or a shared sample)."""
+    conn = _connection_metadata(connection_id, _owner_id(request))
+    if not conn:
+        raise HTTPException(status_code=404, detail="Database connection not found.")
+    return conn
+
+
+async def _definition_suggestions(connection_id: str, request: Request) -> List[Dict[str, Any]]:
+    conn = get_connection(connection_id)
+    if not conn:
+        raise HTTPException(status_code=404, detail="Database connection not found.")
+    try:
+        catalog = await asyncio.to_thread(_catalog_for_connection, conn, connection_id)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Could not read this data source: {exc}") from exc
+    run = SlayQLPipeline._probe_runner(conn, connection_id, catalog, _connection_dialect(conn))
+    approved = await asyncio.to_thread(knowledge_store.approved_definitions, connection_id)
+    return await suggest_definitions(catalog, run, [d["term"] for d in approved])
+
+
+async def _clarify_option_definition(run_id: str, option_index: int, request: Request):
+    """The connection and company definition behind a clarify option the server offered."""
+    metadata = RUN_METADATA_STORE.get(run_id)
+    owner_id = await asyncio.to_thread(_owner_id, request)
+    if not metadata or not SlayQLPipeline.owns_run(run_id, owner_id):
+        return None
+    options = (((metadata.get("result") or {}).get("verification")) or {}).get("clarify_options") or []
+    if option_index >= len(options) or not options[option_index].get("definition"):
+        return None
+    return metadata["connection_id"], options[option_index]["definition"]
+
+
 @app.get("/api/v1/trust/settings")
 async def trust_settings():
     penalty = settings.VERIFY_DEFAULT_PENALTY
@@ -1638,6 +1820,10 @@ app.include_router(build_knowledge_router(
     run_option=_run_clarify_option,
     validate_sql=_validate_for_connection,
     try_sql=_try_sql,
+    require_connection=_require_connection,
+    suggest_definitions=_definition_suggestions,
+    option_definition=_clarify_option_definition,
+    execute_sql=_execute_for_connection,
 ))
 app.include_router(build_arena_router(require_admin=_require_admin))
 

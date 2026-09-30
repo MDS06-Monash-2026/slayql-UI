@@ -3,12 +3,13 @@
   "model": "deepseek-v4.1-flash",
   "k": 3,
   "with_evidence": false,
+  "definitions": "none",
   "prompt_version": "v2",
   "penalty": 4.0,
   "threshold": 0.8,
   "calibration": "default prior (not yet calibrated)",
-  "commit": "8dfba30",
-  "evaluated_at": "2026-09-29T15:26:44.574234+00:00",
+  "commit": "2d0acec",
+  "evaluated_at": "2026-09-30T03:01:14.171194+00:00",
   "total_generation_cost_usd": 0.0,
   "splits": {
     "test": {
@@ -1579,6 +1580,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -1647,6 +1649,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -1715,6 +1718,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -1783,6 +1787,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -1851,6 +1856,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -1919,6 +1925,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -1987,6 +1994,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -2055,6 +2063,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -2123,6 +2132,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -2196,12 +2206,26 @@
           {
             "check": "definition",
             "severity": "warning",
-            "title": "Assumes which records count as \"sales\""
+            "title": "Assumes which records count as \"sales\"",
+            "detail": "There is no approved definition of \"sales\", so this answer uses its own filter on iv.cancelled. Approve a definition so every answer uses the same one."
           },
           {
             "check": "consensus",
             "severity": "ambiguity",
-            "title": "The question can be read in different ways"
+            "title": "The question can be read in different ways",
+            "detail": "Independent attempts produced different answers and none had a majority."
+          }
+        ],
+        "clarify_options": [
+          {
+            "label": "Only where IV.Cancelled = 'F' and IV.DocDate <= '2025-12-31' and IV.DocDate >= '2025-01-01'",
+            "sql": "SELECT SUM(IV.TotalExTax) AS TotalSales2025\nFROM IV\nWHERE IV.Cancelled = 'F'\n  AND IV.DocDate >= '2025-01-01'\n  AND IV.DocDate <= '2025-12-31';",
+            "preview": "2,264,251.51"
+          },
+          {
+            "label": "Only where iv.DocDate BETWEEN '2025-01-01' AND '2025-12-31'",
+            "sql": "SELECT SUM(iv.TotalExTax) AS TotalSalesExTax,\n       SUM(iv.TotalIncTax) AS TotalSalesIncTax,\n       COUNT(*) AS InvoiceCount\nFROM IV AS iv\nWHERE iv.DocDate BETWEEN '2025-01-01' AND '2025-12-31';",
+            "preview": "2,338,107.06, 2,378,880.23, 423"
           }
         ],
         "selected_correct": false,
@@ -2277,9 +2301,11 @@
           {
             "check": "definition",
             "severity": "warning",
-            "title": "Assumes which records count as \"jualan\""
+            "title": "Assumes which records count as \"jualan\"",
+            "detail": "There is no approved definition of \"jualan\", so this answer uses its own filter on iv.cancelled. Approve a definition so every answer uses the same one."
           }
         ],
+        "clarify_options": [],
         "selected_correct": false,
         "reading_match": true,
         "warning": true
@@ -2353,9 +2379,11 @@
           {
             "check": "definition",
             "severity": "warning",
-            "title": "Assumes which records count as \"sales\""
+            "title": "Assumes which records count as \"sales\"",
+            "detail": "There is no approved definition of \"sales\", so this answer uses its own filter on iv.cancelled. Approve a definition so every answer uses the same one."
           }
         ],
+        "clarify_options": [],
         "selected_correct": false,
         "reading_match": true,
         "warning": true
@@ -2424,6 +2452,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -2492,6 +2521,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -2560,6 +2590,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -2630,7 +2661,20 @@
           {
             "check": "consensus",
             "severity": "ambiguity",
-            "title": "The question can be read in different ways"
+            "title": "The question can be read in different ways",
+            "detail": "Independent attempts produced different answers and none had a majority."
+          }
+        ],
+        "clarify_options": [
+          {
+            "label": "Only where c.Cancelled = 'F' and i.Cancelled = 'F' and i.Outstanding > 0",
+            "sql": "WITH paid AS (\n    SELECT k.InvoiceDocKey,\n           SUM(k.Amount) AS PaidAmt\n    FROM ARPaymentKnockOff k\n    JOIN ARPayment p\n      ON p.DocKey = k.PaymentDocKey\n     AND p.Cancelled = 'F'\n    GROUP BY k.InvoiceDocKey\n),\ncredited AS (\n    SELECT c.InvoiceDocKey,\n           SUM(c.TotalIncTax) AS CreditedAmt\n    FROM CN c\n    WHERE c.Cancelled = 'F'\n    GROUP BY c.InvoiceDocKey\n),\ninv AS (\n    SELECT i.DocKey,\n           i.DebtorCode,\n           i.TotalIncTax,\n           COALESCE(p.PaidAmt, 0) AS PaidAmt,\n           COALESCE(c.CreditedAmt, 0) AS CreditedAmt,\n           i.TotalIncTax - COALESCE(p.PaidAmt, 0) - COALESCE(c.CreditedAmt, 0) AS Outstanding\n    FROM IV i\n    LEFT JOIN paid p\n      ON p.InvoiceDocKey = i.DocKey\n    LEFT JOIN credited c\n      ON c.InvoiceDocKey = i.DocKey\n    WHERE i.Cancelled = 'F'\n)\nSELECT d.CompanyName,\n       i.DebtorCode,\n       SUM(i.Outstanding) AS TotalOutstanding\nFROM inv i\nJOIN Debtor d\n  ON d.AccNo = i.DebtorCode\nWHERE i.Outstanding > 0\nGROUP BY i.DebtorCode, d.CompanyName\nORDER BY TotalOutstanding DESC\nLIMIT 1;",
+            "preview": "Kedai Runcit Cahaya Sdn Bhd, 300-S074, 144,203.38"
+          },
+          {
+            "label": "Only where Cancelled = 'F' and p.Cancelled = 'F'",
+            "sql": "WITH inv AS (\n    SELECT DocKey, DebtorCode, TotalIncTax\n    FROM IV\n    WHERE Cancelled = 'F'\n),\npay AS (\n    SELECT k.InvoiceDocKey, SUM(k.Amount) AS Paid\n    FROM ARPaymentKnockOff k\n    JOIN ARPayment p ON p.DocKey = k.PaymentDocKey\n    WHERE p.Cancelled = 'F'\n    GROUP BY k.InvoiceDocKey\n),\ncredit AS (\n    SELECT InvoiceDocKey, SUM(TotalIncTax) AS Credited\n    FROM CN\n    WHERE Cancelled = 'F'\n    GROUP BY InvoiceDocKey\n)\nSELECT d.AccNo, d.CompanyName,\n       SUM(inv.TotalIncTax - COALESCE(pay.Paid, 0) - COALESCE(credit.Credited, 0)) AS Outstanding\nFROM inv\nJOIN Debtor d ON d.AccNo = inv.DebtorCode\nLEFT JOIN pay ON pay.InvoiceDocKey = inv.DocKey\nLEFT JOIN credit ON credit.InvoiceDocKey = inv.DocKey\nGROUP BY d.AccNo, d.CompanyName\nORDER BY Outstanding DESC\nLIMIT 1;",
+            "preview": "300-S074, Kedai Runcit Cahaya Sdn Bhd, 138,141.27"
           }
         ],
         "selected_correct": true,
@@ -2701,6 +2745,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -2769,6 +2814,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -2837,6 +2883,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -2910,9 +2957,11 @@
           {
             "check": "coverage",
             "severity": "blocking",
-            "title": "The query does not read any data"
+            "title": "The query does not read any data",
+            "detail": "It returns fixed text or numbers instead of reading the database, usually because the data cannot answer the question."
           }
         ],
+        "clarify_options": [],
         "selected_correct": false,
         "reading_match": false,
         "warning": false
@@ -2985,9 +3034,11 @@
           {
             "check": "coverage",
             "severity": "blocking",
-            "title": "The query says it could not answer the question as asked"
+            "title": "The query says it could not answer the question as asked",
+            "detail": "The generated SQL notes: \"on-hand/stock column, so a true stock balance cannot be computed.\". An answer built on that substitution is not stated as fact."
           }
         ],
+        "clarify_options": [],
         "selected_correct": false,
         "reading_match": false,
         "warning": false
@@ -3061,9 +3112,11 @@
           {
             "check": "coverage",
             "severity": "blocking",
-            "title": "The query does not read any data"
+            "title": "The query does not read any data",
+            "detail": "It returns fixed text or numbers instead of reading the database, usually because the data cannot answer the question."
           }
         ],
+        "clarify_options": [],
         "selected_correct": false,
         "reading_match": false,
         "warning": false
