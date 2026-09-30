@@ -39,6 +39,19 @@ Every answer in this app passes through a trust layer: deterministic checks, com
 - **Before deploying**, set `LLM_PROVIDER` and the matching key in the VPS environment. The live site's environment still has only the old OpenRouter key, so deploying without this would switch AI off in production.
 - Every result in `backend/eval/results/` was generated through OpenRouter (`deepseek/deepseek-v4-flash`) before the switch.
 
+## 2b. Added 30 September 2026
+
+- **Default effort is Medium** (three compared queries): the setting every published SlayQL number used. Stored in the browser under `slayql_thinking_effort_v2`, so earlier visitors get the new default once.
+- **Definitions setup** (`backend/app/knowledge/suggestions.py`, `DefinitionSuggestions.jsx` on `/definitions`): SlayQL finds terms whose number depends on their meaning (cancelled flags and statuses, tax-inclusive or exclusive totals) and shows each meaning's total. AutoCount data gets a starter pack for sales, credit notes and collections. `GET /connections/{id}/definitions/suggestions` (analyst+).
+- **"Always use this"** on a clarify choice saves it as the approved definition: `POST /agent-runs/{run}/clarify/{n}/definition` (analyst+). Definition endpoints now check that the caller may use the connection.
+- **Answers from your analyst** (`AnalystAnswers.jsx` in the chat sidebar): the asker sees what the analyst decided and the confirmed answer on today's data (`GET /my-answers`, `/my-answers/{id}/result`). With `EMAIL_NOTIFICATIONS=true` the asker is also emailed (`backend/app/notifications/`); demo accounts are never emailed.
+- **Weekly distributor pack** (`backend/app/workbench/report_packs.py`): ten figures written in advance for AutoCount tables, in SQLite, SQL Server, PostgreSQL or MySQL syntax. It runs through the normal checks with **no AI calls**; weeks end on the latest invoice date. On the sample all 10 pass. `GET/POST /connections/{id}/report-templates[/{id}]`.
+- **Scheduled email** (`backend/app/workbench/schedules.py`, `ScheduleEmail.jsx`, "Email weekly" in Report Studio): each delivery refreshes the report on that day's data and emails it; figures that fail their checks are named but not shown. Table `report_schedules` (created automatically). Tested live: one test email to the team's address, 10 of 10 figures passed.
+- **Data profile** (`backend/app/agent/profile.py`): every value (with counts) of status and flag columns, and date ranges, now reach the model, so filters use the data's own codes (`'T'`, not a guessed `'Y'`). Personal columns are skipped, and the evidence panel's disclosure lists it.
+- **Check changes:** quantity × unit cost across a join is line-level, not a fan-out (added or order-level products still are); adverbs ("what customers *still* owe") are not missing subjects; an empty exception list is a checked "none". Re-scoring trap, BIRD and distributor showed no changed outcomes.
+- **Settings:** `EMAIL`/`APP_PASS` (or `SMTP_USER`/`SMTP_PASSWORD`), `EMAIL_NOTIFICATIONS`, `REPORT_SCHEDULER`, `PUBLIC_APP_URL`. Add them on the VPS before deploying if email is wanted there.
+- **Evaluation:** `--definitions pack` and `--profile` on `generate.py`/`evaluate.py`; `backend/eval/human_loop.py` replays clarify and hand-off outcomes with a second model as the user and the analyst. Not yet run: OpenTK was rate-limited and Together out of credit on 30 September (see section 6).
+
 ## 3. Branch state
 
 `feature/trust-layer`, not pushed, 17 commits ahead of `main`. New since the last handoff:
@@ -52,7 +65,7 @@ Every answer in this app passes through a trust layer: deterministic checks, com
 | `d8f6e5a` | BIRD regenerated and re-scored (harness v2); approved definitions raise confidence; arena load test |
 | `f1681d5` | Learning curve on the landing page; fair benchmark settings on the big screen |
 
-Tests: `python -m pytest -q` passes 87. `npm run build` passes.
+Tests: `python -m pytest -q` passes 111 (30 September). `npm run build` passes.
 
 ## 4. File map (new or changed)
 
@@ -97,7 +110,19 @@ Tests: `python -m pytest -q` passes 87. `npm run build` passes.
 2. **Production cleanup** (`deploy/cleanup_test_data_2026-09-24.sql`): not run. The agent's attempt was blocked by the permission system because it touches the production database. Run it in the Supabase SQL editor (step 1 previews, step 2 deletes in a transaction), or use `.pytest_tmp/prod_cleanup.py preview` then `delete` (it commits only if the deleted counts match the preview).
 3. **Merge to `main` and deploy.** The deploy adds the `pymssql` requirement and the `workspace_calibrations` table (created automatically). Check `/api/v1/health` afterwards, then run the load test against the live site the evening before demo day.
 4. **Human tasks:** interviews (`INTERVIEW_GUIDE.md`); external held-out questions (`HELD_OUT_QUESTIONS.md`); team review of the trap set; a rehearsal with real phones (`DEMO_DAY_RUNBOOK.md`); moving `VITE_API_BASE_URL` out of `.env`.
-5. **Known gaps:**
+5. **Measurements waiting for an AI provider** (OpenTK rate-limited, Together out of credit on 30 September). Run on one provider, with the same model for before and after:
+   ```bash
+   python -m backend.eval.generate --dataset distributor --concurrency 4 --budget 2
+   python -m backend.eval.generate --dataset distributor --definitions pack --concurrency 4 --budget 2
+   python -m backend.eval.generate --dataset distributor --profile --concurrency 4 --budget 2
+   python -m backend.eval.evaluate --dataset distributor
+   python -m backend.eval.evaluate --dataset distributor --definitions pack
+   python -m backend.eval.evaluate --dataset distributor --profile
+   python -m backend.eval.human_loop --dataset distributor --human-model glm-5.3   # moonshotai/Kimi-K3 on Together
+   python -m backend.eval.human_loop --dataset trap --human-model glm-5.3
+   ```
+   On Together set `LLM_PROVIDER=together` and regenerate the baseline too. The published distributor numbers used OpenTK's `deepseek-v4.1-flash`.
+6. **Known gaps:**
    - a question whose SQL silently drops the asked-for concept (`ms-15`);
    - counting rows instead of distinct entities (the arena's deliberate verifier-miss card);
    - SQL Server untested against a live server;
