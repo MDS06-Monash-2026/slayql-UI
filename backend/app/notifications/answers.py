@@ -33,14 +33,15 @@ def compose(item: Dict[str, Any], answer: Any, name: str = "") -> Dict[str, str]
         lines.append(f"Answer: {preview}")
     if note:
         lines.append(f"Note from {reviewer}: {note}")
-    lines += ["", f"Open SlayQL to see the full result: {settings.PUBLIC_APP_URL}", "", "SlayQL"]
+    url = settings.PUBLIC_APP_URL.strip()
+    lines += ["", f"Open SlayQL to see the full result: {url}" if url else "Open SlayQL to see the full result.", "", "SlayQL"]
     body = "".join([
         f"<p>{html.escape(lines[0])}</p>",
         f"<p>{html.escape(verdict)}</p>",
         f"<p style=\"color:#475569\">Your question</p><p style=\"font-size:16px\"><b>{html.escape(question)}</b></p>",
         f"<p style=\"color:#475569\">Answer</p><p style=\"font-size:22px;font-family:monospace\">{html.escape(preview)}</p>" if preview else "",
         f"<p><i>Note from {html.escape(reviewer)}:</i> {html.escape(note)}</p>" if note else "",
-        f"<p><a href=\"{html.escape(settings.PUBLIC_APP_URL)}\">Open SlayQL</a> to see the full result.</p>",
+        f"<p><a href=\"{html.escape(url)}\">Open SlayQL</a> to see the full result.</p>" if url else "<p>Open SlayQL to see the full result.</p>",
     ])
     return {"subject": subject, "text": "\n".join(lines), "html": body}
 

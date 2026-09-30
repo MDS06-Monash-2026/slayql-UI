@@ -35,6 +35,8 @@ class Settings(BaseSettings):
     LLM_BASE_URL: str = ""
     # Default model; empty means the provider's first model.
     EXECUTION_MODEL: str = ""
+    # Model for difficult work (High/Max effort, report planning); empty means the provider's second model.
+    DEEP_MODEL: str = ""
     DEFAULT_MODEL: str = ""
     
     # Direct Provider Keys (fallback or direct use)

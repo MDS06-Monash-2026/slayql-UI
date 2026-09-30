@@ -174,14 +174,16 @@ async def data_coverage(ctx: ReportContext, tables: List[str]) -> List[str]:
 
 # --- Model calls -----------------------------------------------------------
 
-async def _complete_json(ctx: ReportContext, system: str, payload: Dict[str, Any], max_tokens: int = 3500) -> Optional[Dict[str, Any]]:
+async def _complete_json(ctx: ReportContext, system: str, payload: Dict[str, Any], max_tokens: int = 3500,
+                         *, deep: bool = False) -> Optional[Dict[str, Any]]:
     if not ctx.llm:
         return None
     content: List[str] = []
     usage: Dict[str, Any] = {}
     try:
         async for event in llm_client._stream_completion(
-            requested_model_id=llm_client.execution_model,
+            # Planning a report is difficult work; writing its summary is not.
+            requested_model_id=llm_client.deep_model if deep else llm_client.execution_model,
             messages=[{"role": "system", "content": system}, {"role": "user", "content": json.dumps(payload, ensure_ascii=False, default=str)}],
             session_id=None, max_tokens=max_tokens, reasoning_effort="minimal", fallback_text="", use_requested_model=True,
         ):
@@ -381,7 +383,7 @@ async def plan_report(question: str, title: str, ctx: ReportContext) -> Tuple[Di
         "data_coverage": coverage,
         "approved_definitions": knowledge_store.definitions_context(ctx.definitions),
     }
-    raw = await _complete_json(ctx, PLANNER_RULES, payload, max_tokens=8000)
+    raw = await _complete_json(ctx, PLANNER_RULES, payload, max_tokens=8000, deep=True)
     plan = normalize_plan(raw) if raw else None
     if plan and plan["kpis"] and plan["panels"]:
         if title:
@@ -734,7 +736,7 @@ async def revise_item(report: Dict[str, Any], instruction: str, item: Optional[D
         "dialect": ctx.dialect, "schema": schema_text(ctx.catalog, tables),
         "data_coverage": await data_coverage(ctx, tables),
         "approved_definitions": knowledge_store.definitions_context(ctx.definitions),
-    }, max_tokens=1500)
+    }, max_tokens=1500, deep=True)
     plan = normalize_plan(raw or {})
     candidates = plan["kpis"] if kind == "kpi" else plan["panels"]
     if not candidates:

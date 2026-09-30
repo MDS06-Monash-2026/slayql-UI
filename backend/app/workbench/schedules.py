@@ -169,8 +169,9 @@ def render_email(report: Dict[str, Any], app_url: str) -> Dict[str, str]:
         text += ["", "What changed:"] + [f"- {line}" for line in findings]
     if held:
         text += ["", "Held for your analyst (did not pass its checks):"] + [f"- {f.get('label') or f.get('title')}" for f in held]
+    app_url = (app_url or "").strip()
     text += ["", f"{len(passed)} of {len(figures)} figures were run on your full data and passed SlayQL's checks.",
-             f"Open the full report: {app_url}", "", "SlayQL"]
+             f"Open the full report: {app_url}" if app_url else "Open SlayQL for the full report.", "", "SlayQL"]
 
     body = [
         "<div style=\"font-family:Segoe UI,Arial,sans-serif;max-width:640px;color:#0f172a\">",
@@ -185,5 +186,6 @@ def render_email(report: Dict[str, Any], app_url: str) -> Dict[str, str]:
         body.append("<p style=\"background:#fff7ed;padding:10px 12px;border-radius:8px;color:#9a3412\">Held for your analyst: "
                     + html.escape(", ".join(str(f.get("label") or f.get("title")) for f in held)) + ". They did not pass their checks, so no number is shown.</p>")
     body.append(f"<p style=\"color:#475569;font-size:13px\">{len(passed)} of {len(figures)} figures were run on your full data and passed "
-                f"SlayQL's checks. <a href=\"{html.escape(app_url)}\">Open the full report</a>.</p></div>")
+                f"SlayQL's checks. " + (f"<a href=\"{html.escape(app_url)}\">Open the full report</a>." if app_url else "Open SlayQL for the full report.")
+                + "</p></div>")
     return {"subject": f"{title}: {today}", "text": "\n".join(text), "html": "".join(body)}

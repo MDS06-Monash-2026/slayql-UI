@@ -339,7 +339,7 @@ async def test_llm_model_list():
 
     models = await llm_client.list_models()
     assert PROVIDER_ID == "opentk"
-    assert [m.id for m in models] == ["deepseek-v4.1-flash", "glm-5.3", "gpt-5.6-luna", "gpt-6.1-sol"]
+    assert [m.id for m in models] == ["gpt-5.6-luna", "gpt-6.1-sol", "deepseek-v4.1-flash", "glm-5.3"]
     # The user's pick runs when it is offered; anything else falls back to the default.
     assert llm_client.execution_model_id(ALTERNATE_MODEL) == ALTERNATE_MODEL
     assert llm_client.execution_model_id("openai/gpt-5.6-terra") == DEFAULT_MODEL
@@ -463,3 +463,14 @@ async def test_the_data_profile_lists_codes_and_date_ranges_but_not_personal_col
     assert "CN.Cancelled: 'F' (34)" in profile
     assert "IV.DocDate: from 2025-01-01 to 2026-09-15" in profile
     assert "CompanyName" not in profile and "TIN" not in profile
+
+
+def test_everyday_work_uses_the_fast_model_and_difficult_work_the_deep_one():
+    from backend.app.providers.llm_client import DEEP_MODEL, DEFAULT_MODEL, llm_client
+
+    assert llm_client.model_for_effort(None, "medium") == DEFAULT_MODEL
+    assert llm_client.model_for_effort("", "high") == DEEP_MODEL
+    assert llm_client.model_for_effort(None, "max") == DEEP_MODEL
+    # A model the user picked always wins, even for difficult work.
+    assert llm_client.model_for_effort(DEFAULT_MODEL, "max") == DEFAULT_MODEL
+    assert llm_client.model_for_effort("not-a-model", "low") == DEFAULT_MODEL

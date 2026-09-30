@@ -98,7 +98,7 @@ class SlayQLPipeline:
     ) -> Dict[str, Any]:
         run_id = f"run_{uuid.uuid4().hex[:12]}"
         conv_id = conversation_id or f"conv_{uuid.uuid4().hex[:12]}"
-        execution_model_id = llm_client.execution_model_id(model_id)
+        execution_model_id = llm_client.model_for_effort(model_id, thinking_effort)
         RUN_EVENTS_STORE[run_id] = []
         RUN_CANCEL_FLAGS[run_id] = False
         RUN_NOTIFIERS[run_id] = asyncio.Event()
@@ -1041,6 +1041,8 @@ class SlayQLPipeline:
         connection_id = metadata["connection_id"]
         conversation_id = metadata["conversation_id"]
         thinking_profile = get_thinking_profile(metadata["thinking_effort"])
+        # Difficult work goes to the deep model unless the user picked a model themselves.
+        requested_model_id = execution_model_id = llm_client.model_for_effort(requested_model_id, thinking_profile.name)
         started = time.perf_counter()
         profile = ""
 

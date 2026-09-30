@@ -43,18 +43,19 @@ PROVIDERS: Dict[str, Dict[str, Any]] = {
         "label": "OpenTK",
         "base_url": "https://opentk.ai/v1",
         "key_settings": ("OPENTK_KEY", "OPENTK_API_KEY"),
+        # First model: everyday work. Second: difficult work (High/Max effort, report planning).
         "models": [
-            ModelInfo(id="deepseek-v4.1-flash", name="DeepSeek V4.1 Flash", provider="DeepSeek",
-                      description="Default for SQL generation and checking (OpenTK testing environment; price not published).",
-                      tags=["default", "fast"]),
-            ModelInfo(id="glm-5.3", name="GLM 5.3", provider="Zhipu AI",
-                      description="Alternative model for harder questions (OpenTK testing environment; price not published).",
-                      tags=["deep"]),
             ModelInfo(id="gpt-5.6-luna", name="GPT-5.6 Luna", provider="OpenAI",
-                      description="Fast model for high-volume work such as evaluation runs (OpenTK; price not published).",
-                      tags=["fast"]),
+                      description="Default for everyday questions (OpenTK; price not published).",
+                      tags=["default", "fast"]),
             ModelInfo(id="gpt-6.1-sol", name="GPT-6.1 Sol", provider="OpenAI",
-                      description="Strongest model on OpenTK, for difficult questions (price not published).",
+                      description="Used for difficult work: High and Max effort, and planning reports (OpenTK; price not published).",
+                      tags=["deep"]),
+            ModelInfo(id="deepseek-v4.1-flash", name="DeepSeek V4.1 Flash", provider="DeepSeek",
+                      description="Alternative fast model (OpenTK testing environment; price not published).",
+                      tags=["fast"]),
+            ModelInfo(id="glm-5.3", name="GLM 5.3", provider="Zhipu AI",
+                      description="Alternative model (OpenTK testing environment; price not published).",
                       tags=["deep"]),
         ],
     },
@@ -78,9 +79,16 @@ PROVIDERS: Dict[str, Dict[str, Any]] = {
 
 PROVIDER_ID = settings.LLM_PROVIDER.lower() if settings.LLM_PROVIDER.lower() in PROVIDERS else "opentk"
 PROVIDER = PROVIDERS[PROVIDER_ID]
-CURATED_MODELS: List[ModelInfo] = PROVIDER["models"]
+CURATED_MODELS: List[ModelInfo] = list(PROVIDER["models"])
+# Models named in the environment are offered even if not listed above, so moving provider
+# (or model) is a configuration change: EXECUTION_MODEL for everyday work, DEEP_MODEL for hard work.
+for _configured, _role in ((settings.EXECUTION_MODEL, "everyday questions"), (settings.DEEP_MODEL, "difficult work")):
+    if _configured and _configured not in {model.id for model in CURATED_MODELS}:
+        CURATED_MODELS.append(ModelInfo(id=_configured, name=_configured, provider=PROVIDER["label"],
+                                        description=f"Configured for {_role}.", tags=[]))
 MODEL_IDS = {model.id for model in CURATED_MODELS}
-DEFAULT_MODEL, ALTERNATE_MODEL = CURATED_MODELS[0].id, CURATED_MODELS[1].id
+DEFAULT_MODEL = settings.EXECUTION_MODEL or CURATED_MODELS[0].id
+ALTERNATE_MODEL = DEEP_MODEL = settings.DEEP_MODEL or CURATED_MODELS[1].id
 TEST_EXECUTION_MODEL = DEFAULT_MODEL
 _PRICES = {model.id: model for provider in PROVIDERS.values() for model in provider["models"]}
 
@@ -151,10 +159,18 @@ class LLMClient:
         self.provider = PROVIDER["label"]
         self.api_key = next((getattr(settings, name, None) for name in PROVIDER["key_settings"] if getattr(settings, name, None)), None)
         self.base_url = (settings.LLM_BASE_URL or PROVIDER["base_url"]).rstrip("/")
-        self.execution_model = settings.EXECUTION_MODEL if settings.EXECUTION_MODEL in MODEL_IDS else DEFAULT_MODEL
+        self.execution_model = DEFAULT_MODEL
+        self.deep_model = DEEP_MODEL
         self._http_client: Optional[httpx.AsyncClient] = None
         # Models whose deployment rejected the reasoning switch, so it is not sent again.
         self._no_reasoning_param: set = set()
+
+    def model_for_effort(self, requested_model_id: Optional[str], thinking_effort: Optional[str]) -> str:
+        """The model a run uses: the user's choice if offered; otherwise the deep model for
+        High and Max effort, and the everyday model for the rest."""
+        if requested_model_id in MODEL_IDS:
+            return requested_model_id
+        return self.deep_model if thinking_effort in {"high", "max"} else self.execution_model
 
     def execution_model_id(self, requested_model_id: Optional[str] = None, *, use_requested_model: bool = False) -> str:
         """The model to run: the one the user picked if it is offered, otherwise the default."""

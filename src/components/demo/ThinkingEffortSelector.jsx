@@ -27,7 +27,7 @@ export const THINKING_EFFORT_LEVELS = [
   },
   {
     id: 'high',
-    hint: '3 queries and deeper model checks',
+    hint: '3 queries, deeper checks, strongest model',
     label: 'Max',
     badgeLight: 'text-rose-700 bg-rose-50 border-rose-200',
     badgeDark: 'text-rose-400 bg-rose-950/60 border-rose-800',
