@@ -71,14 +71,18 @@ async def _ask(model: str, messages: List[Dict[str, str]], max_tokens: int = 150
                 raise
             await asyncio.sleep(20 * (attempt + 1))
     text = "".join(content)
-    start, end = text.find("{"), text.rfind("}")
-    if start < 0 or end <= start:
-        return None
-    try:
-        value = json.loads(text[start:end + 1])
-    except ValueError:
-        return None
-    return value if isinstance(value, dict) else None
+    # Read the first complete JSON object: models sometimes repeat it or add text after it.
+    decoder = json.JSONDecoder()
+    start = text.find("{")
+    while start >= 0:
+        try:
+            value, _ = decoder.raw_decode(text, start)
+            if isinstance(value, dict):
+                return value
+        except ValueError:
+            pass
+        start = text.find("{", start + 1)
+    return None
 
 
 def _cache(kind: str, model: str, key: str) -> Any:
@@ -98,18 +102,19 @@ async def _cached(kind: str, model: str, key: str, compute) -> Any:
     return value
 
 
-async def intent_of(item: Item, model: str) -> str:
-    value = await _cached("intent", model, f"{item.dataset}|{item.id}|{item.gold_sql}", lambda: _ask(model, [
+async def intent_of(item: Item, model: str, sql: Optional[str] = None) -> str:
+    sql = sql or item.gold_sql
+    value = await _cached("intent", model, f"{item.dataset}|{item.id}|{sql}", lambda: _ask(model, [
         {"role": "system", "content": INTENT_RULES},
-        {"role": "user", "content": json.dumps({"question": item.question, "sql": item.gold_sql})},
+        {"role": "user", "content": json.dumps({"question": item.question, "sql": sql})},
     ], 400))
     return (value or {}).get("intent", "")
 
 
-async def simulated_user(item: Item, options: List[Dict[str, Any]], model: str) -> Optional[int]:
-    intent = await intent_of(item, model)
+async def simulated_user(item: Item, options: List[Dict[str, Any]], model: str, meant_sql: Optional[str] = None) -> Optional[int]:
+    intent = await intent_of(item, model, meant_sql)
     shown = [{"option": i + 1, "reading": o["label"], "result": o["preview"]} for i, o in enumerate(options)]
-    value = await _cached("user", model, f"{item.dataset}|{item.id}|{json.dumps(shown)}", lambda: _ask(model, [
+    value = await _cached("user", model, f"{item.dataset}|{item.id}|{meant_sql or ''}|{json.dumps(shown)}", lambda: _ask(model, [
         {"role": "system", "content": USER_RULES},
         {"role": "user", "content": json.dumps({"question": item.question, "your_intent": intent, "options": shown})},
     ], 400))
@@ -138,6 +143,8 @@ async def simulated_analyst(item: Item, b3: Dict[str, Any], model: str) -> Dict[
         for _ in range(MAX_ANALYST_STEPS):
             reply = await _ask(model, messages)
             if not reply:
+                reply = await _ask(model, messages + [{"role": "user", "content": "Reply with exactly one JSON object as described."}])
+            if not reply:
                 break
             messages.append({"role": "assistant", "content": json.dumps(reply)})
             if reply.get("action") == "final":
@@ -148,7 +155,7 @@ async def simulated_analyst(item: Item, b3: Dict[str, Any], model: str) -> Dict[
             messages.append({"role": "user", "content": json.dumps({"result": shown}, default=str)})
         return {"decision": "undecided", "sql": "", "why": "no decision within the turn limit", "steps": steps}
 
-    return await _cached("analyst", model, f"{item.dataset}|{item.id}|{b3.get('sql')}", review)
+    return await _cached("analyst", model, f"v2|{item.dataset}|{item.id}|{b3.get('sql')}", review)
 
 
 async def resolve(item: Item, record: Dict[str, Any], golds, model: str) -> Dict[str, Any]:
@@ -188,15 +195,37 @@ async def resolve(item: Item, record: Dict[str, Any], golds, model: str) -> Dict
             "delivered_wrong": decision in {"confirm", "correct"} and not right, "steps": len(review.get("steps", []))}
 
 
+async def reading_picks(item: Item, record: Dict[str, Any], model: str) -> List[Dict[str, Any]]:
+    """For a clarify question, simulate a user meaning each valid reading in turn."""
+    options = record["B3"].get("clarify_options") or []
+    if (record.get("B3_c4") or record["B3"])["outcome"] != "clarify" or not options:
+        return []
+    catalog = catalog_for(str(item.db_path))
+    run = make_runner(item.db_path, catalog)
+    option_results = [await run(o["sql"]) for o in options]
+    picks = []
+    for reading in [item.gold_sql] + list(item.alternatives):
+        meant = await run(reading)
+        if meant.error:
+            continue
+        matching = [i for i, r in enumerate(option_results) if not r.error and same_result(r, meant, True)]
+        if not matching:
+            continue  # SlayQL did not offer this reading; nothing to pick.
+        choice = await simulated_user(item, options, model, reading)
+        picks.append({"id": item.id, "reading": reading, "matching": matching, "choice": choice, "right": choice in matching})
+    return picks
+
+
 async def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--dataset", choices=["trap", "distributor"], required=True)
     parser.add_argument("--human-model", required=True, help="the model that plays the user and the analyst")
     parser.add_argument("--definitions", choices=["", "pack"], default="")
     parser.add_argument("--concurrency", type=int, default=3)
+    parser.add_argument("--label", default="", help="the --label used with evaluate.py")
     args = parser.parse_args()
 
-    suffix = f"-{args.definitions}" if args.definitions else ""
+    suffix = (f"-{args.definitions}" if args.definitions else "") + (f"-{args.label}" if args.label else "")
     report = json.loads((RESULTS_DIR / f"{args.dataset}{suffix}.json").read_text(encoding="utf-8"))
     records = {r["id"]: r for r in report["items"]}
     items = load_items(args.dataset)
@@ -212,6 +241,12 @@ async def main() -> None:
             return {"id": item.id, "expected": item.expected, "language": item.language, **outcome}
 
     rows = await asyncio.gather(*(one(item) for item in items))
+
+    async def picks_for(item: Item) -> List[Dict[str, Any]]:
+        async with semaphore:
+            return await reading_picks(item, records[item.id], args.human_model)
+
+    picks = [p for group in await asyncio.gather(*(picks_for(item) for item in items)) for p in group]
     n = len(rows)
     answered = [r for r in rows if r["path"] == "answered"]
     involved = [r for r in rows if r["person"]]
@@ -225,8 +260,12 @@ async def main() -> None:
         "simulated_human": {
             "correct": sum(r["correct"] for r in rows) / n,
             "wrong_delivered_by_slayql": sum(not r["correct"] for r in answered) / n,
-            "wrong_after_review": sum(1 for r in rows if r["person"] and not r["correct"] and r.get("decision") != "unanswerable"
-                                      and r["expected"] != "handoff") / n,
+            # A person signed off on a wrong answer: a clarify pick that was not what they meant, or an
+            # analyst's confirm or correction that is wrong. "Undecided" delivers nothing, so it is unresolved.
+            "wrong_after_review": sum(1 for r in rows if r["person"] and not r["correct"]
+                                      and (r["path"] == "clarified" or r.get("decision") in {"confirm", "correct"})) / n,
+            "unresolved": sum(1 for r in rows if r["person"] and not r["correct"] and r.get("decision") in {"undecided", None}
+                              and r["path"] == "analyst") / n,
             "needed_a_person": len(involved) / n,
             "analyst_accuracy": (sum(r["correct"] for r in analyst) / len(analyst)) if analyst else None,
         },
@@ -235,8 +274,12 @@ async def main() -> None:
             "needed_a_person": len(involved) / n,
         },
     }
+    summary["clarify_readings"] = {
+        "tested": len(picks),
+        "picked_the_meant_option": (sum(p["right"] for p in picks) / len(picks)) if picks else None,
+    }
     out = {"dataset": args.dataset, "definitions": args.definitions or "none", "human_model": args.human_model,
-           "generation_model": report.get("model"), "n": n, "summary": summary, "items": rows}
+           "generation_model": report.get("model"), "n": n, "summary": summary, "items": rows, "reading_picks": picks}
     path = RESULTS_DIR / f"human-loop-{args.dataset}{suffix}.json"
     path.write_text(json.dumps(out, indent=2, default=str), encoding="utf-8")
 
@@ -245,8 +288,13 @@ async def main() -> None:
     s = summary
     print(f"{'No human':22} {s['no_human']['correct']:8.1%} {s['no_human']['wrong_delivered']:12.1%} {'(unanswered ' + format(s['no_human']['unanswered'], '.0%') + ')':>16}")
     sh = s["simulated_human"]
-    print(f"{'Simulated human':22} {sh['correct']:8.1%} {sh['wrong_delivered_by_slayql'] + sh['wrong_after_review']:12.1%} {sh['needed_a_person']:16.1%}")
+    print(f"{'Simulated human':22} {sh['correct']:8.1%} {sh["wrong_delivered_by_slayql"] + sh["wrong_after_review"]:12.1%} {sh['needed_a_person']:16.1%}")
+    if sh["unresolved"]:
+        print(f"{'':22} (unresolved by the simulated analyst: {sh['unresolved']:.1%})")
     print(f"{'Perfect human':22} {s['perfect_human']['correct']:8.1%} {s['no_human']['wrong_delivered']:12.1%} {s['perfect_human']['needed_a_person']:16.1%}")
+    if picks:
+        print(f"Clarify: for {len(picks)} (question, meaning) pairs, the simulated user picked the option giving that meaning "
+              f"{summary['clarify_readings']['picked_the_meant_option']:.0%} of the time.")
     if sh["analyst_accuracy"] is not None:
         print(f"Simulated analyst right on {sh['analyst_accuracy']:.0%} of {len(analyst)} reviews.")
     print(f"Wrote {path}")

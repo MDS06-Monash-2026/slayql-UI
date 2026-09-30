@@ -110,7 +110,7 @@ Tests: `python -m pytest -q` passes 111 (30 September). `npm run build` passes.
 2. **Production cleanup** (`deploy/cleanup_test_data_2026-09-24.sql`): not run. The agent's attempt was blocked by the permission system because it touches the production database. Run it in the Supabase SQL editor (step 1 previews, step 2 deletes in a transaction), or use `.pytest_tmp/prod_cleanup.py preview` then `delete` (it commits only if the deleted counts match the preview).
 3. **Merge to `main` and deploy.** The deploy adds the `pymssql` requirement and the `workspace_calibrations` table (created automatically). Check `/api/v1/health` afterwards, then run the load test against the live site the evening before demo day.
 4. **Human tasks:** interviews (`INTERVIEW_GUIDE.md`); external held-out questions (`HELD_OUT_QUESTIONS.md`); team review of the trap set; a rehearsal with real phones (`DEMO_DAY_RUNBOOK.md`); moving `VITE_API_BASE_URL` out of `.env`.
-5. **Measurements waiting for an AI provider** (OpenTK rate-limited, Together out of credit on 30 September). Run on one provider, with the same model for before and after:
+5. **Measurements (done 30 September, OpenTK):** SQL by `gpt-5.6-luna`, the simulated person by `gpt-6.1-sol`. Results in `results/distributor-{luna,pack-luna,profile-luna}.json` and `results/human-loop-*.json`, written up in `REPORT_NARRATIVE.md` section 5.5. Together was out of credit and OpenTK's DeepSeek and GLM were rate-limited that day. To repeat:
    ```bash
    python -m backend.eval.generate --dataset distributor --concurrency 4 --budget 2
    python -m backend.eval.generate --dataset distributor --definitions pack --concurrency 4 --budget 2
@@ -121,7 +121,7 @@ Tests: `python -m pytest -q` passes 111 (30 September). `npm run build` passes.
    python -m backend.eval.human_loop --dataset distributor --human-model glm-5.3   # moonshotai/Kimi-K3 on Together
    python -m backend.eval.human_loop --dataset trap --human-model glm-5.3
    ```
-   On Together set `LLM_PROVIDER=together` and regenerate the baseline too. The published distributor numbers used OpenTK's `deepseek-v4.1-flash`.
+   Add `--model gpt-5.6-luna --label luna` to the generate/evaluate commands, and `--label luna --human-model gpt-6.1-sol` to `human_loop`. The earlier distributor numbers (section 5.4 of the report) used OpenTK's `deepseek-v4.1-flash` and stay in `distributor.json`.
 6. **Known gaps:**
    - a question whose SQL silently drops the asked-for concept (`ms-15`);
    - counting rows instead of distinct entities (the arena's deliberate verifier-miss card);

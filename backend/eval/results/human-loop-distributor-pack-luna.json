@@ -1,0 +1,218 @@
+{
+  "dataset": "distributor",
+  "definitions": "pack",
+  "human_model": "gpt-6.1-sol",
+  "generation_model": "gpt-5.6-luna",
+  "n": 22,
+  "summary": {
+    "no_human": {
+      "correct": 0.8181818181818182,
+      "wrong_delivered": 0.045454545454545456,
+      "unanswered": 0.13636363636363635
+    },
+    "simulated_human": {
+      "correct": 0.9545454545454546,
+      "wrong_delivered_by_slayql": 0.045454545454545456,
+      "wrong_after_review": 0.0,
+      "unresolved": 0.0,
+      "needed_a_person": 0.13636363636363635,
+      "analyst_accuracy": 1.0
+    },
+    "perfect_human": {
+      "correct": 0.9545454545454546,
+      "needed_a_person": 0.13636363636363635
+    },
+    "clarify_readings": {
+      "tested": 0,
+      "picked_the_meant_option": null
+    }
+  },
+  "items": [
+    {
+      "id": "dist-01",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "dist-02",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "dist-03",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "dist-04",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "dist-05",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "dist-06",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "dist-07",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "dist-08",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "dist-09",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "dist-10",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "dist-11",
+      "expected": "answer",
+      "language": "ms",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "dist-12",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "dist-13",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "dist-14",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": false,
+      "person": false
+    },
+    {
+      "id": "dist-15",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "dist-16",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "dist-17",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "dist-18",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "dist-19",
+      "expected": "answer",
+      "language": "ms",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "dist-20",
+      "expected": "handoff",
+      "language": "en",
+      "path": "analyst",
+      "correct": true,
+      "person": true,
+      "decision": "unanswerable",
+      "delivered_wrong": false,
+      "steps": 0
+    },
+    {
+      "id": "dist-21",
+      "expected": "handoff",
+      "language": "en",
+      "path": "analyst",
+      "correct": true,
+      "person": true,
+      "decision": "unanswerable",
+      "delivered_wrong": false,
+      "steps": 0
+    },
+    {
+      "id": "dist-22",
+      "expected": "handoff",
+      "language": "ms",
+      "path": "analyst",
+      "correct": true,
+      "person": true,
+      "decision": "unanswerable",
+      "delivered_wrong": false,
+      "steps": 0
+    }
+  ],
+  "reading_picks": []
+}

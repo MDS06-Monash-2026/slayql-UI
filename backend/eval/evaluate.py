@@ -180,6 +180,7 @@ async def main() -> None:
     parser.add_argument("--definitions", choices=["", "pack"], default="",
                         help="'pack': score with the starter-pack definitions approved (writes <dataset>-pack.json)")
     parser.add_argument("--profile", action="store_true", help="score generations made with the data profile")
+    parser.add_argument("--label", default="", help="suffix for the results file, e.g. the model (keeps published results intact)")
     parser.add_argument("--fit", action="store_true", help="fit the confidence model on this dataset's 'fit' half (saved to results/calibration-<dataset>.json)")
     args = parser.parse_args()
 
@@ -293,7 +294,7 @@ async def main() -> None:
     report["items"] = scored
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    suffix = ("-evidence" if args.with_evidence else "") + (f"-{args.definitions}" if args.definitions else "") + ("-profile" if args.profile else "")
+    suffix = ("-evidence" if args.with_evidence else "") + (f"-{args.definitions}" if args.definitions else "") + ("-profile" if args.profile else "") + (f"-{args.label}" if args.label else "")
     out_path = RESULTS_DIR / f"{args.dataset}{suffix}.json"
     out_path.write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
 

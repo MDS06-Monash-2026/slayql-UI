@@ -1,0 +1,236 @@
+{
+  "dataset": "distributor",
+  "definitions": "none",
+  "human_model": "gpt-6.1-sol",
+  "generation_model": "gpt-5.6-luna",
+  "n": 22,
+  "summary": {
+    "no_human": {
+      "correct": 0.5909090909090909,
+      "wrong_delivered": 0.0,
+      "unanswered": 0.4090909090909091
+    },
+    "simulated_human": {
+      "correct": 0.8636363636363636,
+      "wrong_delivered_by_slayql": 0.0,
+      "wrong_after_review": 0.13636363636363635,
+      "unresolved": 0.0,
+      "needed_a_person": 0.4090909090909091,
+      "analyst_accuracy": 0.6666666666666666
+    },
+    "perfect_human": {
+      "correct": 1.0,
+      "needed_a_person": 0.4090909090909091
+    },
+    "clarify_readings": {
+      "tested": 0,
+      "picked_the_meant_option": null
+    }
+  },
+  "items": [
+    {
+      "id": "dist-01",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "dist-02",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "dist-03",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "dist-04",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "dist-05",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "dist-06",
+      "expected": "answer",
+      "language": "en",
+      "path": "analyst",
+      "correct": true,
+      "person": true,
+      "decision": "confirm",
+      "delivered_wrong": false,
+      "steps": 2
+    },
+    {
+      "id": "dist-07",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "dist-08",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "dist-09",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "dist-10",
+      "expected": "clarify",
+      "language": "en",
+      "path": "analyst",
+      "correct": false,
+      "person": true,
+      "decision": "correct",
+      "delivered_wrong": true,
+      "steps": 1
+    },
+    {
+      "id": "dist-11",
+      "expected": "clarify",
+      "language": "ms",
+      "path": "analyst",
+      "correct": false,
+      "person": true,
+      "decision": "correct",
+      "delivered_wrong": true,
+      "steps": 3
+    },
+    {
+      "id": "dist-12",
+      "expected": "clarify",
+      "language": "en",
+      "path": "analyst",
+      "correct": false,
+      "person": true,
+      "decision": "correct",
+      "delivered_wrong": true,
+      "steps": 2
+    },
+    {
+      "id": "dist-13",
+      "expected": "answer",
+      "language": "en",
+      "path": "analyst",
+      "correct": true,
+      "person": true,
+      "decision": "confirm",
+      "delivered_wrong": false,
+      "steps": 2
+    },
+    {
+      "id": "dist-14",
+      "expected": "answer",
+      "language": "en",
+      "path": "analyst",
+      "correct": true,
+      "person": true,
+      "decision": "confirm",
+      "delivered_wrong": false,
+      "steps": 3
+    },
+    {
+      "id": "dist-15",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "dist-16",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "dist-17",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "dist-18",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "dist-19",
+      "expected": "answer",
+      "language": "ms",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "dist-20",
+      "expected": "handoff",
+      "language": "en",
+      "path": "analyst",
+      "correct": true,
+      "person": true,
+      "decision": "unanswerable",
+      "delivered_wrong": false,
+      "steps": 0
+    },
+    {
+      "id": "dist-21",
+      "expected": "handoff",
+      "language": "en",
+      "path": "analyst",
+      "correct": true,
+      "person": true,
+      "decision": "unanswerable",
+      "delivered_wrong": false,
+      "steps": 0
+    },
+    {
+      "id": "dist-22",
+      "expected": "handoff",
+      "language": "ms",
+      "path": "analyst",
+      "correct": true,
+      "person": true,
+      "decision": "unanswerable",
+      "delivered_wrong": false,
+      "steps": 0
+    }
+  ],
+  "reading_picks": []
+}

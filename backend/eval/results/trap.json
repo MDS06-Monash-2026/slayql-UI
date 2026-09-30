@@ -4,12 +4,13 @@
   "k": 3,
   "with_evidence": false,
   "definitions": "none",
+  "data_profile": false,
   "prompt_version": "v2",
   "penalty": 4.0,
   "threshold": 0.8,
   "calibration": "default prior (not yet calibrated)",
-  "commit": "2d0acec",
-  "evaluated_at": "2026-09-30T02:43:56.893269+00:00",
+  "commit": "3ba1fce",
+  "evaluated_at": "2026-09-30T03:25:02.357354+00:00",
   "total_generation_cost_usd": 0.0325,
   "splits": {
     "test": {
@@ -1878,6 +1879,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -1946,6 +1948,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -2014,6 +2017,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -2082,6 +2086,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -2150,6 +2155,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -2218,6 +2224,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -2286,6 +2293,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -2354,6 +2362,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -2422,6 +2431,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -2490,6 +2500,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -2558,6 +2569,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -2626,6 +2638,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -2694,6 +2707,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -2762,6 +2776,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -2830,6 +2845,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -2898,6 +2914,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -2966,6 +2983,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -3034,6 +3052,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -3102,6 +3121,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -3170,6 +3190,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -3238,6 +3259,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -3306,6 +3328,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -3374,6 +3397,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -3447,7 +3471,20 @@
           {
             "check": "definition",
             "severity": "ambiguity",
-            "title": "Includes refunded, cancelled orders"
+            "title": "Includes refunded, cancelled orders",
+            "detail": "orders.status is not filtered, so every row counts (completed 134, shipped 39, refunded 20, processing 14, cancelled 7). Whether these count depends on the company's definition."
+          }
+        ],
+        "clarify_options": [
+          {
+            "label": "As calculated (all records)",
+            "sql": "SELECT SUM(total_amount) AS total_revenue\nFROM orders;",
+            "preview": "3,241,298.23"
+          },
+          {
+            "label": "Exclude refunded, cancelled orders",
+            "sql": "SELECT SUM(total_amount) AS total_revenue FROM orders WHERE NOT \"orders\".\"status\" IN ('refunded', 'cancelled')",
+            "preview": "2,938,582.20"
           }
         ],
         "selected_correct": false,
@@ -3523,7 +3560,20 @@
           {
             "check": "definition",
             "severity": "ambiguity",
-            "title": "Includes refunded, cancelled orders"
+            "title": "Includes refunded, cancelled orders",
+            "detail": "orders.status is not filtered, so every row counts (completed 134, shipped 39, refunded 20, processing 14, cancelled 7). Whether these count depends on the company's definition."
+          }
+        ],
+        "clarify_options": [
+          {
+            "label": "As calculated (all records)",
+            "sql": "SELECT SUM(total_amount) AS total_sales_2025\nFROM orders\nWHERE strftime('%Y', order_date) = '2025';",
+            "preview": "2,247,034.95"
+          },
+          {
+            "label": "Exclude refunded, cancelled orders",
+            "sql": "SELECT SUM(total_amount) AS total_sales_2025 FROM orders WHERE TIME_TO_STR(CAST(order_date AS TIMESTAMP), '%Y') = '2025' AND NOT \"orders\".\"status\" IN ('refunded', 'cancelled')",
+            "preview": "NULL"
           }
         ],
         "selected_correct": false,
@@ -3599,7 +3649,20 @@
           {
             "check": "definition",
             "severity": "ambiguity",
-            "title": "Includes refunded, cancelled orders"
+            "title": "Includes refunded, cancelled orders",
+            "detail": "orders.status is not filtered, so every row counts (completed 134, shipped 39, refunded 20, processing 14, cancelled 7). Whether these count depends on the company's definition."
+          }
+        ],
+        "clarify_options": [
+          {
+            "label": "As calculated (all records)",
+            "sql": "SELECT c.segment, SUM(o.total_amount) AS total_revenue\nFROM customers c\nJOIN orders o ON c.id = o.customer_id\nGROUP BY c.segment\nORDER BY total_revenue DESC;",
+            "preview": "Mid-Market, 1,076,878.82; Enterprise, 959,852.87; SMB, 741,443.09 (+1 more rows)"
+          },
+          {
+            "label": "Exclude refunded, cancelled orders",
+            "sql": "SELECT c.segment, SUM(o.total_amount) AS total_revenue FROM customers AS c JOIN orders AS o ON c.id = o.customer_id WHERE NOT \"o\".\"status\" IN ('refunded', 'cancelled') GROUP BY c.segment ORDER BY total_revenue DESC",
+            "preview": "Mid-Market, 1,000,184.03; Enterprise, 886,684.85; SMB, 613,322.52 (+1 more rows)"
           }
         ],
         "selected_correct": false,
@@ -3675,7 +3738,20 @@
           {
             "check": "definition",
             "severity": "ambiguity",
-            "title": "Includes refunded, cancelled orders"
+            "title": "Includes refunded, cancelled orders",
+            "detail": "orders.status is not filtered, so every row counts (completed 134, shipped 39, refunded 20, processing 14, cancelled 7). Whether these count depends on the company's definition."
+          }
+        ],
+        "clarify_options": [
+          {
+            "label": "As calculated (all records)",
+            "sql": "SELECT SUM(total_amount) AS revenue_q1_2026\nFROM orders\nWHERE order_date >= '2026-01-01'\n  AND order_date < '2026-04-01';",
+            "preview": "420,015.63"
+          },
+          {
+            "label": "Exclude refunded, cancelled orders",
+            "sql": "SELECT SUM(total_amount) AS revenue_q1_2026 FROM orders WHERE (order_date >= '2026-01-01' AND order_date < '2026-04-01') AND NOT \"orders\".\"status\" IN ('refunded', 'cancelled')",
+            "preview": "385,624.04"
           }
         ],
         "selected_correct": false,
@@ -3751,7 +3827,20 @@
           {
             "check": "definition",
             "severity": "ambiguity",
-            "title": "Includes refunded, cancelled orders"
+            "title": "Includes refunded, cancelled orders",
+            "detail": "orders.status is not filtered, so every row counts (completed 134, shipped 39, refunded 20, processing 14, cancelled 7). Whether these count depends on the company's definition."
+          }
+        ],
+        "clarify_options": [
+          {
+            "label": "As calculated (all records)",
+            "sql": "SELECT SUM(o.total_amount) AS total_sales\nFROM customers c\nJOIN orders o ON c.id = o.customer_id\nWHERE c.segment = 'Enterprise';",
+            "preview": "959,852.87"
+          },
+          {
+            "label": "Exclude refunded, cancelled orders",
+            "sql": "SELECT SUM(o.total_amount) AS total_sales FROM customers AS c JOIN orders AS o ON c.id = o.customer_id WHERE c.segment = 'Enterprise' AND NOT \"o\".\"status\" IN ('refunded', 'cancelled')",
+            "preview": "886,684.85"
           }
         ],
         "selected_correct": false,
@@ -3822,6 +3911,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -3890,6 +3980,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -3958,6 +4049,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -4026,6 +4118,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -4094,6 +4187,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -4164,9 +4258,11 @@
           {
             "check": "execution",
             "severity": "blocking",
-            "title": "No candidate query ran successfully"
+            "title": "No candidate query ran successfully",
+            "detail": "Every generated query failed validation or execution."
           }
         ],
+        "clarify_options": [],
         "selected_correct": false,
         "reading_match": false,
         "warning": false
@@ -4237,9 +4333,11 @@
           {
             "check": "execution",
             "severity": "blocking",
-            "title": "No candidate query ran successfully"
+            "title": "No candidate query ran successfully",
+            "detail": "Every generated query failed validation or execution."
           }
         ],
+        "clarify_options": [],
         "selected_correct": false,
         "reading_match": false,
         "warning": false
@@ -4313,9 +4411,11 @@
           {
             "check": "coverage",
             "severity": "blocking",
-            "title": "The data has nothing about \"deal\""
+            "title": "The data has nothing about \"deal\"",
+            "detail": "No table, column or value in this database mentions \"deal\". The query labels other data with that name (COUNT(*) AS deals_closed), so the figure would answer a different question."
           }
         ],
+        "clarify_options": [],
         "selected_correct": false,
         "reading_match": false,
         "warning": false
@@ -4384,6 +4484,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -4457,9 +4558,11 @@
           {
             "check": "definition",
             "severity": "warning",
-            "title": "Assumes which records count as \"hasil\""
+            "title": "Assumes which records count as \"hasil\"",
+            "detail": "There is no approved definition of \"hasil\", so this answer uses its own filter on orders.status. Approve a definition so every answer uses the same one."
           }
         ],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": true
@@ -4528,6 +4631,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -4601,7 +4705,20 @@
           {
             "check": "definition",
             "severity": "ambiguity",
-            "title": "Includes refunded, cancelled orders"
+            "title": "Includes refunded, cancelled orders",
+            "detail": "orders.status is not filtered, so every row counts (completed 134, shipped 39, refunded 20, processing 14, cancelled 7). Whether these count depends on the company's definition."
+          }
+        ],
+        "clarify_options": [
+          {
+            "label": "As calculated (all records)",
+            "sql": "SELECT SUM(total_amount) AS total_sales\nFROM orders;",
+            "preview": "3,241,298.23"
+          },
+          {
+            "label": "Exclude refunded, cancelled orders",
+            "sql": "SELECT SUM(total_amount) AS total_sales FROM orders WHERE NOT \"orders\".\"status\" IN ('refunded', 'cancelled')",
+            "preview": "2,938,582.20"
           }
         ],
         "selected_correct": false,
@@ -4672,6 +4789,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -4740,6 +4858,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -4808,6 +4927,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -4876,6 +4996,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -4944,6 +5065,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -5017,7 +5139,20 @@
           {
             "check": "definition",
             "severity": "ambiguity",
-            "title": "Includes refunded, cancelled orders"
+            "title": "Includes refunded, cancelled orders",
+            "detail": "orders.status is not filtered, so every row counts (completed 134, shipped 39, refunded 20, processing 14, cancelled 7). Whether these count depends on the company's definition."
+          }
+        ],
+        "clarify_options": [
+          {
+            "label": "As calculated (all records)",
+            "sql": "SELECT SUM(total_amount) AS total_sales_2025\nFROM orders\nWHERE order_date LIKE '2025%';",
+            "preview": "2,247,034.95"
+          },
+          {
+            "label": "Exclude refunded, cancelled orders",
+            "sql": "SELECT SUM(total_amount) AS total_sales_2025 FROM orders WHERE order_date LIKE '2025%' AND NOT \"orders\".\"status\" IN ('refunded', 'cancelled')",
+            "preview": "2,059,953.25"
           }
         ],
         "selected_correct": false,
@@ -5093,7 +5228,20 @@
           {
             "check": "definition",
             "severity": "ambiguity",
-            "title": "Includes refunded, cancelled orders"
+            "title": "Includes refunded, cancelled orders",
+            "detail": "orders.status is not filtered, so every row counts (completed 134, shipped 39, refunded 20, processing 14, cancelled 7). Whether these count depends on the company's definition."
+          }
+        ],
+        "clarify_options": [
+          {
+            "label": "As calculated (all records)",
+            "sql": "SELECT c.segment, ROUND(SUM(o.total_amount), 2) AS total_revenue\nFROM customers c\nJOIN orders o ON c.id = o.customer_id\nGROUP BY c.segment\nORDER BY total_revenue DESC;",
+            "preview": "Mid-Market, 1,076,878.82; Enterprise, 959,852.87; SMB, 741,443.09 (+1 more rows)"
+          },
+          {
+            "label": "Exclude refunded, cancelled orders",
+            "sql": "SELECT c.segment, ROUND(SUM(o.total_amount), 2) AS total_revenue FROM customers AS c JOIN orders AS o ON c.id = o.customer_id WHERE NOT \"o\".\"status\" IN ('refunded', 'cancelled') GROUP BY c.segment ORDER BY total_revenue DESC",
+            "preview": "Mid-Market, 1,000,184.03; Enterprise, 886,684.85; SMB, 613,322.52 (+1 more rows)"
           }
         ],
         "selected_correct": false,
@@ -5164,6 +5312,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -5232,6 +5381,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
@@ -5305,9 +5455,11 @@
           {
             "check": "coverage",
             "severity": "blocking",
-            "title": "The data has nothing about \"satisfaction\""
+            "title": "The data has nothing about \"satisfaction\"",
+            "detail": "No table, column or value in this database mentions \"satisfaction\". The query labels other data with that name (ROUND(100.0 * SUM(CASE WHEN sc.id IS NULL THEN 1 ELSE 0 END) / NULLIF(COUNT(DISTINCT c.id), 0), 2) AS customer_satisfaction_score), so the figure would answer a different question."
           }
         ],
+        "clarify_options": [],
         "selected_correct": false,
         "reading_match": false,
         "warning": false
@@ -5379,9 +5531,11 @@
           {
             "check": "execution",
             "severity": "blocking",
-            "title": "No candidate query ran successfully"
+            "title": "No candidate query ran successfully",
+            "detail": "Every generated query failed validation or execution."
           }
         ],
+        "clarify_options": [],
         "selected_correct": false,
         "reading_match": false,
         "warning": false
@@ -5450,6 +5604,7 @@
         "blocking": false,
         "options": 0,
         "findings": [],
+        "clarify_options": [],
         "selected_correct": true,
         "reading_match": false,
         "warning": false
