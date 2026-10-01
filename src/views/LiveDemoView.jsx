@@ -49,6 +49,7 @@ import ReportModal from '../components/demo/ReportModal';
 import AssistantTablePreview from '../components/demo/AssistantTablePreview';
 import TrustPanel from '../components/trust/TrustPanel';
 import AnalystAnswers from '../components/trust/AnalystAnswers';
+import AppSidebar from '../components/demo/AppSidebar';
 import EmptyChatState from '../components/demo/EmptyChatState';
 
 import {
@@ -257,7 +258,15 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
   const [creditBalance, setCreditBalance] = useState(session?.user?.credits ?? 0);
 
   // --- Layout State ---
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  // Like other chat apps: closed by default on phones; on larger screens the last choice is remembered.
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    if (!window.matchMedia('(min-width: 768px)').matches) return false;
+    return localStorage.getItem('slayql_sidebar_open') !== 'false';
+  });
+  useEffect(() => {
+    if (window.matchMedia('(min-width: 768px)').matches) localStorage.setItem('slayql_sidebar_open', String(sidebarOpen));
+  }, [sidebarOpen]);
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [savedQueriesOpen, setSavedQueriesOpen] = useState(false);
   const [explorePopOpen, setExplorePopOpen] = useState(false);
@@ -266,6 +275,16 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
   const [addConnectionOpen, setAddConnectionOpen] = useState(false);
   const [addTableOpen, setAddTableOpen] = useState(false);
   const [dbDropdownOpen, setDbDropdownOpen] = useState(false);
+  const dbDropdownRef = useRef(null);
+  // The data-source menu closes on an outside click or Escape, like the model menu.
+  useEffect(() => {
+    if (!dbDropdownOpen) return undefined;
+    const onDown = (e) => { if (dbDropdownRef.current && !dbDropdownRef.current.contains(e.target)) setDbDropdownOpen(false); };
+    const onKey = (e) => { if (e.key === 'Escape') setDbDropdownOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
+  }, [dbDropdownOpen]);
   const [localTheme, setLocalTheme] = useState(() => {
     try {
       return localStorage.getItem('slayql_theme') || 'light';
@@ -460,31 +479,34 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
     let active = true;
     async function init() {
       try {
-        const [modelsResult, connsResult, savedResult] = await Promise.allSettled([
+        // Saved queries load on their own so they never hold up the database view.
+        fetchSavedQueries()
+          .then((saved) => { if (active) setSavedQueries(saved); })
+          .catch(() => {});
+        const [modelsResult, connsResult] = await Promise.allSettled([
           fetchModels(),
-          fetchConnections({ force: true }),
-          fetchSavedQueries(),
+          fetchConnections(),
         ]);
         if (!active) return;
         const modelsData = modelsResult.status === 'fulfilled' ? modelsResult.value : [];
         const connsData = connsResult.status === 'fulfilled' ? connsResult.value : [];
         if (modelsResult.status === 'fulfilled') setModels(modelsData);
         if (connsResult.status === 'fulfilled') setConnections(connsData);
-        if (savedResult.status === 'fulfilled') setSavedQueries(savedResult.value);
         if (modelsData.length > 0 && !selectedModelId) {
           setSelectedModelId(modelsData[0].id);
         }
         const defaultConnection = connsData.find((connection) => connection.is_default) || connsData[0];
         if (defaultConnection) {
           setSelectedConnectionId(defaultConnection.id);
+          // Structure, suggestions and chat history load together (all usually cached by the warm-up).
           await Promise.all([
             loadCatalog(defaultConnection.id),
             loadExploreSuggestions(defaultConnection.id),
+            loadHistory(),
           ]);
         } else {
-          await Promise.all([loadCatalog(null), loadExploreSuggestions(null)]);
+          await Promise.all([loadCatalog(null), loadExploreSuggestions(null), loadHistory()]);
         }
-        await loadHistory();
       } catch (err) {
         console.warn('Init error:', err);
       }
@@ -1012,308 +1034,39 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
 
   return (
     <div className={`live-demo-shell theme-${theme} min-h-screen bg-[#f5f7fb] flex overflow-hidden text-slate-900 font-sans`}>
-      {sidebarOpen && <button type="button" onClick={() => setSidebarOpen(false)} className="md:hidden fixed inset-0 z-20 bg-slate-950/30" aria-label="Close sidebar overlay" />}
-      {/* ─── Minimalist Left Sidebar (Claude Desktop / AI Studio Style) ─── */}
-      <aside
-        className={`fixed inset-y-0 left-0 md:relative ${theme === 'dark' ? 'bg-[#121622] border-slate-800' : 'bg-white border-slate-200/90'} border-r flex flex-col justify-between transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)] z-30 overflow-hidden ${
-          sidebarOpen
-            ? 'w-64 min-w-[16rem] max-w-[16rem] opacity-100 translate-x-0'
-            : 'w-0 min-w-0 max-w-0 opacity-0 -translate-x-full md:translate-x-0 border-r-0 pointer-events-none'
-        }`}
-      >
-        <div className="w-64 min-w-[16rem] flex flex-col h-full overflow-hidden">
-          {/* Header with Brand — text-only serif logo */}
-          <div className="px-4 py-3.5 border-b border-slate-200/60 flex items-center justify-between">
-            <div className="flex items-center">
-              <span className="slayql-logo text-2xl tracking-tight">
-                <span className="slay">Slay</span><span className="ql">QL</span>
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setSidebarOpen(false)}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/70 transition-all duration-200 hover:scale-105 active:scale-95"
-              title="Close sidebar (Ctrl+B)"
-              aria-label="Close sidebar"
-            >
-              <PanelLeftClose className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* New Query Action Button */}
-          <div className="p-3">
-            <button
-              onClick={handleNewThread}
-              className="w-full inline-flex items-center gap-2 px-3 py-2 bg-white hover:bg-slate-100 text-slate-800 font-semibold text-xs rounded-xl border border-slate-200/90 shadow-2xs transition-all"
-            >
-              <Plus className="w-3.5 h-3.5 text-indigo-600" />
-              <span>New Query</span>
-            </button>
-          </div>
-
-          {/* Navigation & History */}
-          <div className="flex-1 overflow-y-auto px-3 py-1 space-y-3">
-            {/* Quick Tools */}
-            <div className="space-y-1">
-              <button
-                onClick={() => setView('databases')}
-                className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs font-semibold transition-all border shadow-2xs ${
-                  theme === 'dark'
-                    ? 'bg-[#181d2e] hover:bg-[#20273d] text-indigo-300 border-indigo-900/50'
-                    : 'bg-indigo-50/90 hover:bg-indigo-100/90 text-indigo-700 border-indigo-200/90'
-                }`}
-              >
-                <Database className={`w-4 h-4 ${theme === 'dark' ? 'text-indigo-400' : 'text-indigo-600'}`} />
-                <span className="flex-1 text-left font-bold">AI Database Lab</span>
-              </button>
-
-              <AnalystAnswers enabled={Boolean(session)} />
-
-              {canReview && (
-              <button
-                onClick={() => setView('review')}
-                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-200/60 transition-all"
-              >
-                <ShieldCheck className="w-3.5 h-3.5 text-slate-500" />
-                <span className="flex-1 text-left">Review queue</span>
-              </button>
-              )}
-
-              <button
-                onClick={() => setView('definitions')}
-                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-200/60 transition-all"
-              >
-                <BookOpen className="w-3.5 h-3.5 text-slate-500" />
-                <span className="flex-1 text-left">Definitions</span>
-              </button>
-
-              <button
-                onClick={() => setCatalogOpen(true)}
-                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-200/60 transition-all"
-              >
-                <Layers className="w-3.5 h-3.5 text-slate-500" />
-                <span className="flex-1 text-left">Schema Catalog</span>
-                <span className="text-[10px] text-slate-400 font-mono">
-                  {catalog ? Object.keys(catalog.tables || {}).length : 0}
-                </span>
-              </button>
-
-              <button
-                onClick={() => setSavedQueriesOpen(true)}
-                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-200/60 transition-all"
-              >
-                <Bookmark className="w-3.5 h-3.5 text-slate-500" />
-                <span className="flex-1 text-left">Saved Queries</span>
-                <span className="text-[10px] text-slate-400 font-mono">{savedQueries.length}</span>
-              </button>
-
-              <button
-                onClick={() => setAddTableOpen(true)}
-                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-200/60 transition-all"
-              >
-                <Plus className="w-3.5 h-3.5 text-slate-500" />
-                <span className="flex-1 text-left">Create Table</span>
-              </button>
-
-              {/* Explore Button */}
-              <button
-                ref={exploreButtonRef}
-                type="button"
-                onClick={() => {
-                  if (explorePopOpen) {
-                    setExplorePopOpen(false);
-                  } else {
-                    handleExploreMouseEnter();
-                  }
-                }}
-                onMouseEnter={handleExploreMouseEnter}
-                onMouseLeave={handleExploreMouseLeave}
-                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-200/60 transition-all"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-slate-500" />
-                <span className="flex-1 text-left">Explore</span>
-                <span className="text-[10px] text-slate-400 font-mono">{exploreSuggestions.length}</span>
-              </button>
-            </div>
-
-            {/* History List — fixed height, scrollable */}
-            <div className="pt-3 border-t border-slate-200/60">
-              <div className="flex items-center justify-between px-2 pb-1">
-                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Recent chats</p>
-                {historyList.length > 0 && <span className="text-[10px] text-slate-400">{historyList.length}</span>}
-              </div>
-              <div className="max-h-[185px] overflow-y-auto space-y-0.5 pr-0.5">
-              {historyList.length === 0 ? (
-                <p className="text-[11px] text-slate-400 px-2 py-1.5">No queries yet</p>
-              ) : (
-                historyList.map((hist) => {
-                  const isActive = conversationId === hist.id;
-                  return (
-                    <div
-                      key={hist.id}
-                      className={`group relative rounded-lg transition-all ${
-                        isActive
-                          ? theme === 'dark'
-                            ? 'bg-indigo-950/50 text-indigo-300 font-semibold'
-                            : 'bg-indigo-50/90 text-indigo-700 font-semibold shadow-2xs'
-                          : theme === 'dark'
-                          ? 'hover:bg-slate-800/60 text-slate-300'
-                          : 'hover:bg-slate-100/80 text-slate-700'
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => loadConversationThread(hist.id)}
-                        disabled={isRunning}
-                        className="w-full text-left pl-2.5 pr-7 py-1.5 rounded-lg transition-all flex items-center justify-between gap-1.5"
-                      >
-                        <span className="block truncate text-[11.5px] leading-tight flex-1">
-                          {hist.prompt}
-                        </span>
-                        {loadingThreadId === hist.id && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-ping shrink-0" />
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setHistoryDeleteTarget(hist);
-                        }}
-                        disabled={deletingHistoryId === hist.id}
-                        className={`absolute right-1 top-1/2 -translate-y-1/2 w-5.5 h-5.5 flex items-center justify-center rounded-md transition-all opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 disabled:opacity-50 ${
-                          theme === 'dark'
-                            ? 'text-slate-400 hover:text-rose-400 hover:bg-rose-950/80 active:scale-95'
-                            : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50/90 border border-transparent hover:border-rose-200/80 active:scale-95 shadow-2xs'
-                        }`}
-                        title="Delete chat"
-                        aria-label={`Delete ${hist.prompt}`}
-                      >
-                        <Trash2 className={`w-3.5 h-3.5 ${deletingHistoryId === hist.id ? 'animate-spin' : ''}`} />
-                      </button>
-                    </div>
-                  );
-                })
-              )}
-              </div>
-            </div>
-          </div>
-
-          {/* User Profile Pill Card — Clean: Pic + Name + PRO */}
-          <div className="live-demo-profile p-2.5 border-t border-slate-200/60 relative">
-            <button
-              type="button"
-              onClick={() => setProfileOpen(!profileOpen)}
-              className="w-full p-2 rounded-2xl border border-slate-200/80 hover:border-slate-300 bg-slate-100/70 hover:bg-slate-200/70 transition-all text-left group flex items-center gap-3 shadow-2xs"
-            >
-              {/* Profile Pic / Avatar */}
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-600 text-white font-bold text-sm flex items-center justify-center shadow-xs overflow-hidden shrink-0">
-                {session?.user?.avatar_data_url ? (
-                  <img src={session.user.avatar_data_url} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  avatarInitials
-                )}
-              </div>
-
-              {/* Name & PRO Badge */}
-              <div className="flex-1 min-w-0 flex items-center justify-between gap-1.5">
-                <p className="text-xs sm:text-[13px] font-extrabold tracking-tight truncate profile-name-shimmer">
-                  {userName}
-                </p>
-                <span className="shrink-0 text-[9px] font-extrabold tracking-wider px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-600 border border-indigo-200/80 uppercase">
-                  PRO
-                </span>
-              </div>
-
-              <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${profileOpen ? 'rotate-180 text-indigo-600' : 'group-hover:text-slate-600'}`} />
-            </button>
-
-            {profileOpen && (
-              <div className="live-demo-profile-menu absolute bottom-20 left-2.5 right-2.5 rounded-2xl bg-white border border-slate-200 shadow-xl z-50 p-2 space-y-1.5 slide-in-up">
-                {/* Header Card */}
-                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <div className="min-w-0 flex-1 pr-2">
-                      <p className="text-xs font-bold text-slate-900 truncate">{userName}</p>
-                      <p className="text-[10px] text-slate-500 truncate">{session?.user?.email || 'enterprise@slayql.internal'}</p>
-                    </div>
-                    <span className="text-[9px] font-extrabold tracking-wider px-2 py-0.5 rounded-full bg-indigo-600 text-white shadow-2xs shrink-0">
-                      ENTERPRISE
-                    </span>
-                  </div>
-
-                  {/* Credits Balance Micro-Bar */}
-                  <div className="flex items-center justify-between pt-1.5 border-t border-slate-200/60 text-[11px]">
-                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-600">
-                      <Coins className="w-3.5 h-3.5 text-amber-500" />
-                      Credits Balance
-                    </span>
-                    <span className="font-mono text-xs font-bold text-slate-900">
-                      {creditBalance.toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Navigation Links */}
-                <div className="space-y-0.5 pt-0.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setProfileOpen(false);
-                      setView('profile');
-                    }}
-                    className="w-full text-left px-2.5 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 rounded-xl transition-all flex items-center gap-2.5"
-                  >
-                    <UserRound className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Profile settings</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setProfileOpen(false);
-                      setView('databases');
-                    }}
-                    className="w-full text-left px-2.5 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 rounded-xl transition-all flex items-center gap-2.5"
-                  >
-                    <Database className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Database management</span>
-                  </button>
-
-                  <div className="px-2.5 py-1.5 flex items-center justify-between text-[10px] text-slate-400">
-                    <span>Appearance</span>
-                    <span className="font-semibold text-slate-500">{theme === 'light' ? 'Light' : 'Dark'}</span>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setTheme((current) => current === 'light' ? 'dark' : 'light')}
-                    className="w-full text-left px-2.5 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 rounded-xl transition-all flex items-center gap-2.5"
-                  >
-                    {theme === 'light' ? <Moon className="w-3.5 h-3.5 text-slate-400" /> : <Sun className="w-3.5 h-3.5 text-amber-500" />}
-                    <span>{theme === 'light' ? 'Use dark appearance' : 'Use light appearance'}</span>
-                  </button>
-                </div>
-
-                {/* Sign Out Action */}
-                <div className="pt-1 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setProfileOpen(false);
-                      setSignOutOpen(true);
-                    }}
-                    className="w-full text-left px-2.5 py-2 text-xs font-medium text-red-600 hover:bg-red-50 rounded-xl transition-all flex items-center gap-2.5"
-                  >
-                    <LogOut className="w-3.5 h-3.5 text-red-500" />
-                    <span>Sign out</span>
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </aside>
+      <AppSidebar
+        theme={theme}
+        setTheme={setTheme}
+        open={sidebarOpen}
+        setOpen={setSidebarOpen}
+        session={session}
+        userName={userName}
+        avatarInitials={avatarInitials}
+        creditBalance={creditBalance}
+        canReview={canReview}
+        onNewChat={handleNewThread}
+        setView={setView}
+        onOpenCatalog={() => setCatalogOpen(true)}
+        tableCount={catalog ? Object.keys(catalog.tables || {}).length : 0}
+        onOpenSaved={() => setSavedQueriesOpen(true)}
+        savedCount={savedQueries.length}
+        onCreateTable={() => setAddTableOpen(true)}
+        exploreRef={exploreButtonRef}
+        exploreCount={exploreSuggestions.length}
+        onExploreEnter={handleExploreMouseEnter}
+        onExploreLeave={handleExploreMouseLeave}
+        onExploreToggle={() => (explorePopOpen ? setExplorePopOpen(false) : handleExploreMouseEnter())}
+        history={historyList}
+        activeId={conversationId}
+        onOpenChat={loadConversationThread}
+        loadingId={loadingThreadId}
+        onDeleteChat={setHistoryDeleteTarget}
+        deletingId={deletingHistoryId}
+        isRunning={isRunning}
+        profileOpen={profileOpen}
+        setProfileOpen={setProfileOpen}
+        onSignOut={() => setSignOutOpen(true)}
+      />
 
       {/* ─── Main Chat Area ─── */}
       <div className="flex-1 min-w-0 flex flex-col h-screen overflow-hidden bg-[#f7f9fc]">
@@ -1324,7 +1077,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
               <button
                 type="button"
                 onClick={() => setSidebarOpen(true)}
-                className="p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200/80 hover:border-slate-300 bg-white shadow-2xs transition-all duration-200 mr-1.5 flex items-center justify-center animate-scale-in hover:scale-105 active:scale-95"
+                className="md:hidden p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200/80 hover:border-slate-300 bg-white shadow-2xs transition-all duration-200 mr-1.5 flex items-center justify-center animate-scale-in hover:scale-105 active:scale-95"
                 title="Open Sidebar (Ctrl+B)"
                 aria-label="Open Sidebar"
               >
@@ -1333,7 +1086,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
             )}
 
             {/* Database Selector Pill */}
-            <div className="relative">
+            <div className="relative" ref={dbDropdownRef}>
               <button
                 onClick={() => setDbDropdownOpen(!dbDropdownOpen)}
                 disabled={isRunning}
@@ -1348,56 +1101,60 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
               </button>
 
               {dbDropdownOpen && (
-                <div className="absolute left-0 mt-1.5 w-64 rounded-xl bg-white border border-slate-200 shadow-xl z-50 p-1.5 slide-in-up">
+                <div className={`absolute left-0 z-50 mt-2 w-72 rounded-2xl border p-1.5 shadow-[0_24px_60px_-20px_rgba(15,23,42,0.45)] slide-in-up ${theme === 'dark' ? 'border-slate-700 bg-[#171c2b]' : 'border-slate-200 bg-white'}`}>
+                  <p className={`px-2.5 pb-1 pt-1.5 text-[11px] font-medium ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Data sources</p>
                   <div className="space-y-0.5">
-                    {connections.length === 0 && <p className="px-2.5 py-2 text-xs text-slate-500">No data sources added</p>}
-                    {connections.map((c) => (
-                      <button
-                        key={c.id}
-                        title={c.status === 'error' ? (c.catalog_error || 'Database file is unavailable on this deployment.') : `${c.name} (${c.table_count ?? 0} tables)`}
-                        onClick={() => {
-                          if (c.id !== selectedConnectionId) handleNewThread();
-                          setSelectedConnectionId(c.id);
-                          loadCatalog(c.id);
-                          loadExploreSuggestions(c.id);
-                          setDbDropdownOpen(false);
-                        }}
-                        className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between transition-all ${
-                          selectedConnectionId === c.id
-                            ? 'bg-indigo-50 text-indigo-900 font-semibold'
-                            : 'text-slate-700 hover:bg-slate-50'
-                        }`}
-                      >
-                        <span className="truncate">{c.name}</span>
-                        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${c.status === 'error' ? 'bg-red-500' : 'bg-emerald-500'}`} />
-                      </button>
-                    ))}
+                    {connections.length === 0 && <p className={`px-2.5 py-2 text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>No data sources added</p>}
+                    {connections.map((c) => {
+                      const selected = selectedConnectionId === c.id;
+                      const failed = c.status === 'error';
+                      return (
+                        <button
+                          key={c.id}
+                          title={failed ? (c.catalog_error || 'Database file is unavailable on this deployment.') : c.name}
+                          onClick={() => {
+                            if (c.id !== selectedConnectionId) handleNewThread();
+                            setSelectedConnectionId(c.id);
+                            loadCatalog(c.id);
+                            loadExploreSuggestions(c.id);
+                            setDbDropdownOpen(false);
+                          }}
+                          className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition ${
+                            selected
+                              ? theme === 'dark' ? 'bg-indigo-500/15' : 'bg-indigo-50'
+                              : theme === 'dark' ? 'hover:bg-white/5' : 'hover:bg-slate-50'
+                          }`}
+                        >
+                          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${failed ? 'bg-rose-500/10 text-rose-500' : theme === 'dark' ? 'bg-emerald-400/10 text-emerald-300' : 'bg-emerald-50 text-emerald-700'}`}>
+                            <Database className="h-4 w-4" />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className={`block truncate text-[13px] font-medium ${selected ? (theme === 'dark' ? 'text-indigo-200' : 'text-indigo-900') : (theme === 'dark' ? 'text-slate-100' : 'text-slate-800')}`}>{c.name}</span>
+                            <span className={`block truncate text-[11px] ${failed ? 'text-rose-500' : theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                              {failed ? 'Unavailable' : [c.engine, typeof c.table_count === 'number' ? `${c.table_count} tables` : null].filter(Boolean).join(' · ')}
+                            </span>
+                          </span>
+                          {selected && <Check className={`h-4 w-4 shrink-0 ${theme === 'dark' ? 'text-indigo-300' : 'text-indigo-600'}`} />}
+                        </button>
+                      );
+                    })}
                   </div>
 
-                  <div className="mt-1 pt-1 border-t border-slate-100 flex flex-col gap-0.5">
-                    <button onClick={() => { setDbDropdownOpen(false); setView('databases'); }} className="w-full inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 rounded-lg transition-all"><Layers className="w-3 h-3 text-slate-500" /><span>Manage data sources</span></button>
-                    {selectedConnectionId && (
+                  <div className={`mt-1.5 flex flex-col gap-0.5 border-t pt-1.5 ${theme === 'dark' ? 'border-slate-700' : 'border-slate-100'}`}>
+                    {[
+                      { icon: Layers, label: 'Manage data sources', action: () => setView('databases') },
+                      selectedConnectionId && { icon: Plus, label: 'Create new table', action: () => setAddTableOpen(true) },
+                      { icon: Database, label: 'Add database connection', action: () => setAddConnectionOpen(true) },
+                    ].filter(Boolean).map(({ icon: Icon, label, action }) => (
                       <button
-                        onClick={() => {
-                          setDbDropdownOpen(false);
-                          setAddTableOpen(true);
-                        }}
-                        className="w-full inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                        key={label}
+                        onClick={() => { setDbDropdownOpen(false); action(); }}
+                        className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] transition ${theme === 'dark' ? 'text-slate-200 hover:bg-white/5' : 'text-slate-700 hover:bg-slate-50'}`}
                       >
-                        <Plus className="w-3 h-3" />
-                        <span>Create New Table</span>
+                        <Icon className={`h-4 w-4 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`} />
+                        <span>{label}</span>
                       </button>
-                    )}
-                    <button
-                      onClick={() => {
-                        setDbDropdownOpen(false);
-                        setAddConnectionOpen(true);
-                      }}
-                      className="w-full inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 rounded-lg transition-all"
-                    >
-                      <Database className="w-3 h-3 text-slate-500" />
-                      <span>Add Database Connection</span>
-                    </button>
+                    ))}
                   </div>
                 </div>
               )}
