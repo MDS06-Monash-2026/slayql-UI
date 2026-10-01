@@ -10,7 +10,7 @@ import ResetPasswordView from './views/ResetPasswordView';
 import ArenaPlayerView from './views/ArenaPlayerView';
 import ArenaScreenView from './views/ArenaScreenView';
 import ArenaHostView from './views/ArenaHostView';
-import WorkspaceWarmupOverlay from './components/common/WorkspaceWarmupOverlay';
+import WorkspaceWarmupOverlay, { WARMUP_STEPS } from './components/common/WorkspaceWarmupOverlay';
 import {
   fetchSession,
   getStoredSession,
@@ -181,7 +181,7 @@ export default function App() {
 
   const handleTryDemoClick = async () => {
     setIsWarmingUp(true);
-    setWarmupStage('Connecting demo reviewer credentials...');
+    setWarmupStage(WARMUP_STEPS[0]);
 
     try {
       let activeSession = session;
@@ -191,7 +191,7 @@ export default function App() {
         setStoredSession(activeSession);
       }
 
-      setWarmupStage('Loading recent chats & workspace state...');
+      setWarmupStage(WARMUP_STEPS[1]);
       const [conversations, connections] = await Promise.all([
         fetchConversations({ force: true }).catch(() => []),
         fetchConnections({ force: true }).catch(() => []),
@@ -199,7 +199,7 @@ export default function App() {
         fetchCredits().catch(() => ({ credits: 0 })),
       ]);
 
-      setWarmupStage('Connecting database schema catalogs...');
+      setWarmupStage(WARMUP_STEPS[2]);
       const defaultConn = connections.find((c) => c.is_default) || connections[0];
       if (defaultConn?.id) {
         await Promise.all([
@@ -208,7 +208,7 @@ export default function App() {
         ]);
       }
 
-      setWarmupStage('Launching AI workspace...');
+      setWarmupStage(WARMUP_STEPS[3]);
       await new Promise((r) => setTimeout(r, 200));
       changeView('demo');
     } catch (err) {

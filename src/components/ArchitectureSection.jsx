@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { observeRevealClasses } from './landing/motion';
 import {
   MessageCircle, Search, Network, Target, Repeat,
   FileCheck2, PlayCircle, BarChart3,
@@ -449,13 +450,7 @@ export default function ArchitectureSection() {
   /* Scroll-reveal */
   React.useEffect(() => {
     if (!sectionRef.current) return;
-    const els = sectionRef.current.querySelectorAll('.reveal');
-    const observer = new IntersectionObserver(
-      entries => entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('is-visible'); }),
-      { threshold: 0.08 }
-    );
-    els.forEach(el => observer.observe(el));
-    return () => observer.disconnect();
+    return observeRevealClasses([...sectionRef.current.querySelectorAll('.reveal')], 0.08);
   }, []);
 
   /* Split nodes into two columns of 4 */
