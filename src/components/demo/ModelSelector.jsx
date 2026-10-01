@@ -1,258 +1,147 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Search, Check, Sparkles } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Check, ChevronDown, Search } from 'lucide-react';
 
-export default function ModelSelector({
-  models = [],
-  selectedModelId,
-  onSelectModel,
-  disabled = false,
-  isDark = false,
-}) {
+// Company logos (LobeHub icons, MIT). The model's own company is shown, never the gateway.
+const COMPANY = {
+  OpenAI: { logo: '/logos/models/openai.svg', mono: true },
+  DeepSeek: { logo: '/logos/models/deepseek-color.svg' },
+  'Zhipu AI': { logo: '/logos/models/zhipu-color.svg' },
+  'Moonshot AI': { logo: '/logos/models/kimi.svg', mono: true },
+};
+const COMPANY_ORDER = ['OpenAI', 'Zhipu AI', 'Moonshot AI', 'DeepSeek'];
+const TAG_LABEL = { default: 'Default', deep: 'Deep thinking', fast: 'Fast' };
+
+function CompanyLogo({ company, isDark, size = 'h-5 w-5' }) {
+  const info = COMPANY[company];
+  if (!info) {
+    return <span className={`${size} flex items-center justify-center rounded bg-slate-200 text-[10px] font-bold text-slate-600`}>{(company || '?')[0]}</span>;
+  }
+  return <img src={info.logo} alt="" aria-hidden="true" className={`${size} shrink-0 object-contain ${info.mono && isDark ? 'invert' : ''}`} />;
+}
+
+const price = (value) => (value ? `$${Number(value) < 1 ? Number(value).toFixed(2) : Number(value).toFixed(Number(value) % 1 ? 2 : 0)}` : '–');
+
+export default function ModelSelector({ models = [], selectedModelId, onSelectModel, disabled = false, isDark = false }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const dropdownRef = useRef(null);
+  const [query, setQuery] = useState('');
+  const rootRef = useRef(null);
   const searchRef = useRef(null);
 
-  const activeModel = models.find((m) => m.id === selectedModelId) || models[0] || {
-    id: '',
-    name: 'Default model',
-    provider: 'AI model',
-    description: 'The server default model.',
-  };
+  const available = models.filter((m) => m.is_available !== false);
+  const activeModel = available.find((m) => m.id === selectedModelId) || available[0] || models[0] || { id: '', name: 'Default model', provider: '' };
+
+  // A saved choice that is no longer available (or unknown) switches to the default.
+  useEffect(() => {
+    if (available.length && !available.some((m) => m.id === selectedModelId)) onSelectModel(available[0].id);
+  }, [available, selectedModelId, onSelectModel]);
 
   useEffect(() => {
-    function handleClickOutside(e) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setIsOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  useEffect(() => {
-    if (isOpen) searchRef.current?.focus();
+    if (!isOpen) return undefined;
+    searchRef.current?.focus();
+    const onDown = (e) => { if (rootRef.current && !rootRef.current.contains(e.target)) setIsOpen(false); };
+    const onKey = (e) => { if (e.key === 'Escape') setIsOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
   }, [isOpen]);
 
-  const filteredModels = models.filter((model) => {
-    const needle = searchQuery.trim().toLowerCase();
-    if (!needle) return true;
-    return [model.name, model.id, model.provider, model.description]
-      .filter(Boolean)
-      .some((v) => v.toLowerCase().includes(needle));
-  });
+  const groups = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    const match = (m) => !needle || [m.name, m.id, m.provider, m.description].filter(Boolean).some((v) => v.toLowerCase().includes(needle));
+    const byCompany = {};
+    for (const m of models.filter(match)) (byCompany[m.provider || 'Other'] ||= []).push(m);
+    for (const list of Object.values(byCompany)) list.sort((a, b) => Number(b.is_available !== false) - Number(a.is_available !== false));
+    return Object.entries(byCompany).sort(([a], [b]) => {
+      const ia = COMPANY_ORDER.indexOf(a); const ib = COMPANY_ORDER.indexOf(b);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+    });
+  }, [models, query]);
 
-  const formatPrice = (price) => (price ? `$${Number(price).toFixed(2)}/M` : 'Price n/a');
-
-  const grouped = filteredModels.reduce((acc, m) => {
-    const p = m.provider || 'Other';
-    if (!acc[p]) acc[p] = [];
-    acc[p].push(m);
-    return acc;
-  }, {});
+  const tone = {
+    panel: isDark ? 'border-slate-700 bg-[#171c2b] text-slate-100' : 'border-slate-200 bg-white text-slate-900',
+    muted: isDark ? 'text-slate-400' : 'text-slate-500',
+    strong: isDark ? 'text-slate-100' : 'text-slate-900',
+    hover: isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50',
+    selected: isDark ? 'bg-indigo-500/15' : 'bg-indigo-50',
+    tag: isDark ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-600',
+  };
 
   return (
-    <div className="relative inline-block text-left" ref={dropdownRef}>
-      {/* Trigger Button: White in Light mode, Pure Black in Dark mode */}
+    <div className="relative inline-block text-left" ref={rootRef}>
       <button
         type="button"
         disabled={disabled}
-        onClick={() => {
-          setIsOpen(!isOpen);
-          if (isOpen) setSearchQuery('');
-        }}
-        className={`h-11 inline-flex items-center gap-3 px-3.5 rounded-xl text-xs font-semibold shadow-sm transition-all disabled:opacity-50 ${
-          isDark
-            ? 'bg-[#000000] hover:bg-[#0d0d0d] text-white border border-[#27272a] hover:border-[#3f3f46]'
-            : 'bg-[#ffffff] hover:bg-slate-50/90 text-slate-900 border border-slate-200/90 hover:border-indigo-300'
+        onClick={() => { setIsOpen((v) => !v); setQuery(''); }}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        className={`inline-flex h-11 items-center gap-2.5 rounded-xl border px-3 shadow-sm transition disabled:opacity-50 ${
+          isDark ? 'border-slate-700 bg-[#171c2b] hover:border-slate-600' : 'border-slate-200/90 bg-white hover:border-slate-300'
         }`}
       >
-        <span className="text-left leading-tight min-w-0">
-          <span
-            className={`block text-[9px] font-bold uppercase tracking-wider ${
-              isDark ? 'text-indigo-400' : 'text-indigo-600'
-            }`}
-          >
-            {activeModel.provider || 'AI model'}
-          </span>
-          <span
-            className={`block max-w-[110px] sm:max-w-[180px] truncate font-bold text-[13px] ${
-              isDark ? 'text-[#ffffff]' : 'text-slate-900'
-            }`}
-          >
-            {activeModel.name}
-          </span>
-        </span>
-
-        <ChevronDown
-          className={`w-3.5 h-3.5 transition-transform duration-200 ${
-            isDark ? 'text-neutral-400' : 'text-slate-400'
-          } ${isOpen ? 'rotate-180' : ''}`}
-        />
+        <CompanyLogo company={activeModel.provider} isDark={isDark} />
+        <span className={`max-w-[120px] truncate text-[13px] font-semibold sm:max-w-[180px] ${tone.strong}`}>{activeModel.name}</span>
+        <ChevronDown className={`h-4 w-4 transition-transform ${tone.muted} ${isOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
       </button>
 
-      {/* Dropdown Menu: White in Light mode, Pure Black in Dark mode */}
       {isOpen && (
-        <div
-          className={`absolute right-0 mt-2 rounded-2xl shadow-2xl z-50 overflow-hidden slide-in-up transition-all ${
-            isDark
-              ? 'bg-[#000000] border border-[#27272a] text-white'
-              : 'bg-[#ffffff] border border-slate-200 text-slate-900'
-          }`}
-          style={{ width: 330 }}
-        >
-          {/* Header */}
-          <div
-            className={`px-4 py-3 border-b flex items-center justify-between ${
-              isDark
-                ? 'bg-[#0a0a0a] border-[#27272a]'
-                : 'bg-slate-50/90 border-slate-100'
-            }`}
-          >
-            <div>
-              <p className={`text-xs font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                Choose AI Model
-              </p>
-              <p className={`text-[10px] ${isDark ? 'text-neutral-400' : 'text-slate-500'}`}>
-                Select active inference engine
-              </p>
-            </div>
-            <span
-              className={`text-[9px] font-mono font-semibold px-2 py-0.5 rounded-full ${
-                isDark
-                  ? 'bg-[#18181b] text-neutral-300 border border-[#27272a]'
-                  : 'bg-white text-slate-600 border border-slate-200'
-              }`}
-            >
-              {filteredModels.length} models
-            </span>
-          </div>
-
-          {/* Search bar */}
-          <div
-            className={`p-2.5 border-b ${
-              isDark ? 'bg-[#000000] border-[#27272a]' : 'bg-white border-slate-100'
-            }`}
-          >
-            <div className="relative">
-              <Search
-                className={`absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${
-                  isDark ? 'text-neutral-500' : 'text-slate-400'
-                }`}
-              />
+        <div className={`absolute left-0 z-50 mt-2 w-[min(370px,calc(100vw-2rem))] overflow-hidden rounded-2xl border shadow-[0_24px_60px_-20px_rgba(15,23,42,0.45)] slide-in-up ${tone.panel}`}>
+          <div className="p-2">
+            <label className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${isDark ? 'border-slate-700 bg-slate-900/60' : 'border-slate-200 bg-slate-50'}`}>
+              <Search className={`h-4 w-4 ${tone.muted}`} aria-hidden="true" />
               <input
                 ref={searchRef}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search models..."
-                className={`w-full pl-8 pr-3 py-2 rounded-xl text-xs outline-none transition-all ${
-                  isDark
-                    ? 'bg-[#0f0f11] border border-[#27272a] text-white placeholder-neutral-500 focus:border-indigo-500 focus:bg-[#141417]'
-                    : 'bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 focus:bg-white focus:border-indigo-400'
-                }`}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search models"
                 aria-label="Search models"
+                className={`min-w-0 flex-1 bg-transparent text-[13px] outline-none ${tone.strong} ${isDark ? 'placeholder-slate-500' : 'placeholder-slate-400'}`}
               />
-            </div>
+            </label>
           </div>
 
-          {/* Grouped Model List */}
-          <div
-            className={`max-h-80 overflow-y-auto p-1.5 space-y-1.5 ${
-              isDark ? 'bg-[#000000]' : 'bg-white'
-            }`}
-          >
-            {filteredModels.length === 0 ? (
-              <div className="px-3 py-8 text-center">
-                <Search
-                  className={`w-5 h-5 mx-auto mb-2 ${
-                    isDark ? 'text-neutral-600' : 'text-slate-300'
-                  }`}
-                />
-                <p
-                  className={`text-xs font-semibold ${
-                    isDark ? 'text-neutral-400' : 'text-slate-600'
-                  }`}
-                >
-                  No matching models
+          <div className="max-h-[420px] overflow-y-auto px-2 pb-2" role="listbox" aria-label="Models">
+            {groups.length === 0 && <p className={`px-3 py-6 text-center text-[13px] ${tone.muted}`}>No matching models</p>}
+            {groups.map(([company, list]) => (
+              <div key={company} className="pt-2">
+                <p className={`flex items-center gap-2 px-2 pb-1 text-[11px] font-medium ${tone.muted}`}>
+                  <CompanyLogo company={company} isDark={isDark} size="h-3.5 w-3.5" />
+                  {company}
                 </p>
-              </div>
-            ) : (
-              Object.entries(grouped).map(([providerName, providerModels]) => (
-                <div key={providerName} className="space-y-0.5">
-                  <div className="px-2.5 py-1 pt-2">
-                    <span
-                      className={`text-[10px] font-bold uppercase tracking-wider ${
-                        isDark ? 'text-neutral-400' : 'text-slate-500'
-                      }`}
+                {list.map((model) => {
+                  const unavailable = model.is_available === false;
+                  const selected = model.id === activeModel.id;
+                  return (
+                    <button
+                      key={model.id}
+                      type="button"
+                      role="option"
+                      aria-selected={selected}
+                      aria-disabled={unavailable}
+                      disabled={unavailable}
+                      onClick={() => { onSelectModel(model.id); setIsOpen(false); }}
+                      className={`flex w-full items-start gap-3 rounded-xl px-2.5 py-2 text-left transition ${selected ? tone.selected : unavailable ? 'cursor-not-allowed opacity-50' : tone.hover}`}
                     >
-                      {providerName}
-                    </span>
-                  </div>
-
-                  {providerModels.map((model) => {
-                    const isSelected = model.id === activeModel.id;
-                    return (
-                      <button
-                        key={model.id}
-                        onClick={() => {
-                          onSelectModel(model.id);
-                          setIsOpen(false);
-                        }}
-                        className={`w-full text-left px-3 py-2 rounded-xl transition-all flex items-center justify-between gap-3 ${
-                          isSelected
-                            ? isDark
-                              ? 'bg-[#18181b] border border-[#27272a] shadow-xs'
-                              : 'bg-indigo-50/80 border border-indigo-100 shadow-xs'
-                            : isDark
-                            ? 'hover:bg-[#121214] border border-transparent'
-                            : 'hover:bg-slate-50 border border-transparent'
-                        }`}
-                      >
-                        <div className="min-w-0 flex-1 space-y-0.5">
-                          <p
-                            className={`text-xs font-bold truncate ${
-                              isDark ? 'text-white' : 'text-slate-900'
-                            }`}
-                          >
-                            {model.name}
-                          </p>
-                          {model.description && (
-                            <p
-                              className={`text-[10.5px] truncate leading-tight ${
-                                isDark ? 'text-neutral-400' : 'text-slate-500'
-                              }`}
-                            >
-                              {model.description}
-                            </p>
-                          )}
-                          <div
-                            className={`flex items-center gap-2 text-[10px] ${
-                              isDark ? 'text-neutral-500' : 'text-slate-400'
-                            }`}
-                          >
-                            <span>
-                              {model.context_length
-                                ? `${(model.context_length / 1000).toFixed(0)}k ctx`
-                                : 'Varies'}
-                            </span>
-                            <span>�</span>
-                            <span>{formatPrice(model.input_price)} in</span>
-                          </div>
-                        </div>
-
-                        {isSelected && (
-                          <Check
-                            className={`w-4 h-4 shrink-0 ${
-                              isDark ? 'text-indigo-400' : 'text-indigo-600'
-                            }`}
-                          />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              ))
-            )}
+                      <span className="mt-0.5"><CompanyLogo company={model.provider} isDark={isDark} size="h-6 w-6" /></span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex flex-wrap items-center gap-1.5">
+                          <span className={`text-[13px] font-semibold ${tone.strong}`}>{model.name}</span>
+                          {unavailable
+                            ? <span className={`rounded-md px-1.5 py-px text-[10px] font-medium ${tone.tag}`}>Unavailable</span>
+                            : (model.tags || []).filter((t) => TAG_LABEL[t]).map((t) => (
+                              <span key={t} className={`rounded-md px-1.5 py-px text-[10px] font-medium ${t === 'default' ? (isDark ? 'bg-indigo-500/20 text-indigo-200' : 'bg-indigo-100 text-indigo-700') : tone.tag}`}>{TAG_LABEL[t]}</span>
+                            ))}
+                        </span>
+                        {model.description && <span className={`mt-0.5 block truncate text-xs ${tone.muted}`}>{model.description}</span>}
+                        <span className={`mt-0.5 block text-[11px] tabular-nums ${tone.muted}`}>
+                          {price(model.input_price)} in · {price(model.output_price)} out per million tokens
+                        </span>
+                      </span>
+                      {selected && <Check className={`mt-1 h-4 w-4 shrink-0 ${isDark ? 'text-indigo-300' : 'text-indigo-600'}`} aria-hidden="true" />}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
           </div>
         </div>
       )}
