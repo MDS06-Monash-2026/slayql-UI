@@ -4,6 +4,9 @@
 // layout can be reviewed, and are hidden on the live site. Replace the text and remove the flag
 // once the real content is confirmed; only quote people who agreed to be quoted.
 
+// Display name of the schema-linking research (formerly C-CaSE; the repository keeps its old name).
+export const RESEARCH_NAME = 'SlayQL Link';
+
 export const PROJECT = {
   institution: 'Monash University Malaysia',
   programme: 'Final Year Project 2026',
@@ -12,13 +15,15 @@ export const PROJECT = {
   // The research repository is private for now (GitHub answers 404 to visitors). Set to true once it is public.
   researchRepoPublic: false,
   appRepo: 'https://github.com/MDS06-Monash-2026/slayql-UI',
-  supervisor: { name: 'Dr Soon (full name to confirm)', role: 'Supervisor', placeholder: true },
-  // The team list is shown only once every member is filled in.
+  supervisors: [
+    { name: 'Dr. Soon Lay Ki', role: 'Supervisor' },
+    { name: 'Tazeek Bin Abdur Rakib', role: 'Supervisor' },
+  ],
   members: [
-    { name: 'Kian Lok', role: 'Team member' },
-    { name: 'Team member 2', role: 'Role', placeholder: true },
-    { name: 'Team member 3', role: 'Role', placeholder: true },
-    { name: 'Team member 4', role: 'Role', placeholder: true },
+    { name: 'Kian Lok Chin', role: 'Team lead' },
+    { name: 'Lim Chi Jian', role: 'Team member' },
+    { name: 'Ooi Hui Xia', role: 'Team member' },
+    { name: 'Lim Ding Cong', role: 'Team member' },
   ],
 };
 
@@ -39,10 +44,10 @@ export const VOICES = [
 // Headline numbers from the customer conversations (summary template in docs/CUSTOMER_CONVERSATIONS.md).
 // Replace each value with the real tally and remove `placeholder`; until then they show only in development.
 export const FIELD_STATS = [
-  { value: 'N', label: 'finance and operations conversations', placeholder: true },
-  { value: '_ h', label: 'a week spent preparing figures, on average', placeholder: true },
-  { value: '_ of N', label: 'had a real wrong-number story', placeholder: true },
-  { value: '_ of N', label: 'would try SlayQL on their own data', placeholder: true },
+  { value: 'N', label: 'conversations', placeholder: true },
+  { value: '_ h', label: 'hours a week on figures', placeholder: true },
+  { value: '_ of N', label: 'had a wrong-number story', placeholder: true },
+  { value: '_ of N', label: 'would try it', placeholder: true },
 ];
 
 // Live site: hide placeholders. Development: show them, labelled.

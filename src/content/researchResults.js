@@ -36,7 +36,7 @@ export const LINKING = { n: 248, tableRecall: 0.955, columnRecall: 0.92 };
 
 // BIRD dev ablation (one candidate per question, all 1,534 questions). Still running.
 export const ABLATION = [
-  { id: 'ref', label: 'Full C-CaSE', what: 'Reference for every comparison', pending: true },
+  { id: 'ref', label: 'Full SlayQL Link', what: 'Reference for every comparison', pending: true },
   { id: 'no_rbp', label: 'Without RBP', what: 'Relevance spread along foreign keys removed', pending: true },
   { id: 'no_bm25', label: 'Without BM25 grounding', what: 'Value matching removed', pending: true },
   { id: 'no_qoc', label: 'Without QOC', what: 'Strict output format removed', pending: true },
