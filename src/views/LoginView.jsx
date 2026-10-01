@@ -1,20 +1,5 @@
 import React, { useState } from 'react';
-import {
-  KeyRound,
-  Building2,
-  Mail,
-  Shield,
-  ArrowRight,
-  Sparkles,
-  Lock,
-  CheckCircle2,
-  ChevronRight,
-  Zap,
-  UserCheck,
-  Globe,
-  Loader2,
-  ArrowLeft,
-} from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Loader2, X } from 'lucide-react';
 import {
   loginOrganization,
   requestPasswordReset,
@@ -29,13 +14,14 @@ import {
 export default function LoginView({ setView, onLoginSuccess }) {
   const [email, setEmail] = useState('');
   const [orgName, setOrgName] = useState('');
-  const [role, setRole] = useState('Data Architect');
+  const [role, setRole] = useState('Finance / Accounts');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStage, setLoadingStage] = useState('');
   const [error, setError] = useState(null);
   const [resetNotice, setResetNotice] = useState('');
   const [resetBusy, setResetBusy] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const sendResetLink = async () => {
     setError(null);
@@ -145,97 +131,130 @@ export default function LoginView({ setView, onLoginSuccess }) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-between relative overflow-hidden text-slate-900">
-      {/* Background Ambience */}
-      <div className="hero-grid-bg absolute inset-0 pointer-events-none opacity-40" />
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[500px] bg-gradient-to-b from-indigo-100/60 via-blue-50/40 to-transparent rounded-full blur-3xl pointer-events-none" />
-
-      {/* Header */}
-      <header className="relative z-10 px-6 py-6 max-w-7xl mx-auto w-full flex items-center justify-between">
-        <button
-          onClick={() => setView('landing')}
-          className="inline-flex items-center gap-2 text-slate-600 hover:text-slate-900 text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 shadow-sm transition-all"
-        >
-          <ArrowLeft className="w-4 h-4 text-slate-500" />
-          <span>Back to Landing</span>
-        </button>
-
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span className="text-[11px] font-medium text-slate-500">SOC 2 Type II Isolated Environment</span>
-        </div>
-      </header>
-
-      {/* Main Form Center */}
-      <main className="relative z-10 flex-1 flex items-center justify-center px-4 sm:px-6 py-8">
-        <div className="max-w-md w-full space-y-6">
-          {/* Brand Header */}
-          <div className="text-center space-y-2">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl overflow-hidden shadow-md mx-auto mb-3">
-              <img src="/SlayQLlogo.png" alt="SlayQL Logo" className="w-full h-full object-contain" />
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
-              Sign In to Your Workspace
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-500">
-              Access the live SlayQL cognitive engine and schema explorer.
-            </p>
+    <div className="flex min-h-[100dvh] bg-white text-slate-900">
+      {/* Left: the campus image and what SlayQL does (a slim banner on small screens) */}
+      <aside className="relative hidden w-[46%] overflow-hidden lg:block">
+        <img src="/landing/hero-section.webp" alt="" className="absolute inset-0 h-full w-full object-cover object-[62%_40%]" />
+        <div aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.05)_0%,rgba(15,23,42,0.25)_45%,rgba(30,27,75,0.88)_100%)]" />
+        <div className="relative flex h-full flex-col justify-between p-10 text-white">
+          <button
+            type="button"
+            onClick={() => setView('landing')}
+            className="inline-flex w-fit items-center gap-2 rounded-xl bg-white/85 px-3.5 py-2 text-sm font-semibold text-slate-800 shadow-sm backdrop-blur transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back to home
+          </button>
+          <div>
+            <p className="text-4xl font-semibold leading-tight tracking-[-0.03em] text-balance">Ask your data anything. Know when to trust it.</p>
+            <ul className="mt-8 space-y-3 text-base text-indigo-50">
+              {['Every answer checked against your data', 'Asks when a question has two meanings', 'Read-only: nothing is written back'].map((t) => (
+                <li key={t} className="flex items-center gap-3">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-400/90 text-slate-900"><Check className="h-3.5 w-3.5" aria-hidden="true" /></span>
+                  {t}
+                </li>
+              ))}
+            </ul>
           </div>
+        </div>
+      </aside>
 
-          {/* Login Card */}
-          <div className="bg-white border border-slate-200/90 rounded-3xl shadow-xl shadow-slate-200/50 p-6 sm:p-8 space-y-6">
+      {/* Right: demo access and sign-in */}
+      <main className="flex flex-1 flex-col">
+        <div className="relative h-40 overflow-hidden lg:hidden">
+          <img src="/landing/hero-section-960.webp" alt="" className="h-full w-full object-cover object-[70%_40%]" />
+          <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-white via-white/30 to-transparent" />
+          <button
+            type="button"
+            onClick={() => setView('landing')}
+            className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-xl bg-white/90 px-3 py-1.5 text-sm font-semibold text-slate-800 shadow-sm"
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back
+          </button>
+        </div>
+
+        <div className="flex flex-1 items-center justify-center px-5 py-10 sm:px-10">
+          <div className="w-full max-w-md">
+            <div className="flex items-center gap-3">
+              <img src="/SlayQLlogo.png" alt="" className="h-11 w-11 rounded-xl object-contain shadow-sm" />
+              <span className="slayql-logo text-2xl tracking-tight"><span className="slay">Slay</span><span className="ql">QL</span></span>
+            </div>
+            <h1 className="mt-8 text-3xl font-semibold tracking-[-0.03em] text-slate-950 sm:text-4xl">Try SlayQL</h1>
+            <p className="mt-2 text-slate-600">Open the demo workspace, or sign in with your work email.</p>
+
             {isLoading && (
-              <div className="p-4 rounded-2xl bg-indigo-50/90 border border-indigo-200/80 space-y-2.5 animate-fade-in">
+              <div className="mt-6 rounded-2xl border border-indigo-100 bg-indigo-50/80 p-4" role="status" aria-live="polite">
                 <div className="flex items-center gap-3">
-                  <Loader2 className="w-4 h-4 animate-spin text-indigo-600 shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold text-indigo-950">Initializing AI Workspace</p>
-                    <p className="text-[11px] text-indigo-700 font-medium truncate mt-0.5">{loadingStage || 'Preparing cognitive environment...'}</p>
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin text-indigo-600" aria-hidden="true" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-indigo-950">Preparing your workspace</p>
+                    <p className="truncate text-xs text-indigo-700">{loadingStage || 'Starting...'}</p>
                   </div>
                 </div>
-                <div className="w-full bg-indigo-200/50 rounded-full h-1.5 overflow-hidden">
-                  <div className="bg-indigo-600 h-1.5 rounded-full animate-pulse w-full" />
+                <div className="mt-3 h-1 overflow-hidden rounded-full bg-indigo-100">
+                  <div className="h-full w-1/2 animate-[login-progress_1.4s_ease-in-out_infinite] rounded-full bg-indigo-600" />
                 </div>
               </div>
             )}
 
             {error && (
-              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center justify-between">
+              <div className="mt-6 flex items-start justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-3.5 text-sm text-rose-800" role="alert">
                 <span>{error}</span>
-                <button onClick={() => setError(null)} className="text-red-700 font-bold hover:underline">
-                  ✕
+                <button type="button" onClick={() => setError(null)} aria-label="Dismiss" className="shrink-0 rounded-md p-0.5 text-rose-700 hover:bg-rose-100">
+                  <X className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
             )}
 
-            {/* Form */}
-            <form onSubmit={handleEmailSignIn} className="space-y-4">
+            {/* Primary: the demo workspace */}
+            <button
+              type="button"
+              onClick={handleReviewerSignIn}
+              disabled={isLoading}
+              className="group mt-8 flex w-full items-center justify-between gap-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 p-5 text-left text-white shadow-[0_18px_40px_-18px_rgba(79,70,229,0.8)] transition hover:brightness-110 active:scale-[0.99] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+            >
+              <span>
+                <span className="block text-base font-semibold">Open the demo workspace</span>
+                <span className="mt-0.5 block text-sm text-indigo-100">Sample data, nothing to set up</span>
+              </span>
+              <ArrowRight className="h-5 w-5 shrink-0 transition-transform group-hover:translate-x-1" aria-hidden="true" />
+            </button>
+
+            <div className="my-8 flex items-center gap-4 text-xs font-medium text-slate-400">
+              <span className="h-px flex-1 bg-slate-200" />
+              or sign in
+              <span className="h-px flex-1 bg-slate-200" />
+            </div>
+
+            <form onSubmit={handleEmailSignIn} className="space-y-5">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Work Email Address
-                </label>
-                <div className="relative">
-                  <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="name@company.com"
-                    required
-                    disabled={isLoading}
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                  />
-                </div>
+                <label htmlFor="login-email" className="block text-sm font-medium text-slate-800">Work email</label>
+                <input
+                  id="login-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@company.com"
+                  autoComplete="email"
+                  required
+                  disabled={isLoading}
+                  className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder-slate-400 transition focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/15"
+                />
+                {detectedOrg && (
+                  <p className="mt-2 text-xs text-slate-500">Workspace: <span className="font-semibold text-slate-800">{detectedOrg}</span></p>
+                )}
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Password
-                </label>
-                <div className="relative">
-                  <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                <div className="flex items-center justify-between">
+                  <label htmlFor="login-password" className="block text-sm font-medium text-slate-800">Password</label>
+                  <button type="button" onClick={sendResetLink} disabled={resetBusy || isLoading} className="text-xs font-semibold text-indigo-600 hover:underline disabled:opacity-50">
+                    {resetBusy ? 'Sending...' : 'Forgot password?'}
+                  </button>
+                </div>
+                <div className="relative mt-1.5">
                   <input
-                    type="password"
+                    id="login-password"
+                    type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="At least 8 characters"
@@ -243,127 +262,55 @@ export default function LoginView({ setView, onLoginSuccess }) {
                     minLength={8}
                     required
                     disabled={isLoading}
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                    className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-4 pr-16 text-sm text-slate-900 placeholder-slate-400 transition focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/15"
                   />
-                </div>
-                <div className="mt-1 flex items-start justify-between gap-2">
-                  <p className="text-[10px] text-slate-500">First time here? The password you enter now becomes your password.</p>
-                  <button type="button" onClick={sendResetLink} disabled={resetBusy || isLoading}
-                    className="shrink-0 text-[11px] font-semibold text-indigo-600 hover:underline disabled:opacity-50">
-                    {resetBusy ? 'Sending…' : 'Forgot password?'}
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? 'Hide' : 'Show'}
                   </button>
                 </div>
-                {resetNotice && <p className="mt-1.5 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-[11px] text-emerald-800" role="status">{resetNotice}</p>}
+                <p className="mt-1.5 text-xs text-slate-500">First time? The password you enter becomes yours.</p>
+                {resetNotice && <p className="mt-2 rounded-xl bg-emerald-50 px-3 py-2 text-xs text-emerald-800" role="status">{resetNotice}</p>}
               </div>
 
-              {detectedOrg && (
-                <div className="p-3 rounded-xl bg-indigo-50/70 border border-indigo-100 flex items-center justify-between slide-in-up">
-                  <div className="flex items-center gap-2">
-                    <Building2 className="w-4 h-4 text-indigo-600" />
-                    <div>
-                      <p className="text-[10px] uppercase font-bold text-indigo-600">Workspace</p>
-                      <p className="text-xs font-bold text-slate-800">{detectedOrg}</p>
-                    </div>
-                  </div>
-                  <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                    Auto-matched
-                  </span>
-                </div>
-              )}
-
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Job title
-                </label>
+                <label htmlFor="login-role" className="block text-sm font-medium text-slate-800">Job title</label>
                 <select
+                  id="login-role"
                   value={role}
                   onChange={(e) => setRole(e.target.value)}
                   disabled={isLoading}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 transition focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/15"
                 >
-                  <option value="Lead Data Architect">Lead Data Architect</option>
-                  <option value="VP of Engineering">VP of Engineering</option>
-                  <option value="Senior Data Analyst">Senior Data Analyst</option>
-                  <option value="Product Manager">Product Manager / Business User</option>
                   <option value="Finance / Accounts">Finance / Accounts</option>
+                  <option value="Senior Data Analyst">Data analyst</option>
+                  <option value="Product Manager">Manager / business user</option>
+                  <option value="Lead Data Architect">Data architect</option>
+                  <option value="VP of Engineering">Engineering lead</option>
                 </select>
-                <p className="mt-1 text-[10px] text-slate-500">
-                  Access is separate: the first person from your organisation becomes its owner, and owners grant analyst access.
-                </p>
               </div>
 
               <button
                 type="submit"
                 disabled={isLoading || !email.trim() || password.length < 8}
-                className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-200 transition-all"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3.5 text-sm font-semibold text-white transition hover:bg-slate-800 active:scale-[0.99] disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
               >
-                {isLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <>
-                    <span>Continue with Organization Email</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
+                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <>Sign in <ArrowRight className="h-4 w-4" aria-hidden="true" /></>}
               </button>
             </form>
 
-            {/* Divider */}
-            <div className="relative flex items-center justify-center">
-              <div className="border-t border-slate-200 w-full" />
-              <span className="bg-white px-3 text-[10px] uppercase font-bold text-slate-400 absolute">
-                OR
-              </span>
-            </div>
-
-            {/* One-Click Reviewer Access Card */}
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
-              <div className="flex items-start justify-between">
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <Zap className="w-3.5 h-3.5 text-amber-500" />
-                    <h3 className="text-xs font-bold text-slate-900">Instant Reviewer Access</h3>
-                  </div>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Single-click demo login with pre-configured tenant & data.
-                  </p>
-                </div>
-                <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                  1-Click
-                </span>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleReviewerSignIn}
-                disabled={isLoading}
-                className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-md transition-all"
-              >
-                <UserCheck className="w-4 h-4 text-indigo-400" />
-                <span>Enter Reviewer Demo Workspace</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Footer Security Badges */}
-          <div className="flex items-center justify-center gap-4 text-[11px] text-slate-400">
-            <div className="flex items-center gap-1">
-              <Lock className="w-3.5 h-3.5 text-emerald-600" />
-              <span>TLS 1.3 KMS Encryption</span>
-            </div>
-            <span>•</span>
-            <div className="flex items-center gap-1">
-              <Shield className="w-3.5 h-3.5 text-indigo-600" />
-              <span>Read-Only Sandbox</span>
-            </div>
+            <p className="mt-8 text-xs leading-relaxed text-slate-500">
+              The first person from an organisation becomes its owner and can give analysts access. Connections are read-only.
+            </p>
           </div>
         </div>
-      </main>
 
-      {/* Footer */}
-      <footer className="relative z-10 py-4 text-center text-[11px] text-slate-400 border-t border-slate-200/60 bg-white/50">
-        © 2026 SlayQL AI. All rights reserved. Enterprise terms and privacy policies apply.
-      </footer>
+        <footer className="px-5 pb-6 text-center text-xs text-slate-400 sm:px-10">© 2026 SlayQL. Monash University Malaysia Final Year Project.</footer>
+      </main>
     </div>
   );
 }
