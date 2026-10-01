@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     # Models to try when one fails before answering, e.g. "gpt-5.6-luna:deepseek-v4.1-flash,gpt-6.1-sol:glm-5.3".
     # Empty means the provider's built-in chains.
     FALLBACK_MODELS: str = ""
+    # Models sent no reasoning switch, comma-separated. Some models think for a minute over a long
+    # schema prompt when reasoning is switched on; listed models answer at their own default.
+    NO_REASONING_MODELS: str = ""
     DEFAULT_MODEL: str = ""
     
     # Direct Provider Keys (fallback or direct use)

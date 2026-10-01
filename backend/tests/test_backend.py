@@ -339,7 +339,13 @@ async def test_llm_model_list():
 
     models = await llm_client.list_models()
     assert PROVIDER_ID == "opentk"
-    assert [m.id for m in models] == ["gpt-5.6-luna", "gpt-6.1-sol", "deepseek-v4.1-flash", "glm-5.3"]
+    ids = [m.id for m in models]
+    # Everyday model first, difficult-work model second; every listed model is shown, available or not.
+    assert ids[:2] == ["gpt-5.6-luna", "gpt-6.1-sol"] and len(ids) == len(set(ids)) == 21
+    assert all(m.provider in {"OpenAI", "DeepSeek", "Zhipu AI", "Moonshot AI"} for m in models)
+    # A model that is listed but unavailable never runs: the default takes its place.
+    unavailable = next(m.id for m in models if not m.is_available)
+    assert llm_client.execution_model_id(unavailable) == DEFAULT_MODEL
     # The user's pick runs when it is offered; anything else falls back to the default.
     assert llm_client.execution_model_id(ALTERNATE_MODEL) == ALTERNATE_MODEL
     assert llm_client.execution_model_id("openai/gpt-5.6-terra") == DEFAULT_MODEL
@@ -371,23 +377,34 @@ async def test_llm_stream_is_parsed_priced_and_retried_without_reasoning():
     client = LLMClient()
     client.api_key = "test-key"
     client._http_client = httpx.AsyncClient(transport=httpx.MockTransport(together))
+    # Luna is sent the reasoning switch (V4 Pro, the default, never is; checked below).
+    switched = "gpt-5.6-luna"
     events = [e async for e in client.stream_sql(
-        requested_model_id=DEFAULT_MODEL, question="How many orders?", dialect="sqlite",
+        requested_model_id=switched, question="How many orders?", dialect="sqlite",
         schema_context="TABLE orders (id)", grounding_hints="", retrieval_context="", reasoning_effort="medium",
     )]
     completed = events[-1]
     assert completed["extracted_sql"] == "SELECT COUNT(*) FROM orders"
     assert completed["reasoning"] == "plan the join"
     assert "<think>" not in completed["content"]
-    # OpenTK publishes no prices, so cost is unknown (0) while tokens are kept.
-    assert completed["usage"]["cost"] == 0 and completed["usage"]["total_tokens"] == 1200
+    # Costed from OpenTK's listed price for Luna (0.20 in / 1.20 out per million).
+    assert completed["usage"]["cost"] == pytest.approx((1000 * 0.2 + 200 * 1.2) / 1e6)
+    assert completed["usage"]["total_tokens"] == 1200
     # Priced providers (Together) are costed from their published per-token prices.
     together = usage_cost("deepseek-ai/DeepSeek-V4-Flash-0731", {"prompt_tokens": 1000, "completion_tokens": 200})
     assert together == pytest.approx((1000 * 0.14 + 200 * 0.28) / 1e6)
     # The first request carried the reasoning switch, the retry did not, and later calls skip it.
     assert "reasoning" in requests[0] and "reasoning" not in requests[1]
     assert requests[1]["stream_options"] == {"include_usage": True}
-    assert DEFAULT_MODEL in client._no_reasoning_param
+    assert switched in client._no_reasoning_param
+
+    # The default model is configured to run without the switch from the first request.
+    requests.clear()
+    _ = [e async for e in client.stream_sql(
+        requested_model_id=DEFAULT_MODEL, question="How many orders?", dialect="sqlite",
+        schema_context="TABLE orders (id)", grounding_hints="", retrieval_context="", reasoning_effort="medium",
+    )]
+    assert len(requests) == 1 and "reasoning" not in requests[0]
 
 
 @pytest.mark.asyncio

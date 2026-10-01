@@ -45,21 +45,77 @@ PROVIDERS: Dict[str, Dict[str, Any]] = {
     "opentk": {
         "label": "OpenTK",
         "base_url": "https://opentk.ai/v1",
+        # Sent no reasoning switch: with it on, V4 Pro thought for 60-80 s per SQL query on our
+        # schema prompts (measured 1 October 2026); off, it took 5-8 s and answered the checks correctly.
+        "no_reasoning": ["deepseek-v4-pro-0813"],
         "key_settings": ("OPENTK_KEY", "OPENTK_API_KEY"),
         # First model: everyday work. Second: difficult work (High/Max effort, report planning).
+        # Prices: the gateway's model list (October 2026), USD per million tokens before the group rate.
+        # Availability as tested on 1 October 2026; unavailable models are listed but never run.
         "models": [
             ModelInfo(id="gpt-5.6-luna", name="GPT-5.6 Luna", provider="OpenAI",
-                      description="Default for everyday questions (OpenTK; price not published).",
-                      tags=["default", "fast"]),
+                      description="Everyday questions. Low cost.",
+                      input_price=0.2, output_price=1.2, cached_input_price=0.02, tags=["default", "fast"]),
             ModelInfo(id="gpt-6.1-sol", name="GPT-6.1 Sol", provider="OpenAI",
-                      description="Used for difficult work: High and Max effort, and planning reports (OpenTK; price not published).",
-                      tags=["deep"]),
+                      description="Difficult questions and report planning.",
+                      input_price=2.0, output_price=10.0, cached_input_price=0.1, tags=["deep", "fast"]),
+            ModelInfo(id="gpt-5.6-terra", name="GPT-5.6 Terra", provider="OpenAI",
+                      description="Balanced speed and depth.",
+                      input_price=2.0, output_price=12.0, cached_input_price=0.2, tags=["fast"]),
+            ModelInfo(id="glm-5.3", name="GLM-5.3", provider="Zhipu AI",
+                      description="Strong open model.",
+                      input_price=1.4, output_price=4.4, cached_input_price=0.26, tags=["fast"]),
+            ModelInfo(id="glm-5.2", name="GLM-5.2", provider="Zhipu AI",
+                      description="Previous GLM generation.",
+                      input_price=1.1792, output_price=4.1273, cached_input_price=0.2948, tags=[]),
+            ModelInfo(id="gpt-5.5", name="GPT-5.5", provider="OpenAI",
+                      description="General-purpose model.",
+                      input_price=5.0, output_price=30.0, cached_input_price=0.5, tags=[]),
+            ModelInfo(id="gpt-5.6", name="GPT-5.6", provider="OpenAI",
+                      description="General-purpose model.",
+                      input_price=5.0, output_price=30.0, cached_input_price=0.5, tags=[]),
+            ModelInfo(id="gpt-5.6-sol", name="GPT-5.6 Sol", provider="OpenAI",
+                      description="Deep reasoning.",
+                      input_price=5.0, output_price=30.0, cached_input_price=0.5, tags=["deep"]),
+            ModelInfo(id="gpt-6-sol", name="GPT-6 Sol", provider="OpenAI",
+                      description="Deep reasoning.",
+                      input_price=2.0, output_price=10.0, cached_input_price=0.2, tags=["deep"]),
+            ModelInfo(id="gpt-6-astra", name="GPT-6 Astra", provider="OpenAI",
+                      description="Most capable, highest cost.",
+                      input_price=10.0, output_price=50.0, cached_input_price=1.0, tags=["deep"]),
+            ModelInfo(id="codex-auto-review", name="Codex Auto Review", provider="OpenAI",
+                      description="Tuned for reviewing code.",
+                      input_price=0.2, output_price=1.2, cached_input_price=0.02, tags=[]),
+            ModelInfo(id="glm-5.3-flash", name="GLM-5.3 Flash", provider="Zhipu AI",
+                      description="Low-cost GLM.",
+                      input_price=0.15, output_price=0.5, cached_input_price=0.03, tags=[]),
+            ModelInfo(id="kimi-k3", name="Kimi K3", provider="Moonshot AI",
+                      description="Long-context model.",
+                      input_price=2.9481, output_price=14.7403, cached_input_price=0.2948, tags=["deep"]),
+            ModelInfo(id="deepseek-v4-pro-0813", name="DeepSeek V4 Pro", provider="DeepSeek",
+                      description="Fast and low cost. Not available right now.",
+                      input_price=0.15, output_price=0.6, cached_input_price=0.003, tags=[], is_available=False),
+            ModelInfo(id="deepseek-v4-flash-0731", name="DeepSeek V4 Flash", provider="DeepSeek",
+                      description="Not available right now.",
+                      input_price=0.15, output_price=0.6, cached_input_price=0.003, tags=[], is_available=False),
             ModelInfo(id="deepseek-v4.1-flash", name="DeepSeek V4.1 Flash", provider="DeepSeek",
-                      description="Alternative fast model (OpenTK testing environment; price not published).",
-                      tags=["fast"]),
-            ModelInfo(id="glm-5.3", name="GLM 5.3", provider="Zhipu AI",
-                      description="Alternative model (OpenTK testing environment; price not published).",
-                      tags=["deep"]),
+                      description="Not available right now.",
+                      input_price=0.15, output_price=0.6, cached_input_price=0.003, tags=[], is_available=False),
+            ModelInfo(id="gpt-5.4", name="GPT-5.4", provider="OpenAI",
+                      description="Not available on this plan.",
+                      input_price=2.5, output_price=15.0, cached_input_price=0.25, tags=[], is_available=False),
+            ModelInfo(id="gpt-5.4-mini", name="GPT-5.4 Mini", provider="OpenAI",
+                      description="Not available on this plan.",
+                      input_price=0.75, output_price=4.5, cached_input_price=0.075, tags=[], is_available=False),
+            ModelInfo(id="gpt-5.3-codex-spark", name="GPT-5.3 Codex Spark", provider="OpenAI",
+                      description="Not available on this plan.",
+                      input_price=1.75, output_price=14.0, cached_input_price=0.175, tags=[], is_available=False),
+            ModelInfo(id="gpt-4o-audio-preview", name="GPT-4o Audio", provider="OpenAI",
+                      description="Voice model; not for text questions.",
+                      input_price=2.5, output_price=10.0, cached_input_price=0.0, tags=[], is_available=False),
+            ModelInfo(id="gpt-4o-realtime-preview", name="GPT-4o Realtime", provider="OpenAI",
+                      description="Voice model; not for text questions.",
+                      input_price=5.0, output_price=20.0, cached_input_price=2.5, tags=[], is_available=False),
         ],
     },
     # (OpenTK fallbacks are set below the table.)
@@ -84,9 +140,9 @@ PROVIDERS: Dict[str, Dict[str, Any]] = {
 # When a model fails before answering (rate limit, outage), try these next, in order.
 BUILT_IN_FALLBACKS: Dict[str, Dict[str, List[str]]] = {
     "opentk": {
-        "gpt-5.6-luna": ["deepseek-v4.1-flash"],
+        "gpt-5.6-luna": ["gpt-5.6-terra", "glm-5.3"],
         "gpt-6.1-sol": ["glm-5.3", "gpt-5.6-luna"],
-        "deepseek-v4.1-flash": ["gpt-5.6-luna"],
+        "gpt-5.6-terra": ["gpt-5.6-luna"],
         "glm-5.3": ["gpt-6.1-sol"],
     },
     "together": {
@@ -104,7 +160,8 @@ for _configured, _role in ((settings.EXECUTION_MODEL, "everyday questions"), (se
     if _configured and _configured not in {model.id for model in CURATED_MODELS}:
         CURATED_MODELS.append(ModelInfo(id=_configured, name=_configured, provider=PROVIDER["label"],
                                         description=f"Configured for {_role}.", tags=[]))
-MODEL_IDS = {model.id for model in CURATED_MODELS}
+MODEL_IDS = {model.id for model in CURATED_MODELS if model.is_available}
+MODEL_COMPANY = {model.id: model.provider for model in CURATED_MODELS}
 DEFAULT_MODEL = settings.EXECUTION_MODEL or CURATED_MODELS[0].id
 ALTERNATE_MODEL = DEEP_MODEL = settings.DEEP_MODEL or CURATED_MODELS[1].id
 TEST_EXECUTION_MODEL = DEFAULT_MODEL
@@ -190,7 +247,7 @@ class ProviderCompletionResponse(BaseModel):
     estimated_cost_usd: float = 0.0
     model_id: str = TEST_EXECUTION_MODEL
     requested_model_id: str = TEST_EXECUTION_MODEL
-    provider_name: str = PROVIDER["label"]
+    provider_name: str = ""
     finish_reason: Optional[str] = None
 
 
@@ -203,7 +260,9 @@ class LLMClient:
         self.deep_model = DEEP_MODEL
         self._http_client: Optional[httpx.AsyncClient] = None
         # Models whose deployment rejected the reasoning switch, so it is not sent again.
-        self._no_reasoning_param: set = set()
+        self._no_reasoning_param: set = set(PROVIDER.get("no_reasoning", [])) | {
+            m.strip() for m in settings.NO_REASONING_MODELS.split(",") if m.strip()
+        }
 
     def model_for_effort(self, requested_model_id: Optional[str], thinking_effort: Optional[str]) -> str:
         """The model a run uses: the user's choice if offered; otherwise the deep model for
@@ -622,7 +681,7 @@ class LLMClient:
             "requested_model_id": requested_model_id,
             "model_id": execution_model_id,
             "resolved_model_id": resolved_model_id or execution_model_id,
-            "resolved_provider": self.provider,
+            "resolved_provider": MODEL_COMPANY.get(execution_model_id, ""),
             "response_id": response_id,
             "reasoning_effort": reasoning_effort,
             "tool_calls": [tool_calls[index] for index in sorted(tool_calls)],
