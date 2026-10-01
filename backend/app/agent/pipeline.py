@@ -26,6 +26,7 @@ from backend.app.connections.registry import get_connection, get_credentials, ge
 from backend.app.connections.runtime import get_external_catalog, sqlglot_dialect
 from backend.app.history.conversation_store import conversation_store
 from backend.app.providers.llm_client import (
+    MODEL_COMPANY,
     TEST_EXECUTION_MODEL,
     ProviderError,
     llm_client,
@@ -76,6 +77,8 @@ class SSEEventEnvelope(BaseModel):
 RUN_EVENTS_STORE: Dict[str, List[SSEEventEnvelope]] = {}
 RUN_CANCEL_FLAGS: Dict[str, bool] = {}
 RUN_METADATA_STORE: Dict[str, Dict[str, Any]] = {}
+# Extra SQL candidates started alongside the first (see _execute_run), awaited by verification.
+EARLY_VARIANTS: Dict[str, "asyncio.Task"] = {}
 RUN_TASKS: Dict[str, asyncio.Task] = {}
 RUN_NOTIFIERS: Dict[str, asyncio.Event] = {}
 RUN_ASSISTANT_PERSISTENCE_TASKS: Dict[str, asyncio.Task] = {}
@@ -651,17 +654,37 @@ class SlayQLPipeline:
 
     @staticmethod
     def _fast_result_answer(columns: List[str], rows: List[List[Any]], is_truncated: bool) -> str:
+        """The answer sentence, written from the checked result (no model call)."""
+
+        def label(column: str) -> str:
+            text = str(column).replace("_", " ").strip()
+            return text[:1].upper() + text[1:] if text else "Value"
+
+        def fmt(value: Any) -> str:
+            if value is None:
+                return "none"
+            if isinstance(value, bool):
+                return "yes" if value else "no"
+            if isinstance(value, int):
+                return f"{value:,}"
+            if isinstance(value, float) or type(value).__name__ == "Decimal":
+                number = float(value)
+                return f"{number:,.0f}" if number.is_integer() else f"{number:,.2f}"
+            return str(value)
+
         if not rows:
-            return "The validated query returned no matching rows."
+            return "No rows match this question."
+        truncated = " The result was capped at the row limit." if is_truncated else ""
         if len(rows) == 1:
-            values = []
-            for index, column in enumerate(columns[:3]):
-                value = rows[0][index] if index < len(rows[0]) else None
-                values.append(f"{column.replace('_', ' ')}: {value}")
-            if values:
-                return "Result: " + ", ".join(values) + "."
-        suffix = " The result was capped at the configured row limit." if is_truncated else ""
-        return f"The validated query returned {len(rows)} rows.{suffix}"
+            row = rows[0]
+            parts = [f"{label(column)}: {fmt(row[index] if index < len(row) else None)}" for index, column in enumerate(columns[:4])]
+            if len(parts) == 1:
+                return parts[0] + "."
+            return "; ".join(parts) + "."
+        if len(columns) == 2 and len(rows) <= 5:
+            items = ", ".join(f"{fmt(row[0])} ({fmt(row[1])})" for row in rows)
+            return f"{len(rows)} results by {label(columns[0]).lower()}: {items}.{truncated}"
+        return f"{len(rows):,} rows, shown in the table.{truncated}"
 
     @staticmethod
     def _complete_without_generated_sql(
@@ -947,7 +970,8 @@ class SlayQLPipeline:
             {"candidates": 1 + extra, "penalty": penalty, "summary": "Checking the answer before showing it."},
         )
         candidates = [candidate_from_result("cand_primary", primary_sql, primary_result)]
-        variants = await generate_variants(
+        early = EARLY_VARIANTS.pop(run_id, None)
+        variants = await early if early is not None else await generate_variants(
             count=extra,
             requested_model_id=requested_model_id,
             question=question,
@@ -1506,6 +1530,26 @@ class SlayQLPipeline:
             reasoning_parts: List[str] = []
             attempt_count = 0
 
+            # The extra candidates are written independently of the first ("solve from scratch"),
+            # so they start now and run while the first is generated, validated and executed,
+            # instead of afterwards. Verification awaits them; any other ending cancels them.
+            extra_candidates = max(0, thinking_profile.candidate_count - 1)
+            if thinking_profile.verify and not deterministic_sql and extra_candidates:
+                EARLY_VARIANTS[run_id] = asyncio.create_task(generate_variants(
+                    count=extra_candidates,
+                    requested_model_id=requested_model_id,
+                    question=effective_question,
+                    dialect=dialect,
+                    schema_context=schema_context,
+                    grounding_hints=grounding_context,
+                    retrieval_context=retrieval_context,
+                    conversation_messages=metadata["conversation_messages"],
+                    definitions_context=definitions_context,
+                    reasoning_effort=thinking_profile.provider_sql_effort,
+                    max_tokens=thinking_profile.sql_max_tokens,
+                    session_id=conversation_id,
+                ))
+
             for attempt in range(1, thinking_profile.max_repair_attempts + 1):
                 attempt_count = attempt
                 if SlayQLPipeline._cancelled(run_id):
@@ -1520,7 +1564,7 @@ class SlayQLPipeline:
                         "phase": "sql",
                         "requested_model_id": requested_model_id,
                         "execution_model_id": execution_model_id,
-                        "provider": "SlayQL metadata planner" if deterministic_sql else "Together AI",
+                        "provider": "SlayQL metadata planner" if deterministic_sql else MODEL_COMPANY.get(execution_model_id, ""),
                         "is_repair": attempt > 1,
                         "thinking_effort": thinking_profile.name,
                         "provider_reasoning_effort": thinking_profile.provider_sql_effort,
@@ -2325,3 +2369,7 @@ class SlayQLPipeline:
                 )
         except Exception:
             SlayQLPipeline._fail(run_id, "completion", "The agent run failed unexpectedly.")
+        finally:
+            early = EARLY_VARIANTS.pop(run_id, None)
+            if early is not None and not early.done():
+                early.cancel()

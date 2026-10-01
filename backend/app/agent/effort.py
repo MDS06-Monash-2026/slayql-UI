@@ -19,6 +19,9 @@ class ThinkingProfile:
     use_model_intent: bool
     use_model_semantic_validation: bool
     use_model_chart: bool
+    # The answer sentence is written from the checked result, not by another model call: it is
+    # instant (the provider queues calls, about 12 s each), the numbers are the verified ones,
+    # and result rows are never sent to the AI provider. Set True per level to restore prose.
     use_model_answer: bool
     # Candidate queries compared by the trust layer (1 = checks only, no consensus).
     candidate_count: int = 1
@@ -50,7 +53,7 @@ THINKING_PROFILES: dict[ThinkingEffort, ThinkingProfile] = {
         use_model_intent=False,
         use_model_semantic_validation=False,
         use_model_chart=False,
-        use_model_answer=True,
+        use_model_answer=False,
     ),
     "medium": ThinkingProfile(
         name="medium",
@@ -63,7 +66,7 @@ THINKING_PROFILES: dict[ThinkingEffort, ThinkingProfile] = {
         use_model_intent=False,
         use_model_semantic_validation=True,
         use_model_chart=False,
-        use_model_answer=True,
+        use_model_answer=False,
     ),
     "high": ThinkingProfile(
         name="high",
@@ -76,7 +79,7 @@ THINKING_PROFILES: dict[ThinkingEffort, ThinkingProfile] = {
         use_model_intent=True,
         use_model_semantic_validation=True,
         use_model_chart=True,
-        use_model_answer=True,
+        use_model_answer=False,
     ),
     "max": ThinkingProfile(
         name="max",
@@ -89,7 +92,7 @@ THINKING_PROFILES: dict[ThinkingEffort, ThinkingProfile] = {
         use_model_intent=True,
         use_model_semantic_validation=True,
         use_model_chart=True,
-        use_model_answer=True,
+        use_model_answer=False,
     ),
 }
 
