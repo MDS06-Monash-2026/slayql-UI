@@ -28,7 +28,7 @@ export default function QuestionMarquee() {
   const questions = summary?.highlights?.questions || [];
   if (questions.length < 8) return null;
   return (
-    <section aria-label="Questions from our evaluation sets" className="space-y-3 overflow-hidden bg-white pb-6">
+    <section aria-label="Questions from our evaluation sets" className="space-y-3 overflow-hidden bg-white pb-2 pt-2">
       <Row items={questions.filter((_, i) => i % 2 === 0)} />
       <Row items={questions.filter((_, i) => i % 2 === 1)} reverse />
     </section>

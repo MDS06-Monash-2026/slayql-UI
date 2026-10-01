@@ -1,7 +1,7 @@
 import React from 'react';
 import { ArrowDownRight, ArrowUpRight } from 'lucide-react';
 import { pct, useResearchSummary } from '../../services/useResearchSummary';
-import { Reveal, useCountFromTo, useInView } from './motion';
+import { Reveal, useCountFromTo, useScrollPosition } from './motion';
 
 // One stat: label, value, and a delta stated in words with an icon (never colour alone).
 function Stat({ label, value, from, better, context, active, index }) {
@@ -24,7 +24,9 @@ function Stat({ label, value, from, better, context, active, index }) {
 
 export default function HeroStats() {
   const { summary } = useResearchSummary();
-  const [ref, active] = useInView({ threshold: 0.35 });
+  // Counts again every time the strip comes back into view, scrolling down or up.
+  const [ref, position] = useScrollPosition({ threshold: 0.35 });
+  const active = position === 'in';
   const h = summary?.highlights;
 
   const tiles = !h ? [] : [
@@ -47,17 +49,12 @@ export default function HeroStats() {
   ].filter(Boolean);
 
   return (
-    <section ref={ref} aria-label="Headline results" className="bg-white">
-      <div className="mx-auto max-w-7xl px-4 pb-6 sm:px-6 lg:px-8 lg:pb-8">
-        {!h && <div className="h-48" aria-hidden="true" />}
+    <section ref={ref} aria-label="Headline results" className={h ? 'relative z-20 bg-transparent lg:-mt-20' : ''}>
+      {h && <div className="mx-auto max-w-7xl px-4 pb-6 sm:px-6 lg:px-8 lg:pb-8">
         <div className="grid divide-y divide-slate-200 sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4">
           {tiles.map((tile, index) => <Stat key={tile.label} index={index} active={active} {...tile} />)}
         </div>
-        <p className="mt-8 text-sm text-slate-500">
-          Before and after: the same generated queries without and with the checks, scored against known answers.{' '}
-          <a href="#results" className="font-medium text-indigo-700 underline decoration-indigo-200 underline-offset-4 hover:decoration-indigo-500">See the method</a>
-        </p>
-      </div>
+      </div>}
     </section>
   );
 }
