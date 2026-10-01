@@ -1,6 +1,7 @@
 import React from 'react';
 import { BookCheck, Copy, FileCheck2, Gauge, GraduationCap, HandHelping, CalendarX, Ban, SearchX } from 'lucide-react';
 import { pct, useResearchSummary } from '../../services/useResearchSummary';
+import { Reveal, spotlight, useCountFromTo, useInView } from './motion';
 
 // What the answer checks catch: each is a probe query run on the real data.
 const CATCHES = [
@@ -10,8 +11,16 @@ const CATCHES = [
   { icon: CalendarX, text: 'Periods the data does not cover' },
 ];
 
-function Big({ children }) {
-  return <p className="text-5xl font-semibold tracking-[-0.04em] text-slate-950 tabular-nums">{children}</p>;
+// A large figure that counts from its "before" value when it scrolls into view.
+function Big({ value, from, digits = 1 }) {
+  const [ref, inView] = useInView({ threshold: 0.5 });
+  const shown = useCountFromTo(from, value, inView);
+  return (
+    <p ref={ref} className="text-5xl font-semibold tracking-[-0.04em] text-slate-950 tabular-nums">
+      <span aria-hidden="true">{pct(shown, digits)}</span>
+      <span className="sr-only">{pct(value, digits)}</span>
+    </p>
+  );
 }
 
 export default function NoveltySection() {
@@ -22,20 +31,22 @@ export default function NoveltySection() {
   return (
     <section id="novelty" className="bg-white pb-20 pt-16 lg:pb-28 lg:pt-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <Reveal variant="blur">
         <h2 className="max-w-3xl text-3xl font-semibold tracking-[-0.03em] text-slate-950 text-balance sm:text-5xl">
           Other tools make AI answer. SlayQL makes sure the answer is right.
         </h2>
         <p className="mt-4 max-w-2xl text-lg text-slate-600">
-          Writing SQL from a question is common. Checking the result against the data, and saying "I am not sure" by design, is not.
+          Writing SQL is common. Checking the result, and saying "I am not sure" by design, is not.
         </p>
+        </Reveal>
 
         <div className="mt-12 grid gap-4 lg:grid-cols-6 lg:grid-rows-[auto_auto_auto]">
           {/* Large cell: the answer checks, with the catches listed */}
-          <article className="relative flex flex-col overflow-hidden rounded-3xl border border-indigo-100 bg-[radial-gradient(120%_90%_at_0%_0%,#eef2ff_0%,#ffffff_60%)] p-7 lg:col-span-4 lg:row-span-2 lg:p-10">
+          <Reveal as="article" variant="up" delay={0} onMouseMove={spotlight} className="spotlight relative flex flex-col overflow-hidden rounded-3xl border border-indigo-100 bg-[radial-gradient(120%_90%_at_0%_0%,#eef2ff_0%,#ffffff_60%)] p-7 lg:col-span-4 lg:row-span-2 lg:p-10">
             <FileCheck2 className="h-6 w-6 text-indigo-600" aria-hidden="true" />
             <h3 className="mt-5 text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">It checks the answer, not just the SQL</h3>
             <p className="mt-3 max-w-xl text-slate-600">
-              Probe queries on your real data catch answers that run fine and are still wrong. Only candidates that pass get a vote.
+              Probe queries on your real data catch answers that run fine and are still wrong.
             </p>
             <ul className="mt-8 grid gap-x-8 gap-y-5 sm:grid-cols-2">
               {CATCHES.map(({ icon: Icon, text }) => (
@@ -54,73 +65,71 @@ export default function NoveltySection() {
                 <strong className="font-semibold text-slate-950">{pct(h.trap.after)}</strong>, with no right answers held back.
               </p>
             )}
-          </article>
+          </Reveal>
 
           {/* Knows when not to answer */}
-          <article className="rounded-3xl border border-slate-200 bg-white p-7 lg:col-span-2">
+          <Reveal as="article" variant="up" delay={110} onMouseMove={spotlight} className="spotlight rounded-3xl border border-slate-200 bg-white p-7 lg:col-span-2">
             <Gauge className="h-5 w-5 text-indigo-600" aria-hidden="true" />
             <h3 className="mt-4 text-lg font-semibold text-slate-950">It knows when not to answer</h3>
             <p className="mt-2 text-sm leading-relaxed text-slate-600">
-              Confidence is compared with a threshold set from what a wrong figure costs you. Below it, SlayQL asks or hands off.
+              Below your confidence threshold, it asks or hands off.
             </p>
             {loop && (
               <div className="mt-6">
-                <Big>{pct(loop.correct_with)}</Big>
-                <p className="mt-1 text-sm text-slate-600">right once an analyst answers the {pct(loop.needed_person, 0)} it hands off</p>
+                <Big value={loop.correct_with} from={loop.correct_without} />
+                <p className="mt-1 text-sm text-slate-600">end right with an analyst, from {pct(loop.correct_without)}</p>
               </div>
             )}
-          </article>
+          </Reveal>
 
           {/* Learns from the analyst */}
-          <article className="rounded-3xl border border-slate-200 bg-slate-50 p-7 lg:col-span-2">
+          <Reveal as="article" variant="up" delay={220} onMouseMove={spotlight} className="spotlight rounded-3xl border border-slate-200 bg-slate-50 p-7 lg:col-span-2">
             <GraduationCap className="h-5 w-5 text-indigo-600" aria-hidden="true" />
             <h3 className="mt-4 text-lg font-semibold text-slate-950">It learns from your analyst</h3>
             <p className="mt-2 text-sm leading-relaxed text-slate-600">
-              Each confirm or correct recalibrates confidence for that data source, and the answer goes back to whoever asked.
+              Every confirm or correct recalibrates it for your data.
             </p>
             {h?.learning && (
               <div className="mt-6">
-                <Big>{pct(h.learning.after_80, 0)}</Big>
-                <p className="mt-1 text-sm text-slate-600">confident wrong answers after 80 reviews, from {pct(h.learning.start)}</p>
+                <Big value={h.learning.after_80} from={h.learning.start} digits={0} />
+                <p className="mt-1 text-sm text-slate-600">confident wrong answers after 80 reviews</p>
               </div>
             )}
-          </article>
+          </Reveal>
 
           {/* Settles meanings once */}
-          <article className="rounded-3xl border border-slate-200 bg-white p-7 lg:col-span-3">
+          <Reveal as="article" variant="up" delay={330} onMouseMove={spotlight} className="spotlight rounded-3xl border border-slate-200 bg-white p-7 lg:col-span-3">
             <BookCheck className="h-5 w-5 text-indigo-600" aria-hidden="true" />
             <h3 className="mt-4 text-lg font-semibold text-slate-950">It settles meanings once, with the numbers</h3>
             <p className="mt-2 max-w-md text-sm leading-relaxed text-slate-600">
-              On connect it finds terms like "sales" that give different totals and shows each meaning's number. Approve one, and every answer
-              and report uses it.
+              Terms like "sales" can give different totals. Approve one meaning and everything uses it.
             </p>
             {h?.starter_pack && (
               <div className="mt-6 flex flex-wrap gap-x-10 gap-y-4">
                 <div>
-                  <Big>{pct(h.starter_pack.answered_after)}</Big>
-                  <p className="mt-1 text-sm text-slate-600">answered, from {pct(h.starter_pack.answered_before)}</p>
+                  <Big value={h.starter_pack.answered_after} from={h.starter_pack.answered_before} />
+                  <p className="mt-1 text-sm text-slate-600">answered</p>
                 </div>
                 <div>
-                  <Big>{pct(h.starter_pack.held_back_after, 0)}</Big>
-                  <p className="mt-1 text-sm text-slate-600">right answers held back, from {pct(h.starter_pack.held_back_before)}</p>
+                  <Big value={h.starter_pack.held_back_after} from={h.starter_pack.held_back_before} digits={0} />
+                  <p className="mt-1 text-sm text-slate-600">right answers held back</p>
                 </div>
               </div>
             )}
-          </article>
+          </Reveal>
 
           {/* Checked reports: the one accent cell */}
-          <article className="relative overflow-hidden rounded-3xl bg-indigo-600 p-7 text-white shadow-[0_24px_60px_-28px_rgba(67,56,202,0.8)] lg:col-span-3">
+          <Reveal as="article" variant="up" delay={440} onMouseMove={spotlight} className="spotlight relative overflow-hidden rounded-3xl bg-indigo-600 p-7 text-white shadow-[0_24px_60px_-28px_rgba(67,56,202,0.8)] lg:col-span-3">
             <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-indigo-400/40 blur-3xl" />
             <HandHelping className="relative h-5 w-5 text-indigo-100" aria-hidden="true" />
             <h3 className="relative mt-4 text-lg font-semibold">Reports where every number is checked</h3>
             <p className="relative mt-2 max-w-md text-sm leading-relaxed text-indigo-100">
-              Each figure is its own checked query on the full data, and the summary may only restate computed facts. Refreshes and the
-              Monday pack make no AI calls, so a figure that fails a check is held back instead of emailed.
+              Each figure is its own checked query. The Monday pack makes no AI calls, and a figure that fails a check is held back.
             </p>
             <a href="#malaysia" className="relative mt-6 inline-flex items-center gap-1 rounded-lg text-sm font-semibold text-white underline decoration-indigo-300 underline-offset-4 hover:decoration-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">
               See the weekly pack
             </a>
-          </article>
+          </Reveal>
         </div>
       </div>
     </section>

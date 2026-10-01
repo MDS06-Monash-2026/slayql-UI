@@ -3,6 +3,8 @@ import { ArrowDownRight, ArrowUpRight } from 'lucide-react';
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { pct, useResearchSummary } from '../services/useResearchSummary';
 import ResultsDumbbell from './landing/ResultsDumbbell';
+import { OutcomeDonuts } from './landing/charts';
+import { Reveal, spotlight, useInView } from './landing/motion';
 
 // A before -> after figure; the colour of the change says whether it is better, with an icon and words.
 function Change({ label, before, after, better = 'lower', note }) {
@@ -23,8 +25,8 @@ function Change({ label, before, after, better = 'lower', note }) {
 
 function Card({ title, subtitle, children, source }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
-      <h3 className="text-lg font-bold text-slate-900">{title}</h3>
+    <div className="spotlight h-full rounded-3xl border border-slate-200 bg-white p-6 sm:p-8" onMouseMove={spotlight}>
+      <h3 className="text-lg font-semibold text-slate-950">{title}</h3>
       {subtitle && <p className="text-sm text-slate-500">{subtitle}</p>}
       <div className="mt-4">{children}</div>
       {source && <p className="mt-3 text-[11px] text-slate-400">{source}</p>}
@@ -36,30 +38,30 @@ function LearningCard({ learning }) {
   const points = learning.points || [];
   const start = points[0];
   const at40 = points.find((point) => point.reviews === 40);
+  const [ref, play] = useInView({ threshold: 0.3 });
   if (!start || !at40) return null;
   return (
-    <div className="grid gap-6 rounded-2xl border border-slate-200 bg-slate-50 p-6 lg:grid-cols-[1fr_1.2fr]">
+    <div ref={ref} className="grid gap-6 rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 lg:grid-cols-[1fr_1.4fr]">
       <div>
-        <h3 className="text-lg font-bold text-slate-900">It learns from your analyst</h3>
-        <p className="mt-2 text-sm text-slate-700">
-          On an unfamiliar database the default confidence is too sure of itself: at the default setting it would state a wrong answer as
-          fact for {pct(start.silent_error_c4)} of questions. Each answer an analyst confirms or corrects recalibrates SlayQL for that database.
-          After {at40.reviews} reviews that falls to {pct(at40.silent_error_c4)}, because SlayQL has learned which questions to hand over.
+        <h3 className="text-lg font-semibold text-slate-950">It learns from your analyst</h3>
+        <p className="mt-6 text-6xl font-semibold tracking-[-0.04em] text-slate-950 tabular-nums">{pct(at40.silent_error_c4)}</p>
+        <p className="mt-2 text-sm text-slate-600">
+          wrong answers given as fact after {at40.reviews} analyst reviews, down from {pct(start.silent_error_c4)} on an unfamiliar database.
         </p>
         <p className="mt-2 text-xs text-slate-500">
           BIRD Mini-Dev, {learning.test} held-out questions; reviews drawn at random from the other half, averaged over {learning.repeats} orders.
         </p>
       </div>
-      <div className="h-56">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="h-64">
+        {play && <ResponsiveContainer width="100%" height="100%">
           <LineChart data={points} margin={{ top: 10, right: 16, bottom: 20, left: 0 }}>
             <CartesianGrid vertical={false} stroke="#e2e8f0" />
             <XAxis dataKey="reviews" type="number" domain={[0, 'dataMax']} tick={{ fontSize: 11, fill: '#64748b' }} label={{ value: 'Answers reviewed by an analyst', position: 'insideBottom', offset: -10, fontSize: 12 }} />
             <YAxis domain={[0, 'auto']} tickFormatter={(v) => `${Math.round(v * 100)}%`} width={45} tick={{ fontSize: 11, fill: '#64748b' }} />
             <Tooltip formatter={(v) => pct(v)} labelFormatter={(v) => `${v} reviews`} />
-            <Line type="monotone" dataKey="silent_error_c4" name="Wrong answers given as fact" stroke="#4338ca" strokeWidth={2} dot={{ r: 4 }} />
+            <Line type="monotone" dataKey="silent_error_c4" name="Wrong answers given as fact" stroke="#4338ca" strokeWidth={2} dot={{ r: 4 }} animationDuration={1800} />
           </LineChart>
-        </ResponsiveContainer>
+        </ResponsiveContainer>}
       </div>
     </div>
   );
@@ -71,6 +73,7 @@ export default function TrustResultsSection() {
   const bird = summary?.datasets?.bird;
   const baseRisk = bird ? bird.configs.B0.selective_risk : null;
   const loops = h.human_loop || {};
+  const [donutRef, donutPlay] = useInView({ threshold: 0.3 });
 
   const rows = [
     h.trap && { label: 'Business trap set', detail: `${h.trap.n} questions with known traps`, before: h.trap.before, after: h.trap.after, source: `${h.trap.source} · ${h.trap.model}` },
@@ -82,20 +85,24 @@ export default function TrustResultsSection() {
   return (
     <section id="results" className="border-t border-slate-200 bg-white py-16 lg:py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div>
+        <Reveal variant="blur">
           <p className="text-sm font-medium text-indigo-700">Measured, not claimed</p>
           <h2 className="mt-3 text-3xl font-semibold tracking-[-0.03em] text-slate-950 sm:text-5xl">How often is the answer silently wrong?</h2>
           <p className="mt-4 max-w-2xl text-lg text-slate-600">
-            Each figure compares the plain AI pipeline with SlayQL on the same generated queries, scored against known answers.
+            Plain AI pipeline against SlayQL, same generated queries, scored against known answers.
           </p>
-        </div>
+        </Reveal>
 
         {error && <p className="mt-8 text-center text-sm text-slate-500">Results are not available right now.</p>}
 
         <div className="mt-10 space-y-6">
-          <ResultsDumbbell rows={rows} />
+          <Reveal variant="scale">
+            <div ref={donutRef}><OutcomeDonuts outcomes={h.outcomes} play={donutPlay} /></div>
+          </Reveal>
 
-          <div className="grid gap-6 lg:grid-cols-2">
+          <Reveal><ResultsDumbbell rows={rows} /></Reveal>
+
+          <Reveal className="grid gap-6 lg:grid-cols-2">
             {h.starter_pack && (
               <Card
                 title="Approve the meaning once, answer more"
@@ -132,20 +139,25 @@ export default function TrustResultsSection() {
                 )}
               </Card>
             )}
-          </div>
+          </Reveal>
 
           {bird && (
+            <Reveal>
             <Card
               title="On a hard public benchmark, it declines to guess"
               subtitle={`BIRD Mini-Dev: 11 unfamiliar databases, asked without hints · ${bird.n} held-out questions`}
               source={`results/bird.json · ${bird.model}`}
             >
               <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
-                <p className="text-sm text-slate-700">
-                  Here the model is usually wrong: {pct(bird.configs.B0.selective_risk)} of its answers are incorrect. SlayQL's confidence ranks
-                  answers well (calibration error {bird.ece}) but never reaches 80%, so at the default setting it answers nothing rather than guess.
-                  {bird.configs.B3_c1 && ` At a lenient setting it answers ${pct(bird.configs.B3_c1.coverage)} of questions and states a wrong answer as fact on ${pct(bird.configs.B3_c1.silent_error_rate)} of all questions, against ${pct(bird.configs.B0.silent_error_rate)} for the plain pipeline.`}
-                </p>
+                <div>
+                  <p className="text-6xl font-semibold tracking-[-0.04em] text-slate-950 tabular-nums">{pct(bird.configs.B0.selective_risk)}</p>
+                  <p className="mt-2 text-sm text-slate-600">of the plain model's answers are wrong here. SlayQL's confidence never reaches 80%, so by default it declines rather than guess.</p>
+                  {bird.configs.B3_c1 && (
+                    <p className="mt-4 text-sm text-slate-600">
+                      Lenient setting: answers {pct(bird.configs.B3_c1.coverage)}, wrong as fact on {pct(bird.configs.B3_c1.silent_error_rate)} (plain: {pct(bird.configs.B0.silent_error_rate)}). Calibration error {bird.ece}.
+                    </p>
+                  )}
+                </div>
                 <div className="h-56">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={bird.risk_coverage} margin={{ top: 5, right: 10, bottom: 20, left: 0 }}>
@@ -160,9 +172,10 @@ export default function TrustResultsSection() {
                 </div>
               </div>
             </Card>
+            </Reveal>
           )}
 
-          {summary?.learning && <LearningCard learning={summary.learning} />}
+          {summary?.learning && <Reveal><LearningCard learning={summary.learning} /></Reveal>}
 
           <p className="text-center text-xs text-slate-400">
             Test sets: business trap set and distributor set written by the team (invented data); BIRD is public. The person in the loop is simulated by

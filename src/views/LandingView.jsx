@@ -7,7 +7,9 @@ import ArchitectureSection from '../components/ArchitectureSection';
 import TrustResultsSection from '../components/TrustResultsSection';
 import DatabaseConnectors from '../components/DatabaseConnectors';
 import Footer from '../components/Footer';
-import TwoLayersSection from '../components/landing/TwoLayersSection';
+import JourneySection from '../components/landing/JourneySection';
+import QuestionMarquee from '../components/landing/QuestionMarquee';
+import { Reveal, ScrollProgress } from '../components/landing/motion';
 import NoveltySection from '../components/landing/NoveltySection';
 import MalaysiaSection from '../components/landing/MalaysiaSection';
 import ProjectSection, { VoicesSection } from '../components/landing/ProjectSection';
@@ -32,6 +34,7 @@ export default function LandingView({ setView, onDatabaseConnect }) {
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-indigo-700 focus:shadow-lg">
         Skip to content
       </a>
+      <ScrollProgress />
       <Navbar setView={setView} currentView="landing" />
 
       <main id="main">
@@ -40,11 +43,14 @@ export default function LandingView({ setView, onDatabaseConnect }) {
         {/* Headline results, directly under the hero */}
         <HeroStats />
 
+        {/* Real evaluation questions, English and BM */}
+        <QuestionMarquee />
+
         {/* What is new: asymmetric bento */}
         <NoveltySection />
 
-        {/* Research + software: one system, two layers */}
-        <TwoLayersSection />
+        {/* Research + trust layer as one scroll story */}
+        <JourneySection />
 
         {/* Unified Engine + Live Workspace */}
         <EngineWorkspace />
@@ -71,7 +77,7 @@ export default function LandingView({ setView, onDatabaseConnect }) {
 
         {/* Closing call to action: the answer end of the hero image as a bookend */}
         <section className="bg-white px-4 pb-20 sm:px-6 lg:px-8 lg:pb-28">
-          <div className="relative mx-auto max-w-7xl overflow-hidden rounded-3xl border border-slate-200">
+          <Reveal variant="scale" className="relative mx-auto max-w-7xl overflow-hidden rounded-3xl border border-slate-200">
             <img
               src="/landing/hero-section-960.webp"
               alt=""
@@ -102,7 +108,7 @@ export default function LandingView({ setView, onDatabaseConnect }) {
                 </a>
               </div>
             </div>
-          </div>
+          </Reveal>
         </section>
       </main>
 

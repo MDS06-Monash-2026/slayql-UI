@@ -22,8 +22,57 @@
 .hero-rise-2 { animation-delay: 240ms; }
 .hero-rise-3 { animation-delay: 360ms; }
 
+/* ── Landing: scroll reveals (see components/landing/motion.jsx) ── */
+.rv { transition: opacity 0.9s cubic-bezier(0.22, 1, 0.36, 1), transform 0.9s cubic-bezier(0.22, 1, 0.36, 1), filter 0.9s cubic-bezier(0.22, 1, 0.36, 1); }
+.rv:not(.rv-in) { opacity: 0; }
+.rv-up:not(.rv-in) { transform: translateY(40px); }
+.rv-blur:not(.rv-in) { transform: translateY(16px); filter: blur(12px); }
+.rv-scale:not(.rv-in) { transform: scale(0.94); }
+.rv-left:not(.rv-in) { transform: translateX(-48px); }
+.rv-right:not(.rv-in) { transform: translateX(48px); }
+
+/* Reading progress, driven by the page's scroll position (no JavaScript). */
+.scroll-progress { display: none; }
+@supports (animation-timeline: scroll()) {
+  .scroll-progress {
+    display: block; position: fixed; inset: 0 0 auto 0; height: 3px; z-index: 70;
+    background: #4f46e5; transform-origin: 0 50%; transform: scaleX(0);
+    animation: scroll-progress linear both; animation-timeline: scroll(root);
+  }
+  /* Hero: the image drifts slower than the page and the copy lifts away as you scroll. */
+  .hero-parallax { animation: hero-parallax linear both; animation-timeline: scroll(root); animation-range: 0 100vh; }
+  .hero-copy-out { animation: hero-copy-out linear both; animation-timeline: scroll(root); animation-range: 0 70vh; }
+}
+@keyframes scroll-progress { to { transform: scaleX(1); } }
+@keyframes hero-parallax { to { transform: translateY(18%) scale(1.08); } }
+@keyframes hero-copy-out { to { transform: translateY(-60px); opacity: 0.15; } }
+
+/* Cursor spotlight on cards (pointer position set by spotlight() in motion.jsx). */
+.spotlight { position: relative; isolation: isolate; }
+.spotlight::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; z-index: -1; pointer-events: none;
+  opacity: 0; transition: opacity 0.4s;
+  background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), rgba(99, 102, 241, 0.14), transparent 65%);
+}
+.spotlight:hover::before { opacity: 1; }
+
+/* One marquee on the page: real evaluation questions. Pauses on hover. */
+@keyframes marquee { to { transform: translateX(-50%); } }
+.marquee-track { animation: marquee 60s linear infinite; }
+.marquee:hover .marquee-track { animation-play-state: paused; }
+
+/* Chart entrances */
+.ring-draw { transition: stroke-dashoffset 1.8s cubic-bezier(0.22, 1, 0.36, 1); }
+.bar-grow { transition: width 1.4s cubic-bezier(0.22, 1, 0.36, 1); }
+.dot-slide { transition: left 1.6s cubic-bezier(0.65, 0, 0.35, 1) 0.3s; }
+.needle { transition: transform 1.6s cubic-bezier(0.34, 1.56, 0.64, 1); transform-origin: 100px 100px; }
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto !important; }
+  .rv { opacity: 1 !important; transform: none !important; filter: none !important; transition: none !important; }
+  .scroll-progress, .hero-parallax, .hero-copy-out { animation: none !important; }
+  .marquee-track { animation: none !important; }
+  .ring-draw, .bar-grow, .dot-slide, .needle { transition: none !important; }
   .hero-image-in, .hero-rise, .animate-fade-in-up, .animate-ping, .animate-pulse { animation: none !important; }
   .reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
 }
@@ -494,7 +543,7 @@ button:disabled,
 
   /* ─── Page-level overflow guard ───────────────────────────── */
   .page-root {
-    overflow-x: hidden;
+    overflow-x: clip;
     max-width: 100vw;
   }
 

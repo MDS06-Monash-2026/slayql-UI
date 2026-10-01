@@ -231,7 +231,60 @@ def research_highlights() -> Dict[str, Any]:
             }
     if loops:
         out["human_loop"] = loops
+
+    # Where every question ended up, plain pipeline (B0) against SlayQL (B3), for the outcome charts.
+    outcomes = {}
+    for key, report in (("trap", trap), ("distributor", distributor)):
+        if report:
+            c = configs(report, "all")
+            outcomes[key] = {
+                "n": report["splits"]["all"]["n"], "source": f"results/{key}.json",
+                **{side: {"correct": c[cfg]["correct_answers"], "wrong": c[cfg]["wrong_answers"],
+                          "clarified": c[cfg]["clarified"], "handed_off": c[cfg]["handed_off"]}
+                   for side, cfg in (("before", "B0"), ("after", "B3"))},
+            }
+    if outcomes:
+        out["outcomes"] = outcomes
+
+    # Share of each trap type handled the right way: a correct answer when one is expected,
+    # a question back when the meaning is unclear, a hand-off when the data cannot answer.
+    if trap:
+        answered = {"answer", "confident", "caveat"}
+
+        def right(item: Dict[str, Any], cfg: str) -> bool:
+            result, expected = item.get(cfg) or {}, item.get("expected")
+            if expected == "answer":
+                return result.get("outcome") in answered and bool(result.get("correct"))
+            return result.get("outcome") == expected
+
+        types = []
+        for trap_type in TRAP_TYPES:
+            items = [i for i in trap["items"] if i.get("trap") == trap_type]
+            if items:
+                types.append({
+                    "type": trap_type, "label": TRAP_TYPES[trap_type], "n": len(items),
+                    "before": sum(right(i, "B0") for i in items) / len(items),
+                    "after": sum(right(i, "B3") for i in items) / len(items),
+                })
+        out["trap_types"] = {"source": "results/trap.json", "types": types}
+
+    # Real evaluation questions (team-written, invented data) for the landing page's question strip.
+    questions = []
+    for report in (trap, distributor):
+        for item in (report or {}).get("items", []):
+            questions.append({"text": item["question"], "language": item.get("language", "en")})
+    if questions:
+        out["questions"] = questions
     return out
+
+
+TRAP_TYPES = {
+    "none": "Plain questions",
+    "fanout": "Joins that double count",
+    "definition": "Two possible meanings",
+    "period": "Dates and periods",
+    "infeasible": "Data cannot answer",
+}
 
 
 def build_router(*, require_admin: Callable[[Request], Dict[str, Any]]) -> APIRouter:

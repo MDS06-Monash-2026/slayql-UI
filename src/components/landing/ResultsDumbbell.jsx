@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { pct } from '../../services/useResearchSummary';
+import { useInView } from './motion';
 
 // Dumbbell: before (plain AI) -> after (SlayQL) per test set. One hue, two validated shades.
 const BEFORE = '#7a83f2';
@@ -7,15 +8,16 @@ const AFTER = '#4338ca';
 
 export default function ResultsDumbbell({ rows }) {
   const [hover, setHover] = useState(null);
+  const [ref, play] = useInView({ threshold: 0.4 });
   if (!rows.length) return null;
   const max = Math.max(0.2, Math.ceil(Math.max(...rows.map((r) => r.before)) * 10) / 10 + 0.1);
   const x = (value) => `${(value / max) * 100}%`;
   const ticks = Array.from({ length: Math.round(max / 0.2) + 1 }, (_, i) => i * 0.2).filter((t) => t <= max + 1e-9);
 
   return (
-    <figure className="rounded-2xl border border-slate-200 bg-white p-6">
+    <figure ref={ref} className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8">
       <figcaption>
-        <h3 className="text-lg font-bold text-slate-900">Wrong answers stated as fact, before and after the trust layer</h3>
+        <h3 className="text-lg font-semibold text-slate-950">Wrong answers stated as fact, before and after the trust layer</h3>
         <p className="text-sm text-slate-500">Share of all questions where the answer was wrong but given without any warning. Lower is better.</p>
       </figcaption>
 
@@ -41,11 +43,11 @@ export default function ResultsDumbbell({ rows }) {
               {ticks.map((t) => (
                 <span key={t} className="absolute top-0 h-full w-px bg-slate-100" style={{ left: x(t) }} />
               ))}
-              <span className="absolute top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-slate-300" style={{ left: x(row.after), width: `calc(${x(row.before)} - ${x(row.after)})` }} />
+              <span className="absolute top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-slate-300 dot-slide" style={{ left: play ? x(row.after) : x(row.before), width: play ? `calc(${x(row.before)} - ${x(row.after)})` : '0%', transitionProperty: 'left, width', transitionDelay: `${300 + index * 150}ms` }} />
               <span className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white" style={{ left: x(row.before), background: BEFORE }} />
-              <span className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white" style={{ left: x(row.after), background: AFTER }} />
+              <span className="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white dot-slide" style={{ left: play ? x(row.after) : x(row.before), background: AFTER, transitionDelay: `${300 + index * 150}ms` }} />
               <span className="absolute -top-1 -translate-x-1/2 text-[11px] font-medium text-slate-500" style={{ left: x(row.before) }}>{pct(row.before)}</span>
-              <span className="absolute -bottom-1 -translate-x-1/2 text-[11px] font-semibold text-slate-900" style={{ left: x(row.after) }}>{pct(row.after)}</span>
+              <span className={`absolute -bottom-1 -translate-x-1/2 text-[11px] font-semibold text-slate-900 transition-opacity duration-500 ${play ? 'opacity-100' : 'opacity-0'}`} style={{ left: x(row.after), transitionDelay: `${1500 + index * 150}ms` }}>{pct(row.after)}</span>
             </div>
             {hover === index && (
               <div className="pointer-events-none absolute right-0 top-full z-10 mt-1 w-64 rounded-lg border border-slate-200 bg-white p-2.5 text-xs text-slate-700 shadow-lg">

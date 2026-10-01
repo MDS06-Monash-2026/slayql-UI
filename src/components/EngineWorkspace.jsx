@@ -370,7 +370,7 @@ export default function EngineWorkspace() {
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
         {/* Section header */}
-        <div className="text-center mb-10">
+        <div className="text-center mb-10 reveal">
           <h2 className="text-3xl sm:text-5xl font-semibold tracking-[-0.03em] text-slate-950">
             Watch a question become a checked answer
           </h2>

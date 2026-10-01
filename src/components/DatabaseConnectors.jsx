@@ -57,7 +57,7 @@ export default function DatabaseConnectors({ onConnected }) {
     <section id="connectors" className="py-20 lg:py-28 bg-white border-t border-slate-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
-        <div className="text-center mb-14">
+        <div className="text-center mb-14 reveal">
           <h2 className="text-3xl sm:text-5xl font-semibold tracking-[-0.03em] text-slate-950">
             Connect your database
           </h2>

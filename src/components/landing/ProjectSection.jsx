@@ -37,7 +37,7 @@ export default function ProjectSection() {
 
   return (
     <section id="about" className="border-t border-slate-200 bg-white py-16 lg:py-20">
-      <div className="mx-auto max-w-5xl px-4 text-center sm:px-6 lg:px-8">
+      <div className="reveal mx-auto max-w-5xl px-4 text-center sm:px-6 lg:px-8">
         <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
           <GraduationCap className="h-6 w-6" aria-hidden="true" />
         </span>

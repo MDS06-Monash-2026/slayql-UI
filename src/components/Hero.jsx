@@ -15,6 +15,7 @@ export default function Hero({ setView }) {
   return (
     <section id="hero" className="relative overflow-hidden bg-white pt-16 lg:flex lg:min-h-[100dvh] lg:items-end lg:pt-0">
       <div className="relative h-[40dvh] min-h-[240px] lg:absolute lg:inset-0 lg:h-auto">
+        <div className="hero-parallax h-full w-full">
         <picture>
           <source media="(max-width: 1023px)" srcSet="/landing/hero-section-960.webp" />
           <img
@@ -26,12 +27,13 @@ export default function Hero({ setView }) {
             className="hero-image-in h-full w-full object-cover object-[70%_50%] lg:object-[58%_30%]"
           />
         </picture>
+        </div>
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 hidden bg-[linear-gradient(18deg,#ffffff_0%,rgba(255,255,255,0.9)_30%,rgba(255,255,255,0.35)_48%,rgba(255,255,255,0)_62%)] lg:block" />
         <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white to-transparent lg:h-28" />
       </div>
 
       <div className="relative mx-auto w-full max-w-7xl px-4 pb-14 pt-6 sm:px-6 lg:px-8 lg:pb-24 lg:pt-24">
-        <div className="max-w-[46rem]">
+        <div className="hero-copy-out max-w-[46rem]">
           <p className="hero-rise inline-flex items-center gap-2 text-sm font-medium text-indigo-700">
             <GraduationCap className="h-4 w-4" aria-hidden="true" />
             {PROJECT.institution} Final Year Project

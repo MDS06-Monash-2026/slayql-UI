@@ -1,37 +1,15 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
 import { ArrowDownRight, ArrowUpRight } from 'lucide-react';
 import { pct, useResearchSummary } from '../../services/useResearchSummary';
-
-const reducedMotion = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-
-// Counts from the plain-AI figure to the SlayQL figure once the strip is on screen, so the
-// movement itself shows the change. With reduced motion the final value is shown at once.
-function useCountFromTo(from, to, active) {
-  const [value, setValue] = useState(() => (reducedMotion() ? to : from));
-  useEffect(() => {
-    if (!active || reducedMotion()) { setValue(to); return undefined; }
-    let frame;
-    const start = performance.now();
-    const step = (now) => {
-      const t = Math.min(1, (now - start) / 1400);
-      const eased = 1 - (1 - t) ** 3;
-      setValue(from + (to - from) * eased);
-      if (t < 1) frame = requestAnimationFrame(step);
-    };
-    setValue(from);
-    frame = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(frame);
-  }, [from, to, active]);
-  return value;
-}
+import { Reveal, useCountFromTo, useInView } from './motion';
 
 // One stat: label, value, and a delta stated in words with an icon (never colour alone).
-function Stat({ label, value, from, better, context, active }) {
+function Stat({ label, value, from, better, context, active, index }) {
   const shown = useCountFromTo(from, value, active);
   const improved = better === 'lower' ? value < from : value > from;
   const Arrow = value < from ? ArrowDownRight : ArrowUpRight;
   return (
-    <div className="border-slate-200 py-6 sm:px-6 lg:border-l lg:py-2 lg:first:border-l-0 lg:first:pl-0">
+    <Reveal delay={index * 120} className="border-slate-200 py-6 sm:px-6 lg:border-l lg:py-2 lg:first:border-l-0 lg:first:pl-0">
       <p className="text-5xl font-semibold tracking-[-0.04em] text-slate-950 tabular-nums lg:text-6xl" aria-hidden="true">{pct(shown)}</p>
       <p className="sr-only">{pct(value)}</p>
       <p className={`mt-2 flex items-center gap-1 text-sm font-medium ${improved ? 'text-emerald-700' : 'text-slate-600'}`}>
@@ -40,26 +18,16 @@ function Stat({ label, value, from, better, context, active }) {
       </p>
       <p className="mt-3 max-w-[16rem] text-sm leading-snug text-slate-700">{label}</p>
       <p className="mt-1 text-xs text-slate-500">{context}</p>
-    </div>
+    </Reveal>
   );
 }
 
 export default function HeroStats() {
   const { summary } = useResearchSummary();
-  const ref = useRef(null);
-  const [active, setActive] = useState(false);
+  const [ref, active] = useInView({ threshold: 0.35 });
   const h = summary?.highlights;
 
-  useEffect(() => {
-    const node = ref.current;
-    if (!node) return undefined;
-    const observer = new IntersectionObserver(([entry]) => entry.isIntersecting && setActive(true), { threshold: 0.35 });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [h]);
-
-  if (!h) return <div className="h-48" aria-hidden="true" />;
-  const tiles = [
+  const tiles = !h ? [] : [
     h.trap && {
       label: 'Wrong answers stated as fact on business questions', value: h.trap.after, from: h.trap.before, better: 'lower',
       context: `${h.trap.n} questions with known traps`,
@@ -81,8 +49,9 @@ export default function HeroStats() {
   return (
     <section ref={ref} aria-label="Headline results" className="bg-white">
       <div className="mx-auto max-w-7xl px-4 pb-6 sm:px-6 lg:px-8 lg:pb-8">
+        {!h && <div className="h-48" aria-hidden="true" />}
         <div className="grid divide-y divide-slate-200 sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4">
-          {tiles.map((tile) => <Stat key={tile.label} active={active} {...tile} />)}
+          {tiles.map((tile, index) => <Stat key={tile.label} index={index} active={active} {...tile} />)}
         </div>
         <p className="mt-8 text-sm text-slate-500">
           Before and after: the same generated queries without and with the checks, scored against known answers.{' '}
