@@ -1,35 +1,33 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
+import { ArrowDownRight, ArrowUpRight } from 'lucide-react';
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { fetchEvalSummary } from '../services/arena';
+import { pct, useResearchSummary } from '../services/useResearchSummary';
+import ResultsDumbbell from './landing/ResultsDumbbell';
 
-const pct = (value) => (value === null || value === undefined ? 'n/a' : `${Math.round(value * 1000) / 10}%`);
-
-function Stat({ label, before, after, better = 'lower' }) {
+// A before -> after figure; the colour of the change says whether it is better, with an icon and words.
+function Change({ label, before, after, better = 'lower', note }) {
   const improved = better === 'lower' ? after < before : after > before;
+  const Arrow = after < before ? ArrowDownRight : ArrowUpRight;
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-1 flex items-baseline gap-2">
-        <span className="text-sm text-slate-400 line-through decoration-slate-300">{pct(before)}</span>
-        <span className={`text-2xl font-bold ${improved ? 'text-emerald-700' : 'text-slate-900'}`}>{pct(after)}</span>
+      <p className="text-xs font-medium text-slate-500">{label}</p>
+      <p className="mt-1 text-2xl font-semibold text-slate-900">{pct(after)}</p>
+      <p className={`mt-0.5 flex items-center gap-1 text-xs font-semibold ${improved ? 'text-emerald-700' : 'text-slate-600'}`}>
+        <Arrow className="h-3.5 w-3.5" aria-hidden="true" />
+        {improved ? 'Better' : 'Changed'}: {after < before ? 'down' : 'up'} from {pct(before)}
       </p>
+      {note && <p className="mt-1 text-[11px] text-slate-400">{note}</p>}
     </div>
   );
 }
 
-function DatasetCard({ title, subtitle, data, note }) {
-  const b0 = data.configs.B0;
-  const b3 = data.configs.B3;
+function Card({ title, subtitle, children, source }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
       <h3 className="text-lg font-bold text-slate-900">{title}</h3>
-      <p className="text-sm text-slate-500">{subtitle} · {data.n} held-out questions</p>
-      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Stat label="Wrong answers given as fact" before={b0.silent_error_rate} after={b3.silent_error_rate} />
-        <Stat label="Questions answered immediately" before={b0.coverage} after={b3.coverage} better="higher" />
-        <Stat label="Right answers wrongly withheld" before={0} after={b3.false_alarm_rate ?? 0} />
-      </div>
-      <p className="mt-3 text-sm text-slate-600">{note}</p>
+      {subtitle && <p className="text-sm text-slate-500">{subtitle}</p>}
+      <div className="mt-4">{children}</div>
+      {source && <p className="mt-3 text-[11px] text-slate-400">{source}</p>}
     </div>
   );
 }
@@ -40,18 +38,16 @@ function LearningCard({ learning }) {
   const at40 = points.find((point) => point.reviews === 40);
   if (!start || !at40) return null;
   return (
-    <div className="mt-6 grid gap-6 rounded-2xl border border-slate-200 bg-slate-50 p-6 lg:grid-cols-[1fr_1.2fr]">
+    <div className="grid gap-6 rounded-2xl border border-slate-200 bg-slate-50 p-6 lg:grid-cols-[1fr_1.2fr]">
       <div>
         <h3 className="text-lg font-bold text-slate-900">It learns from your analyst</h3>
         <p className="mt-2 text-sm text-slate-700">
-          On an unfamiliar database, the default confidence model is too sure of itself: at the default setting it would state a wrong
-          answer as fact for {pct(start.silent_error_c4)} of questions. Each answer an analyst confirms or corrects in the review queue
-          recalibrates SlayQL for that database. After {at40.reviews} reviews that falls to {pct(at40.silent_error_c4)}, because SlayQL
-          has learned to hand these questions over.
+          On an unfamiliar database the default confidence is too sure of itself: at the default setting it would state a wrong answer as
+          fact for {pct(start.silent_error_c4)} of questions. Each answer an analyst confirms or corrects recalibrates SlayQL for that database.
+          After {at40.reviews} reviews that falls to {pct(at40.silent_error_c4)}, because SlayQL has learned which questions to hand over.
         </p>
         <p className="mt-2 text-xs text-slate-500">
           BIRD Mini-Dev, {learning.test} held-out questions; reviews drawn at random from the other half, averaged over {learning.repeats} orders.
-          Learning only from hand-offs, which is what analysts mostly see, gets there more slowly.
         </p>
       </div>
       <div className="h-56">
@@ -61,7 +57,7 @@ function LearningCard({ learning }) {
             <XAxis dataKey="reviews" type="number" domain={[0, 'dataMax']} tick={{ fontSize: 11, fill: '#64748b' }} label={{ value: 'Answers reviewed by an analyst', position: 'insideBottom', offset: -10, fontSize: 12 }} />
             <YAxis domain={[0, 'auto']} tickFormatter={(v) => `${Math.round(v * 100)}%`} width={45} tick={{ fontSize: 11, fill: '#64748b' }} />
             <Tooltip formatter={(v) => pct(v)} labelFormatter={(v) => `${v} reviews`} />
-            <Line type="monotone" dataKey="silent_error_c4" name="Wrong answers given as fact" stroke="#4f46e5" strokeWidth={2} dot={{ r: 3 }} />
+            <Line type="monotone" dataKey="silent_error_c4" name="Wrong answers given as fact" stroke="#4338ca" strokeWidth={2} dot={{ r: 4 }} />
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -70,87 +66,109 @@ function LearningCard({ learning }) {
 }
 
 export default function TrustResultsSection() {
-  const [summary, setSummary] = useState(null);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    fetchEvalSummary().then(setSummary).catch((err) => setError(err.message));
-  }, []);
-
-  const trap = summary?.datasets?.trap;
+  const { summary, error } = useResearchSummary();
+  const h = summary?.highlights || {};
   const bird = summary?.datasets?.bird;
   const baseRisk = bird ? bird.configs.B0.selective_risk : null;
-  const top20 = bird?.risk_coverage?.find((point) => point.coverage >= 0.2);
+  const loops = h.human_loop || {};
+
+  const rows = [
+    h.trap && { label: 'Business trap set', detail: `${h.trap.n} questions with known traps`, before: h.trap.before, after: h.trap.after, source: `${h.trap.source} · ${h.trap.model}` },
+    h.distributor && { label: 'Malaysian distributor', detail: `${h.distributor.n} AutoCount-style questions`, before: h.distributor.before, after: h.distributor.after, source: `${h.distributor.source} · ${h.distributor.model}` },
+    h.bird && { label: 'BIRD public benchmark', detail: `${h.bird.n} held-out questions, lenient setting`, before: h.bird.before, after: h.bird.after, source: `${h.bird.source} · ${h.bird.model}` },
+    h.learning && { label: 'BIRD after 40 reviews', detail: 'default setting, learning from the analyst', before: h.learning.start, after: h.learning.after_40, source: h.learning.source },
+  ].filter(Boolean);
 
   return (
     <section id="results" className="border-t border-slate-200 bg-white py-16 lg:py-24">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-        <div className="text-center">
-          <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600">Measured, not claimed</p>
-          <h2 className="mt-2 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">How often is the answer silently wrong?</h2>
-          <p className="mx-auto mt-3 max-w-2xl text-lg text-slate-500">
-            Each figure compares the plain pipeline with SlayQL's trust layer on the same generated queries, scored against known answers.
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div>
+          <p className="text-sm font-medium text-indigo-700">Measured, not claimed</p>
+          <h2 className="mt-3 text-3xl font-semibold tracking-[-0.03em] text-slate-950 sm:text-5xl">How often is the answer silently wrong?</h2>
+          <p className="mt-4 max-w-2xl text-lg text-slate-600">
+            Each figure compares the plain AI pipeline with SlayQL on the same generated queries, scored against known answers.
           </p>
         </div>
 
         {error && <p className="mt-8 text-center text-sm text-slate-500">Results are not available right now.</p>}
 
-        <div className="mt-10 grid gap-6 lg:grid-cols-2">
-          {trap && (
-            <DatasetCard
-              title="Business trap set"
-              subtitle="Our questions on the demo company: double counting, cancelled orders, dates, Bahasa Malaysia"
-              data={trap}
-              note={`Draft set written by the team; results will be re-run after independent review.${trap.configs.B3.wrong_answers ? ' The remaining wrong answer is a question the data cannot answer, which SlayQL does not yet detect.' : ''}`}
-            />
-          )}
+        <div className="mt-10 space-y-6">
+          <ResultsDumbbell rows={rows} />
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            {h.starter_pack && (
+              <Card
+                title="Approve the meaning once, answer more"
+                subtitle="Malaysian distributor questions with the AutoCount starter pack approved"
+                source={`${h.starter_pack.source} · ${h.starter_pack.model}`}
+              >
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <Change label="Questions answered" before={h.starter_pack.answered_before} after={h.starter_pack.answered_after} better="higher" />
+                  <Change label="Right answers held back" before={h.starter_pack.held_back_before} after={h.starter_pack.held_back_after} />
+                  {h.starter_pack.profile_answered !== null && (
+                    <Change label="Answered with the data profile" before={h.starter_pack.answered_before} after={h.starter_pack.profile_answered} better="higher" note="real codes and date ranges shown to the model" />
+                  )}
+                </div>
+              </Card>
+            )}
+            {(loops.trap || loops.distributor_pack) && (
+              <Card
+                title="With a person in the loop"
+                subtitle="A second model plays the person who asked and the analyst, who never sees the answer key"
+                source={`Simulated, not observed · ${(loops.trap || loops.distributor_pack).human_model}`}
+              >
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {loops.trap && (
+                    <Change label="Business trap set, ends correct" before={loops.trap.correct_without} after={loops.trap.correct_with} better="higher" note={`a person needed on ${pct(loops.trap.needed_person)}`} />
+                  )}
+                  {loops.distributor_pack && (
+                    <Change label="Distributor + starter pack, ends correct" before={loops.distributor_pack.correct_without} after={loops.distributor_pack.correct_with} better="higher" note={`a person needed on ${pct(loops.distributor_pack.needed_person)}`} />
+                  )}
+                </div>
+                {loops.trap?.clarify_picks !== null && loops.trap?.clarify_picks !== undefined && (
+                  <p className="mt-3 text-sm text-slate-600">
+                    When a question had two meanings, the simulated user picked the option giving the meaning they intended {pct(loops.trap.clarify_picks, 0)} of the time.
+                  </p>
+                )}
+              </Card>
+            )}
+          </div>
+
           {bird && (
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
-              <h3 className="text-lg font-bold text-slate-900">BIRD Mini-Dev (public benchmark)</h3>
-              <p className="text-sm text-slate-500">Hard questions on 11 unfamiliar databases, asked without hints · {bird.n} held-out questions</p>
-              <p className="mt-3 text-sm text-slate-700">
-                Here the model is usually wrong: {pct(bird.configs.B0.selective_risk)} of its answers are incorrect.
-                SlayQL's confidence ranks answers well (calibration error {bird.ece}), but never reaches 80%, so at the default setting it answers nothing rather than guess.
-                {top20 && ` Its most confident 20% of answers are wrong ${pct(top20.risk)} of the time.`}
-                {bird.configs.B3_c1 && ` At a lenient setting (answer when at least 50% confident) it answers ${pct(bird.configs.B3_c1.coverage)} of questions and gives a wrong answer as fact on ${pct(bird.configs.B3_c1.silent_error_rate)} of all questions, against ${pct(bird.configs.B0.silent_error_rate)} for the plain pipeline.`}
-              </p>
-              <div className="mt-4 h-56">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={bird.risk_coverage} margin={{ top: 5, right: 10, bottom: 20, left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                    <XAxis dataKey="coverage" type="number" domain={[0, 1]} tickFormatter={(v) => `${Math.round(v * 100)}%`} label={{ value: 'Share of questions answered', position: 'insideBottom', offset: -10, fontSize: 12 }} />
-                    <YAxis domain={[0, 1]} tickFormatter={(v) => `${Math.round(v * 100)}%`} width={45} />
-                    <Tooltip formatter={(v) => pct(v)} labelFormatter={(v) => `Answering ${pct(v)}`} />
-                    {baseRisk !== null && <ReferenceLine y={baseRisk} stroke="#f43f5e" strokeDasharray="4 4" label={{ value: 'Plain pipeline', fontSize: 11, fill: '#f43f5e', position: 'insideTopRight' }} />}
-                    <Line type="monotone" dataKey="risk" name="Wrong among answered" stroke="#4f46e5" strokeWidth={2} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
+            <Card
+              title="On a hard public benchmark, it declines to guess"
+              subtitle={`BIRD Mini-Dev: 11 unfamiliar databases, asked without hints · ${bird.n} held-out questions`}
+              source={`results/bird.json · ${bird.model}`}
+            >
+              <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
+                <p className="text-sm text-slate-700">
+                  Here the model is usually wrong: {pct(bird.configs.B0.selective_risk)} of its answers are incorrect. SlayQL's confidence ranks
+                  answers well (calibration error {bird.ece}) but never reaches 80%, so at the default setting it answers nothing rather than guess.
+                  {bird.configs.B3_c1 && ` At a lenient setting it answers ${pct(bird.configs.B3_c1.coverage)} of questions and states a wrong answer as fact on ${pct(bird.configs.B3_c1.silent_error_rate)} of all questions, against ${pct(bird.configs.B0.silent_error_rate)} for the plain pipeline.`}
+                </p>
+                <div className="h-56">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={bird.risk_coverage} margin={{ top: 5, right: 10, bottom: 20, left: 0 }}>
+                      <CartesianGrid vertical={false} stroke="#e2e8f0" />
+                      <XAxis dataKey="coverage" type="number" domain={[0, 1]} tickFormatter={(v) => `${Math.round(v * 100)}%`} tick={{ fontSize: 11, fill: '#64748b' }} label={{ value: 'Share of questions answered', position: 'insideBottom', offset: -10, fontSize: 12 }} />
+                      <YAxis domain={[0, 1]} tickFormatter={(v) => `${Math.round(v * 100)}%`} width={45} tick={{ fontSize: 11, fill: '#64748b' }} />
+                      <Tooltip formatter={(v) => pct(v)} labelFormatter={(v) => `Answering ${pct(v)}`} />
+                      {baseRisk !== null && <ReferenceLine y={baseRisk} stroke="#94a3b8" strokeDasharray="4 4" label={{ value: 'Plain pipeline', fontSize: 11, fill: '#64748b', position: 'insideTopRight' }} />}
+                      <Line type="monotone" dataKey="risk" name="Wrong among answered" stroke="#4338ca" strokeWidth={2} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
-            </div>
+            </Card>
           )}
+
+          {summary?.learning && <LearningCard learning={summary.learning} />}
+
+          <p className="text-center text-xs text-slate-400">
+            Test sets: business trap set and distributor set written by the team (invented data); BIRD is public. The person in the loop is simulated by
+            a second model. Every figure comes from backend/eval/results; details and limits in the project report.
+          </p>
         </div>
-
-        {summary?.learning && <LearningCard learning={summary.learning} />}
-
-        <div className="mt-8 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
-          <p className="font-semibold">Why accuracy alone was not enough</p>
-          <p className="mt-1">
-            SlayQL's schema-retrieval engine answered 251 of 547 Spider 2.0-Lite enterprise questions correctly (45.89%), so more than half of its
-            answers on large real-world schemas were wrong. With the same model on 178 questions it scored 40.4% against 39.9% for the AutoLink
-            baseline, which is no meaningful difference.
-          </p>
-          <p className="mt-2">
-            The errors are not mainly about finding the right tables. On BIRD dev, a correct query was among SlayQL's five candidates for 68.77% of
-            questions, but it picked that query for only 56.19%. The weak step is deciding which answer to trust, which is what this project addresses.
-          </p>
-          <p className="mt-2 text-xs text-amber-800/80">Source: C-CaSE research runs (run/log_spider2_full_slayql, run/bird_dev_v18_full), deepseek-v4-flash.</p>
-        </div>
-
-        {(trap || bird) && (
-          <p className="mt-4 text-center text-xs text-slate-400">
-            Model {(bird || trap).model} · commit {(bird || trap).commit} · evaluated {new Date((bird || trap).evaluated_at).toLocaleDateString()} · source: backend/eval/results
-          </p>
-        )}
       </div>
     </section>
   );

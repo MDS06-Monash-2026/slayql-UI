@@ -1,143 +1,70 @@
-import React, { useState, useEffect } from 'react';
-import {
-  BarChart3, PlayCircle, Network, CheckCircle2, ArrowRight, GitBranch } from 'lucide-react';
+import React from 'react';
+import { ArrowRight, BarChart3, GraduationCap } from 'lucide-react';
+import { PROJECT } from '../content/projectInfo';
 
+// Full-bleed campus image with the question-to-answer story (generated for this project).
+// Desktop: text sits bottom-left over a light scrim so the ribbon (top-left) and the
+// checked answer (top-right) stay visible. Mobile: image on top, text below.
 export default function Hero({ setView }) {
-  const [typedText, setTypedText] = useState('');
-  const [showTrace, setShowTrace] = useState(false);
-
-  const queryText = '"How many IoT-related patent applications were filed each month between 2008 and 2022?"';
-
-  useEffect(() => {
-    let index = 0;
-    const interval = setInterval(() => {
-      setTypedText(queryText.slice(0, ++index));
-      if (index >= queryText.length) {
-        clearInterval(interval);
-        setTimeout(() => setShowTrace(true), 500);
-      }
-    }, 32);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  const handleDemoClick = (e) => {
-    e.preventDefault();
-    if (setView) setView('demo');
-  };
-
-  const handleArchClick = (e) => {
+  const scrollToResults = (e) => {
     e.preventDefault();
     const target = document.getElementById('results');
-    if (target) {
-      const offset = 72;
-      const top = target.getBoundingClientRect().top + window.scrollY - offset;
-      window.scrollTo({ top, behavior: 'smooth' });
-    }
+    if (target) window.scrollTo({ top: target.getBoundingClientRect().top + window.scrollY - 72, behavior: 'smooth' });
   };
 
   return (
-    <section id="hero" className="relative pt-20 pb-16 lg:pt-28 lg:pb-20 overflow-hidden">
-      <div className="hero-grid-bg absolute inset-0 pointer-events-none"></div>
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[600px] bg-gradient-to-b from-indigo-50/80 via-blue-50/40 to-transparent rounded-full blur-3xl pointer-events-none"></div>
+    <section id="hero" className="relative overflow-hidden bg-white pt-16 lg:flex lg:min-h-[100dvh] lg:items-end lg:pt-0">
+      <div className="relative h-[40dvh] min-h-[240px] lg:absolute lg:inset-0 lg:h-auto">
+        <picture>
+          <source media="(max-width: 1023px)" srcSet="/landing/hero-section-960.webp" />
+          <img
+            src="/landing/hero-section.webp"
+            width="1916"
+            height="821"
+            fetchPriority="high"
+            alt="Monash University Malaysia campus at sunrise. A question flows in as a ribbon of light, passes through data tables and two checkpoints, and ends as an answer with a check mark."
+            className="hero-image-in h-full w-full object-cover object-[70%_50%] lg:object-[58%_30%]"
+          />
+        </picture>
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 hidden bg-[linear-gradient(18deg,#ffffff_0%,rgba(255,255,255,0.9)_30%,rgba(255,255,255,0.35)_48%,rgba(255,255,255,0)_62%)] lg:block" />
+        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white to-transparent lg:h-28" />
+      </div>
 
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-5xl mx-auto">
-
-          <p className="text-sm sm:text-base font-medium text-slate-500 mb-4 tracking-wide uppercase">
-            Trustworthy AI answers from your company's data
+      <div className="relative mx-auto w-full max-w-7xl px-4 pb-14 pt-6 sm:px-6 lg:px-8 lg:pb-24 lg:pt-24">
+        <div className="max-w-[46rem]">
+          <p className="hero-rise inline-flex items-center gap-2 text-sm font-medium text-indigo-700">
+            <GraduationCap className="h-4 w-4" aria-hidden="true" />
+            {PROJECT.institution} Final Year Project
           </p>
 
-          {/* Headline */}
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.08] mb-6">
+          <h1 className="hero-rise hero-rise-1 mt-4 text-[2.5rem] font-semibold leading-[1.04] tracking-[-0.035em] text-slate-950 text-balance sm:text-6xl lg:text-[4.25rem]">
             Ask your data anything.
-            <span className="relative">
-              <span className="hero-gradient-text block sm:inline"> Know when not to trust it.</span>
-              <span className="hero-underline-svg absolute -bottom-2 left-0 right-0 hidden sm:block"></span>
-            </span>
+            <span className="block text-indigo-600">Know when to trust it.</span>
           </h1>
 
-          {/* Subheadline */}
-          <p className="mt-6 text-lg sm:text-xl text-slate-500 max-w-3xl mx-auto leading-relaxed font-light">
-            SlayQL answers questions from your company's data, and tells you when not to trust the answer. Every answer is checked for double counting, silently included cancelled records and dates outside the data. Unclear questions get a clarifying question with both numbers, and uncertain answers go to an analyst with the evidence attached.
+          <p className="hero-rise hero-rise-2 mt-6 max-w-[34rem] text-lg leading-relaxed text-slate-600 sm:text-xl">
+            SlayQL answers business questions in English or Bahasa Malaysia, checks every answer against your data, and says when it is unsure.
           </p>
 
-          {/* CTAs */}
-          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <button onClick={handleDemoClick} className="group inline-flex items-center gap-2 px-7 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-base rounded-xl shadow-xl shadow-indigo-200 hover:shadow-indigo-300 transition-all duration-200">
-              <PlayCircle className="w-4 h-4" />
-              Try Live Demo
-              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+          <div className="hero-rise hero-rise-3 mt-9 flex flex-col gap-3 sm:flex-row">
+            <button
+              type="button"
+              onClick={() => setView && setView('demo')}
+              className="group inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-indigo-600 px-6 py-3.5 text-base font-semibold text-white shadow-[0_12px_32px_-12px_rgba(67,56,202,0.75)] transition duration-200 hover:bg-indigo-700 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+            >
+              Try the demo
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
             </button>
-            <button onClick={handleArchClick} className="group inline-flex items-center gap-2 px-7 py-3.5 bg-white hover:bg-slate-50 text-slate-800 font-semibold text-base rounded-xl border border-slate-200 shadow-md hover:shadow-lg transition-all duration-200">
-              <BarChart3 className="w-4 h-4 text-indigo-600" />
+            <a
+              href="#results"
+              onClick={scrollToResults}
+              className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-slate-200 bg-white/80 px-6 py-3.5 text-base font-semibold text-slate-800 backdrop-blur transition duration-200 hover:border-slate-300 hover:bg-white active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+            >
+              <BarChart3 className="h-4 w-4 text-indigo-600" aria-hidden="true" />
               See the results
-            </button>
-          </div>
-
-          {/* Powered by */}
-          <div className="mt-12 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-slate-500">
-            <div className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              Checks every answer
-            </div>
-            <div className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              Asks when a question is ambiguous
-            </div>
-            <div className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              Hands uncertain answers to an analyst
-            </div>
-            <div className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              English and Bahasa Malaysia
-            </div>
+            </a>
           </div>
         </div>
-
-        {/* Hero Terminal Preview */}
-        <div className="mt-16 max-w-4xl mx-auto hero-terminal-wrapper">
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-200/60 overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-200">
-              <div className="flex gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-rose-400"></div>
-                <div className="w-3 h-3 rounded-full bg-amber-400"></div>
-                <div className="w-3 h-3 rounded-full bg-emerald-400"></div>
-              </div>
-              <span className="text-xs font-medium text-slate-500 font-mono">slayql — interactive workspace</span>
-              <div className="flex items-center gap-1 text-xs text-emerald-600 font-medium">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </span>
-                Live
-              </div>
-            </div>
-
-            <div className="p-5 lg:p-6 bg-slate-950 font-mono text-sm">
-              <div className="flex items-start gap-3 mb-4">
-                <span className="text-slate-500 select-none mt-0.5">›</span>
-                <div>
-                  <span className="text-slate-400">Natural language query:</span>
-                  <div className="text-indigo-300 mt-1 min-h-[1.5em] typewriter-cursor">
-                    {typedText}
-                  </div>
-                </div>
-              </div>
-
-              {showTrace && (
-                <div className="transition-all duration-500 animate-fade-in-up border-t border-slate-800 pt-4 mt-2 space-y-1.5 text-xs">
-                  <div className="flex items-center gap-2 text-emerald-400"><span>✓</span><span>Retrieved relevant schema — publications.abstract_localized</span></div>
-                  <div className="flex items-center gap-2 text-blue-400"><Network className="w-3 h-3" /><span>Graph reasoning activated — publications → patent_metadata → technology_category</span></div>
-                  <div className="flex items-center gap-2 text-indigo-300"><span>✓</span><span>Value grounding — "internet of things" matched in abstract_localized</span></div>
-                  <div className="flex items-center gap-2 text-slate-300"><span>✓</span><span>SQL generated and executed</span></div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
       </div>
     </section>
   );

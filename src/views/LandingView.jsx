@@ -4,11 +4,16 @@ import Hero from '../components/Hero';
 import EngineWorkspace from '../components/EngineWorkspace';
 
 import ArchitectureSection from '../components/ArchitectureSection';
-import BentoGrid from '../components/BentoGrid';
 import TrustResultsSection from '../components/TrustResultsSection';
 import DatabaseConnectors from '../components/DatabaseConnectors';
 import Footer from '../components/Footer';
-import { Github } from 'lucide-react';
+import TwoLayersSection from '../components/landing/TwoLayersSection';
+import NoveltySection from '../components/landing/NoveltySection';
+import MalaysiaSection from '../components/landing/MalaysiaSection';
+import ProjectSection, { VoicesSection } from '../components/landing/ProjectSection';
+import HeroStats from '../components/landing/HeroStats';
+import { PROJECT } from '../content/projectInfo';
+import { ArrowRight, Github } from 'lucide-react';
 
 export default function LandingView({ setView, onDatabaseConnect }) {
   /* Global scroll-reveal for any section using .reveal that doesn't
@@ -24,59 +29,82 @@ export default function LandingView({ setView, onDatabaseConnect }) {
 
   return (
     <div className="page-root min-h-screen bg-white">
+      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-indigo-700 focus:shadow-lg">
+        Skip to content
+      </a>
       <Navbar setView={setView} currentView="landing" />
 
-      {/* Hero */}
-      <Hero setView={setView} />
+      <main id="main">
+        <Hero setView={setView} />
 
-      {/* Unified Engine + Live Workspace */}
-      <EngineWorkspace />
+        {/* Headline results, directly under the hero */}
+        <HeroStats />
 
+        {/* What is new: asymmetric bento */}
+        <NoveltySection />
 
+        {/* Research + software: one system, two layers */}
+        <TwoLayersSection />
 
-      {/* Feature Grid — 4-col vertical cards */}
-      <BentoGrid />
+        {/* Unified Engine + Live Workspace */}
+        <EngineWorkspace />
 
-      {/* Interactive Architecture */}
-      <ArchitectureSection />
+        {/* Interactive Architecture */}
+        <ArchitectureSection />
 
-      {/* Measured results from backend/eval/results */}
-      <TrustResultsSection />
+        {/* Measured results from backend/eval/results */}
+        <TrustResultsSection />
 
-      {/* Database Connectors */}
-      <DatabaseConnectors onConnected={(dbName) => {
-        if (onDatabaseConnect) onDatabaseConnect(dbName);
-      }} />
+        {/* Malaysian fit and the weekly pack */}
+        <MalaysiaSection />
 
-      {/* CTA Section */}
-      <section className="py-16 bg-gradient-to-br from-indigo-600 via-blue-600 to-indigo-700 relative overflow-hidden">
-        <div className="cta-grid-overlay absolute inset-0 pointer-events-none opacity-10" />
-        <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight mb-4 animate-fade-in-up">
-            Try SlayQL on Your Own Questions.
-          </h2>
-          <p className="text-xl text-indigo-200 mb-10 max-w-2xl mx-auto font-light">
-            Explore the interactive workspace, read the architecture, or dig into the code and evaluation pipeline on GitHub.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <button
-              onClick={() => setView('demo')}
-              className="inline-flex items-center gap-2 px-8 py-4 bg-white hover:bg-slate-50 text-indigo-700 font-bold text-base rounded-xl transition-all shadow-2xl"
-            >
-              Try Live Demo
-            </button>
-            <a
-              href="https://github.com/MDS06-Monash-2026/C-CaSE"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-8 py-4 bg-transparent hover:bg-white/10 text-white font-semibold text-base rounded-xl border border-white/30 transition-all"
-            >
-              <Github className="w-4 h-4" />
-              View on GitHub
-            </a>
+        {/* Interview quotes (hidden until real quotes are added) */}
+        <VoicesSection />
+
+        {/* Database Connectors */}
+        <DatabaseConnectors onConnected={(dbName) => {
+          if (onDatabaseConnect) onDatabaseConnect(dbName);
+        }} />
+
+        {/* Monash University Malaysia FYP */}
+        <ProjectSection />
+
+        {/* Closing call to action: the answer end of the hero image as a bookend */}
+        <section className="bg-white px-4 pb-20 sm:px-6 lg:px-8 lg:pb-28">
+          <div className="relative mx-auto max-w-7xl overflow-hidden rounded-3xl border border-slate-200">
+            <img
+              src="/landing/hero-section-960.webp"
+              alt=""
+              loading="lazy"
+              className="absolute inset-0 h-full w-full object-cover object-[92%_12%]"
+            />
+            <div aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(90deg,#ffffff_0%,rgba(255,255,255,0.92)_45%,rgba(255,255,255,0.2)_80%)]" />
+            <div className="relative max-w-xl px-6 py-14 sm:px-12 lg:py-20">
+              <h2 className="text-3xl font-semibold tracking-[-0.03em] text-slate-950 sm:text-5xl">Try it on your own questions.</h2>
+              <p className="mt-4 text-lg text-slate-600">Ask the demo database anything, or read the code and every evaluation on GitHub.</p>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => setView('demo')}
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-indigo-600 px-6 py-3.5 text-base font-semibold text-white shadow-[0_12px_32px_-12px_rgba(67,56,202,0.75)] transition hover:bg-indigo-700 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+                >
+                  Try the demo
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </button>
+                <a
+                  href={PROJECT.appRepo}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-slate-200 bg-white px-6 py-3.5 text-base font-semibold text-slate-800 transition hover:border-slate-300 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+                >
+                  <Github className="h-4 w-4" aria-hidden="true" />
+                  View on GitHub
+                </a>
+              </div>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      </main>
 
       <Footer setView={setView} />
     </div>

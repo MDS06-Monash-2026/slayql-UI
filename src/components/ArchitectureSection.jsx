@@ -43,10 +43,10 @@ const ARCH_NODES = [
     telemetry: [
       { label: 'Embedding dims', value: '1024', unit: 'dims', icon: Layers },
       { label: 'Latency', value: '38', unit: 'ms', icon: Clock },
-      { label: 'Candidate cols', value: '12–40', unit: 'cols', icon: Database },
+      { label: 'Candidate cols', value: '12-40', unit: 'cols', icon: Database },
       { label: 'Recall@10', value: '91.4', unit: '%', icon: CheckCircle2 },
     ],
-    description: '• BGE-Large dense vector embeddings\n• Cosine similarity over all schema columns\n• Returns top 12–40 candidate columns ranked by semantic proximity',
+    description: '• BGE-Large dense vector embeddings\n• Cosine similarity over all schema columns\n• Returns top 12-40 candidate columns ranked by semantic proximity',
     dataFlow: ['NL Input', 'BGE-Large Encoder', 'Graph Reasoner'],
   },
   {
@@ -81,7 +81,7 @@ const ARCH_NODES = [
     telemetry: [
       { label: 'Index size', value: '2.1', unit: 'GB', icon: Database },
       { label: 'BM25 latency', value: '22', unit: 'ms', icon: Clock },
-      { label: 'Value matches', value: '1–3', unit: '/query', icon: Target },
+      { label: 'Value matches', value: '1-3', unit: '/query', icon: Target },
       { label: 'Precision', value: '94.7', unit: '%', icon: CheckCircle2 },
     ],
     description: '• BM25 inverted index over all column values\n• Maps string literals → exact table-column location\n• Prevents hallucinated column references',
@@ -103,7 +103,7 @@ const ARCH_NODES = [
       { label: 'Token savings', value: '31', unit: '%', icon: Cpu },
       { label: 'Latency', value: '420', unit: 'ms', icon: Clock },
     ],
-    description: '• LLM requests additional schema context turn-by-turn\n• IT-EE monitors schema-candidate stability\n• Exits early once relevant columns stabilise — saves tokens',
+    description: '• LLM requests additional schema context turn-by-turn\n• IT-EE monitors schema-candidate stability\n• Exits early once relevant columns stabilise, saving tokens',
     dataFlow: ['Value Grounding', 'Schema Refinement Loop', 'SQL Compiler'],
   },
   {
@@ -122,7 +122,7 @@ const ARCH_NODES = [
       { label: 'Retry rate', value: '2.8', unit: '%', icon: Activity },
       { label: 'Avg SQL length', value: '14', unit: 'lines', icon: FileCheck2 },
     ],
-    description: '• Enforces Strict Output Contracts (QOC)\n• SQL must appear in a single fenced code block\n• Rejects & retries conversational output — eliminates silent parse failures',
+    description: '• Enforces Strict Output Contracts (QOC)\n• SQL must appear in a single fenced code block\n• Rejects & retries conversational output, which eliminates silent parse failures',
     dataFlow: ['Agentic Explorer', 'LLM (GPT-4o) + QOC', 'Execution Voter'],
   },
   {
@@ -476,15 +476,8 @@ export default function ArchitectureSection() {
 
         {/* Header */}
         <div className="text-center mb-12 reveal">
-          <div className="inline-flex items-center gap-2 px-3 py-1 mb-4 rounded-full border border-indigo-200 bg-indigo-50 text-indigo-700 text-xs font-semibold uppercase tracking-wider">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-500 opacity-60" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-600" />
-            </span>
-            Architecture
-          </div>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-slate-900">
-            How SlayQL Works
+          <h2 className="text-3xl sm:text-5xl font-semibold tracking-[-0.03em] text-slate-950">
+            Inside the pipeline
           </h2>
           <p className="mt-3 text-lg text-slate-500 max-w-2xl mx-auto">
             Click any system node to explore real-time telemetry, data flow pathways, and operational details.

@@ -159,7 +159,7 @@ function ReasoningPanel() {
     'Schema context assembled (4 tables, 14 cols)',
     'RBP graph: publications → patent_metadata',
     'BM25 value hint injected into prompt',
-    'LLM inference (GPT-4o) — QOC-constrained',
+    'LLM inference, QOC-constrained',
     'SQL parsed from single fenced block ✓',
     'Candidate execution: 3/3 consistent',
   ];
@@ -193,7 +193,7 @@ LIMIT 6;`;
       </div>
       <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
         <p className="text-[10px] font-semibold text-emerald-700 flex items-center gap-1.5 mb-2">
-          <ShieldCheck className="w-3 h-3" /> QOC Guardrails — All Passed
+          <ShieldCheck className="w-3 h-3" /> QOC guardrails: all passed
         </p>
         <div className="grid grid-cols-2 gap-1.5">
           {['Single fenced block','No conversational text','Valid SQL syntax','Schema-grounded cols'].map((g) => (
@@ -371,18 +371,11 @@ export default function EngineWorkspace() {
 
         {/* Section header */}
         <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 mb-4 rounded-full border border-indigo-200 bg-indigo-50 text-indigo-700 text-xs font-semibold uppercase tracking-wider">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-500 opacity-60" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-600" />
-            </span>
-            Core Engine · Live Workspace
-          </div>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-slate-900">
-            See the Pipeline in Action
+          <h2 className="text-3xl sm:text-5xl font-semibold tracking-[-0.03em] text-slate-950">
+            Watch a question become a checked answer
           </h2>
           <p className="mt-3 text-lg text-slate-500 max-w-2xl mx-auto">
-            Explore each stage of SlayQL's cognitive engine — then run a query and watch the full pipeline execute live.
+            Explore each stage of the engine, then run a query and watch the full pipeline execute live.
           </p>
         </div>
 

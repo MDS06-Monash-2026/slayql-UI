@@ -58,15 +58,11 @@ export default function DatabaseConnectors({ onConnected }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         <div className="text-center mb-14">
-          <div className="inline-flex items-center gap-2 px-3 py-1 mb-4 rounded-full border border-slate-300 bg-white text-slate-600 text-xs font-semibold uppercase tracking-wider shadow-sm">
-            <span className="inline-block w-2 h-2 rounded-full bg-slate-400"></span>
-            Integration
-          </div>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-slate-900">
-            Connect Your Database
+          <h2 className="text-3xl sm:text-5xl font-semibold tracking-[-0.03em] text-slate-950">
+            Connect your database
           </h2>
           <p className="mt-4 text-lg text-slate-500 max-w-2xl mx-auto">
-            Schema indexing happens automatically once a connection is established — no manual mapping required.
+            Schema indexing starts as soon as a connection is made. No manual mapping.
           </p>
         </div>
 

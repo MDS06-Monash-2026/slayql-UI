@@ -40,28 +40,28 @@ export default function Navbar({ setView, currentView }) {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-lg font-bold tracking-tight text-slate-900">SlayQL</span>
-                <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700 text-[11px] font-semibold tracking-wide uppercase">Live Demo</span>
               </div>
             </div>
 
             {/* Desktop Navigation Links */}
             <nav className="hidden lg:flex items-center gap-1" role="navigation" aria-label="Main navigation">
-              <a href="#workspace" onClick={(e) => handleNavClick('workspace', e)} className="nav-link px-3.5 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all duration-150">Workspace</a>
-              <a href="#architecture" onClick={(e) => handleNavClick('architecture', e)} className="nav-link px-3.5 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all duration-150">Architecture</a>
-              <a href="#features" onClick={(e) => handleNavClick('features', e)} className="nav-link px-3.5 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all duration-150">Features</a>
-              <a href="#results" onClick={(e) => handleNavClick('results', e)} className="nav-link px-3.5 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all duration-150">Results</a>
-              <a href="#connectors" onClick={(e) => handleNavClick('connectors', e)} className="nav-link px-3.5 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all duration-150">Connectors</a>
+              <a href="#novelty" onClick={(e) => handleNavClick('novelty', e)} className="nav-link px-3.5 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">What's new</a>
+              <a href="#how-it-works" onClick={(e) => handleNavClick('how-it-works', e)} className="nav-link px-3.5 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">How it works</a>
+              <a href="#workspace" onClick={(e) => handleNavClick('workspace', e)} className="nav-link px-3.5 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">Workspace</a>
+              <a href="#results" onClick={(e) => handleNavClick('results', e)} className="nav-link px-3.5 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">Results</a>
+              <a href="#malaysia" onClick={(e) => handleNavClick('malaysia', e)} className="nav-link px-3.5 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">Malaysia</a>
+              <a href="#about" onClick={(e) => handleNavClick('about', e)} className="nav-link px-3.5 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">About</a>
             </nav>
 
             {/* Action Buttons */}
             <div className="flex items-center gap-2">
               {currentView === 'landing' ? (
                 <>
-                  <a href="https://github.com/MDS06-Monash-2026/C-CaSE" target="_blank" rel="noopener noreferrer" className="hidden sm:inline-flex items-center px-4 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all duration-150">
+                  <a href="https://github.com/MDS06-Monash-2026/slayql-UI" target="_blank" rel="noopener noreferrer" className="hidden sm:inline-flex items-center px-4 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all duration-150">
                     GitHub
                   </a>
                   <button onClick={() => setView('demo')} className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg transition-all duration-150 shadow-md shadow-indigo-200 hover:shadow-indigo-300">
-                    <span>Try Live Demo</span>
+                    <span>Try the demo</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 </>
@@ -76,6 +76,8 @@ export default function Navbar({ setView, currentView }) {
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)} 
                 className="lg:hidden p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all"
                 aria-label="Toggle mobile menu"
+                aria-expanded={mobileMenuOpen}
+                aria-controls="mobile-menu"
               >
                 {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </button>
@@ -88,17 +90,18 @@ export default function Navbar({ setView, currentView }) {
         {mobileMenuOpen && (
           <div id="mobile-menu" className="lg:hidden border-t border-slate-200/60 bg-white/95 backdrop-blur-md">
             <div className="px-4 py-3 space-y-1">
+              <a href="#novelty" onClick={(e) => handleNavClick('novelty', e)} className="block px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all">What's new</a>
+              <a href="#how-it-works" onClick={(e) => handleNavClick('how-it-works', e)} className="block px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all">How it works</a>
               <a href="#workspace" onClick={(e) => handleNavClick('workspace', e)} className="block px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all">Workspace</a>
-              <a href="#architecture" onClick={(e) => handleNavClick('architecture', e)} className="block px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all">Architecture</a>
-              <a href="#features" onClick={(e) => handleNavClick('features', e)} className="block px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all">Features</a>
               <a href="#results" onClick={(e) => handleNavClick('results', e)} className="block px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all">Results</a>
-              <a href="#connectors" onClick={(e) => handleNavClick('connectors', e)} className="block px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all">Connectors</a>
+              <a href="#malaysia" onClick={(e) => handleNavClick('malaysia', e)} className="block px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all">Malaysia</a>
+              <a href="#about" onClick={(e) => handleNavClick('about', e)} className="block px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all">About</a>
 
               <div className="pt-2 flex flex-col gap-2">
                 {currentView === 'landing' ? (
                   <>
-                    <a href="https://github.com/MDS06-Monash-2026/C-CaSE" target="_blank" rel="noopener noreferrer" className="w-full text-center px-4 py-2 text-sm font-medium text-slate-700 border border-slate-200 rounded-lg hover:bg-slate-50">GitHub</a>
-                    <button onClick={() => { setView('demo'); setMobileMenuOpen(false); }} className="w-full px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700">Try Live Demo</button>
+                    <a href="https://github.com/MDS06-Monash-2026/slayql-UI" target="_blank" rel="noopener noreferrer" className="w-full text-center px-4 py-2 text-sm font-medium text-slate-700 border border-slate-200 rounded-lg hover:bg-slate-50">GitHub</a>
+                    <button onClick={() => { setView('demo'); setMobileMenuOpen(false); }} className="w-full px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700">Try the demo</button>
                   </>
                 ) : (
                   <button onClick={() => { setView('landing'); setMobileMenuOpen(false); }} className="w-full px-4 py-2 border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50">Back to Landing</button>

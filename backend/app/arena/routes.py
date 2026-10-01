@@ -160,7 +160,78 @@ def eval_summary() -> Dict[str, Any]:
                 for point in report["regimes"].get("handoffs", [])
             ],
         }
-    return {"datasets": datasets, "learning": learning}
+    return {"datasets": datasets, "learning": learning, "highlights": research_highlights()}
+
+
+def _report(name: str) -> Optional[Dict[str, Any]]:
+    path = RESULTS_DIR / f"{name}.json"
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
+
+
+def research_highlights() -> Dict[str, Any]:
+    """The landing page's headline numbers, each from one results file, split and model.
+
+    Business sets use all their questions (the published figures); BIRD uses its held-out
+    test half. Every entry names its source so the page can cite it.
+    """
+    out: Dict[str, Any] = {}
+
+    def configs(report: Dict[str, Any], split: str) -> Dict[str, Any]:
+        return report["splits"][split]["configs"]
+
+    trap = _report("trap")
+    if trap:
+        c = configs(trap, "all")
+        out["trap"] = {
+            "n": trap["splits"]["all"]["n"], "model": trap["model"], "source": "results/trap.json",
+            "before": c["B0"]["silent_error_rate"], "after": c["B3"]["silent_error_rate"],
+            "answered": c["B3"]["coverage"], "false_alarm": c["B3"].get("false_alarm_rate") or 0.0,
+        }
+    distributor = _report("distributor")
+    if distributor:
+        c = configs(distributor, "all")
+        out["distributor"] = {
+            "n": distributor["splits"]["all"]["n"], "model": distributor["model"], "source": "results/distributor.json",
+            "before": c["B0"]["silent_error_rate"], "after": c["B3"]["silent_error_rate"],
+        }
+    baseline, pack, profile = _report("distributor-luna"), _report("distributor-pack-luna"), _report("distributor-profile-luna")
+    if baseline and pack:
+        cb, cp = configs(baseline, "all")["B3"], configs(pack, "all")["B3"]
+        out["starter_pack"] = {
+            "model": pack["model"], "source": "results/distributor-pack-luna.json",
+            "answered_before": cb["coverage"], "answered_after": cp["coverage"],
+            "held_back_before": cb.get("false_alarm_rate") or 0.0, "held_back_after": cp.get("false_alarm_rate") or 0.0,
+            "profile_answered": configs(profile, "all")["B3"]["coverage"] if profile else None,
+        }
+    bird = _report("bird")
+    if bird:
+        c = configs(bird, "test")
+        out["bird"] = {
+            "n": bird["splits"]["test"]["n"], "model": bird["model"], "source": "results/bird.json",
+            "before": c["B0"]["silent_error_rate"], "after": c["B3_c1"]["silent_error_rate"], "answered": c["B3_c1"]["coverage"],
+        }
+    learning = _report("learning-bird")
+    if learning:
+        points = {p["reviews"]: p for p in learning["regimes"]["random"]}
+        if 0 in points and 40 in points:
+            out["learning"] = {
+                "source": "results/learning-bird.json", "start": points[0]["silent_error_c4"],
+                "after_40": points[40]["silent_error_c4"], "after_80": points.get(80, {}).get("silent_error_c4"),
+            }
+    loops = {}
+    for name, key in (("human-loop-trap", "trap"), ("human-loop-distributor-pack-luna", "distributor_pack")):
+        report = _report(name)
+        if report:
+            loops[key] = {
+                "source": f"results/{name}.json", "n": report["n"], "human_model": report["human_model"],
+                "correct_without": report["summary"]["no_human"]["correct"],
+                "correct_with": report["summary"]["simulated_human"]["correct"],
+                "needed_person": report["summary"]["simulated_human"]["needed_a_person"],
+                "clarify_picks": (report["summary"].get("clarify_readings") or {}).get("picked_the_meant_option"),
+            }
+    if loops:
+        out["human_loop"] = loops
+    return out
 
 
 def build_router(*, require_admin: Callable[[Request], Dict[str, Any]]) -> APIRouter:
