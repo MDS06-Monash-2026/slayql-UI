@@ -1,9 +1,11 @@
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500&family=Playfair+Display:ital,wght@0,700;0,900;1,900&family=Cinzel:wght@800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=Playfair+Display:ital,wght@0,600;0,700;0,800;0,900;1,400;1,600;1,700;1,900&family=Cinzel:wght@800;900&display=swap');
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *, .theme-dark, .theme-dark *));
 
 @theme {
   --font-sans: 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-serif: 'Playfair Display', Georgia, serif;
+  --font-display: 'Instrument Serif', Georgia, serif;
   --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 }
 
@@ -17,19 +19,155 @@
   to   { transform: translateY(0); opacity: 1; }
 }
 .hero-image-in { animation: hero-image-in 1.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.hero-slide-image { will-change: opacity, transform; }
 .hero-rise { animation: hero-rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) both; }
 .hero-rise-1 { animation-delay: 120ms; }
 .hero-rise-2 { animation-delay: 240ms; }
 .hero-rise-3 { animation-delay: 360ms; }
 
+/* ── Hero Slide 3-Second Timer Animation ─────────────────────── */
+@keyframes hero-timer-progress {
+  0% {
+    width: 0%;
+  }
+  100% {
+    width: 100%;
+  }
+}
+
+.hero-timer-bar {
+  animation: hero-timer-progress 3000ms linear forwards;
+  will-change: width;
+}
+
+/* ── Hero Headline Typography ───────────────────────────────── */
+.hero-headline-font {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+}
+
 /* ── Landing: scroll reveals (see components/landing/motion.jsx) ── */
-.rv { transition: opacity 0.9s cubic-bezier(0.22, 1, 0.36, 1), transform 0.9s cubic-bezier(0.22, 1, 0.36, 1), filter 0.9s cubic-bezier(0.22, 1, 0.36, 1); }
+.rv { transition: opacity 0.65s cubic-bezier(0.22, 1, 0.36, 1), transform 0.65s cubic-bezier(0.22, 1, 0.36, 1), filter 0.65s cubic-bezier(0.22, 1, 0.36, 1); }
 .rv:not(.rv-in) { opacity: 0; }
 .rv-up:not(.rv-in) { transform: translateY(40px); }
 .rv-blur:not(.rv-in) { transform: translateY(16px); filter: blur(12px); }
 .rv-scale:not(.rv-in) { transform: scale(0.94); }
 .rv-left:not(.rv-in) { transform: translateX(-48px); }
 .rv-right:not(.rv-in) { transform: translateX(48px); }
+/* Scrolled past (above the viewport): leave and re-enter from the top when scrolling back up. */
+.rv-up.rv-above { transform: translateY(-40px); }
+.rv-blur.rv-above { transform: translateY(-16px); }
+.reveal.is-above:not(.is-visible) { transform: translateY(-28px); }
+
+/* ── Navbar: one highlight pill that glides to the active link ── */
+.nav-pill {
+  background: linear-gradient(135deg, rgba(238, 242, 255, 0.95), rgba(245, 243, 255, 0.95));
+  box-shadow: inset 0 0 0 1px rgba(199, 210, 254, 0.7), 0 6px 16px -10px rgba(79, 70, 229, 0.6);
+  transition: left 0.45s cubic-bezier(0.22, 1, 0.36, 1), width 0.45s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease;
+}
+.nav-pill::after {
+  content: ''; position: absolute; left: 12px; right: 12px; bottom: 3px; height: 2.5px; border-radius: 9999px;
+  background: linear-gradient(90deg, #3b82f6 0%, #6366f1 50%, #a855f7 100%);
+  box-shadow: 0 2px 10px rgba(99, 102, 241, 0.6);
+}
+.nav-link.nav-link-tracked { transition: color 0.3s ease; }
+.nav-link.nav-link-tracked:hover { background-color: transparent; }
+.nav-link.is-current { color: #4338ca; }
+.nav-link.is-current .nav-link-bar { opacity: 0 !important; }
+
+/* ── How it works: vertical timeline. The line fills with scroll where CSS scroll timelines
+   are supported (and motion is allowed); elsewhere it is shown full. ───────────────── */
+.tl-fill { transform-origin: 50% 0; }
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .tl { view-timeline: --tl block; }
+    .tl-fill { animation: tl-fill linear both; animation-timeline: --tl; animation-range: cover 15% cover 85%; }
+  }
+}
+@keyframes tl-fill { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+.tl-dot { transition: background-color 0.5s ease, box-shadow 0.5s ease, transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.tl-dot.is-on { background: #4f46e5; transform: scale(1.15); box-shadow: 0 0 0 6px rgba(99, 102, 241, 0.16), 0 8px 18px -6px rgba(79, 70, 229, 0.7); color: #fff; }
+
+/* Workspace warm-up: a gradient border sweeping around the logo (the shape stays still; only the
+   gradient angle turns). */
+@property --ring-angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+.warmup-ring {
+  padding: 3px;
+  background: conic-gradient(from var(--ring-angle), #4f46e5, #8b5cf6, #38bdf8, rgba(56, 189, 248, 0) 65%, #4f46e5);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  animation: ring-turn 1.4s linear infinite;
+}
+@keyframes ring-turn { to { --ring-angle: 360deg; } }
+@media (prefers-reduced-motion: reduce) { .warmup-ring { animation: none; } }
+
+/* Sign-in: indeterminate loading bar. */
+@keyframes login-progress { from { transform: translateX(-100%); } to { transform: translateX(200%); } }
+
+/* What's new: soft mesh background (indigo, violet, sky) that fades in from white at the top. */
+.novelty-bg {
+  background:
+    radial-gradient(55% 45% at 6% 30%, rgba(165, 180, 252, 0.55) 0%, transparent 70%),
+    radial-gradient(45% 50% at 94% 40%, rgba(196, 181, 253, 0.6) 0%, transparent 70%),
+    radial-gradient(55% 30% at 50% 72%, rgba(125, 211, 252, 0.35) 0%, transparent 70%),
+    linear-gradient(180deg, #ffffff 0%, #f3f4ff 25%, #f1edff 65%, #f8fafc 100%);
+}
+/* Chart panel: gradient fill with a 1px gradient border, drawn on one element (padding-box fill
+   over a border-box gradient) so there is no second rounded edge to anti-alias. */
+.stage-frame {
+  border-radius: 2rem;
+  box-shadow: 0 40px 90px -50px rgba(79, 70, 229, 0.55);
+}
+.stage-fill {
+  border: 1px solid transparent;
+  border-radius: 2rem;
+  background:
+    linear-gradient(150deg, #eef2ff 0%, #f5f3ff 40%, #ffffff 65%, #ecfeff 100%) padding-box,
+    linear-gradient(135deg, rgba(99, 102, 241, 0.55), rgba(167, 139, 250, 0.35) 45%, rgba(56, 189, 248, 0.45)) border-box;
+}
+
+/* Soft colour glows inside panels: radial gradients rather than blur filters (a blurred element
+   clipped by a rounded corner leaves a coloured fringe in Chrome). Colour via --glow. */
+.glow { background: radial-gradient(circle at center, var(--glow) 0%, transparent 68%); }
+
+/* Inside the pipeline: flowing connectors between phases and the turning learning-loop icon. */
+.pipeline-flow {
+  background: repeating-linear-gradient(90deg, #6366f1 0 6px, transparent 6px 11px);
+  background-size: 22px 100%;
+  animation: pipeline-flow 0.9s linear infinite;
+}
+@keyframes pipeline-flow { to { background-position: 22px 0; } }
+.loop-spin { animation: loop-spin 6s linear infinite; }
+@keyframes loop-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .pipeline-flow, .loop-spin { animation: none !important; }
+}
+
+/* What's new: auto-advancing feature list. The progress bar's animationend advances the list,
+   so pausing the animation pauses the list, and reduced motion (no animation) stops it. */
+@keyframes feature-progress { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.feature-progress { transform-origin: 0 50%; animation: feature-progress 6.5s linear forwards; }
+.feature-paused .feature-progress { animation-play-state: paused; }
+@keyframes stage-in { from { opacity: 0; transform: translateY(16px) scale(0.98); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
+.stage-in { animation: stage-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes aurora { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-6%, 8%) scale(1.15); } }
+.aurora { animation: aurora 14s ease-in-out infinite; }
+.aurora-slow { animation: aurora 20s ease-in-out infinite reverse; }
+@keyframes float-y { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-10px) rotate(-1deg); } }
+.float-y { animation: float-y 7s ease-in-out infinite; }
+@keyframes tick-in { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: none; } }
+.tick-in { animation: tick-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes check-pop { 0% { transform: scale(0); } 70% { transform: scale(1.25); } 100% { transform: scale(1); } }
+.check-pop { animation: check-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.seg-grow { transition: width 1.2s cubic-bezier(0.22, 1, 0.36, 1); }
+@media (prefers-reduced-motion: reduce) {
+  .feature-progress, .stage-in, .aurora, .aurora-slow, .float-y, .tick-in, .check-pop { animation: none !important; }
+  .feature-progress { transform: scaleX(0); }
+  .seg-grow { transition: none !important; }
+}
 
 /* Reading progress, driven by the page's scroll position (no JavaScript). */
 .scroll-progress { display: none; }
@@ -65,19 +203,25 @@
 .ring-draw { transition: stroke-dashoffset 1.8s cubic-bezier(0.22, 1, 0.36, 1); }
 .bar-grow { transition: width 1.4s cubic-bezier(0.22, 1, 0.36, 1); }
 .dot-slide { transition: left 1.6s cubic-bezier(0.65, 0, 0.35, 1) 0.3s; }
-.needle { transition: transform 1.6s cubic-bezier(0.34, 1.56, 0.64, 1); transform-origin: 100px 100px; }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto !important; }
   .rv { opacity: 1 !important; transform: none !important; filter: none !important; transition: none !important; }
   .scroll-progress, .hero-parallax, .hero-copy-out { animation: none !important; }
   .marquee-track { animation: none !important; }
-  .ring-draw, .bar-grow, .dot-slide, .needle { transition: none !important; }
+  .ring-draw, .bar-grow, .dot-slide { transition: none !important; }
   .hero-image-in, .hero-rise, .animate-fade-in-up, .animate-ping, .animate-pulse { animation: none !important; }
   .reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
 }
 
 /* ── SlayQL Premium Typography Logo ─────────────────────────── */
+/* Default size only: in a layer so text-* utilities on a given logo (e.g. inside a heading) win. */
+@layer components {
+  :where(.slayql-logo) {
+    font-size: 1.45rem;
+  }
+}
+
 .slayql-logo {
   font-family: 'Playfair Display', Georgia, serif;
   font-weight: 900;
@@ -86,7 +230,6 @@
   display: inline-flex;
   align-items: baseline;
   user-select: none;
-  font-size: 1.45rem;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 }
@@ -108,21 +251,175 @@
   transition: color 0.3s ease;
 }
 
-/* Dark Mode Typography */
-.live-demo-shell.theme-dark .slayql-logo .slay {
+/* Dark Mode / Dark Background Typography */
+.live-demo-shell.theme-dark .slayql-logo .slay,
+.slayql-logo.is-dark .slay,
+footer .slayql-logo .slay,
+.dark .slayql-logo .slay {
   background: linear-gradient(135deg, #60a5fa 0%, #818cf8 45%, #c084fc 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   filter: drop-shadow(0 0 14px rgba(129, 140, 248, 0.75)) drop-shadow(0 0 28px rgba(99, 102, 241, 0.4));
 }
 
-.live-demo-shell.theme-dark .slayql-logo .ql {
+.live-demo-shell.theme-dark .slayql-logo .ql,
+.slayql-logo.is-dark .ql,
+footer .slayql-logo .ql,
+.dark .slayql-logo .ql {
   color: #ffffff !important;
   text-shadow: 0 0 12px rgba(255, 255, 255, 0.2);
 }
 
-.slayql-logo:hover .slay {
+.slayql-logo:hover .slay,
+.group:hover .slayql-logo .slay {
   filter: drop-shadow(0 0 16px rgba(99, 102, 241, 0.75)) drop-shadow(0 0 32px rgba(129, 140, 248, 0.5));
+}
+
+/* ── Navbar Link Animated Bottom Color & Hover Glow ──────────── */
+.nav-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0.875rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #475569;
+  border-radius: 0.625rem;
+  transition: color 0.2s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s ease;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.nav-link:hover {
+  color: #1e1b4b;
+  background-color: rgba(241, 245, 249, 0.75);
+}
+
+.nav-link.is-active {
+  color: #4338ca;
+  font-weight: 600;
+  background-color: rgba(238, 242, 255, 0.85);
+}
+
+/* Bottom color animated bar */
+.nav-link-bar {
+  position: absolute;
+  bottom: 3px;
+  left: 10px;
+  right: 10px;
+  height: 2.5px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #3b82f6 0%, #6366f1 50%, #a855f7 100%);
+  background-size: 200% 100%;
+  opacity: 0;
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease, box-shadow 0.25s ease;
+  pointer-events: none;
+}
+
+.nav-link:hover .nav-link-bar {
+  opacity: 1;
+  transform: scaleX(1);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.55), 0 0 12px rgba(168, 85, 247, 0.35);
+  animation: nav-shimmer 2.5s ease infinite alternate;
+}
+
+.nav-link.is-active .nav-link-bar {
+  opacity: 1;
+  transform: scaleX(1);
+  box-shadow: 0 2px 10px rgba(99, 102, 241, 0.7), 0 0 16px rgba(79, 70, 229, 0.45);
+  animation: nav-shimmer 3s ease infinite alternate;
+}
+
+/* Subtle glowing light bloom under active/hovered text */
+.nav-link::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 15%;
+  right: 15%;
+  height: 8px;
+  background: radial-gradient(ellipse at bottom, rgba(99, 102, 241, 0.35) 0%, transparent 70%);
+  opacity: 0;
+  transform: translateY(2px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  pointer-events: none;
+}
+
+.nav-link:hover::before,
+.nav-link.is-active::before {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@keyframes nav-shimmer {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
+}
+
+/* Brand Text Animated Bottom Color Bar */
+.nav-brand-bar {
+  position: absolute;
+  bottom: -3px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #2563eb 0%, #6366f1 50%, #9333ea 100%);
+  opacity: 0;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease, box-shadow 0.25s ease;
+  pointer-events: none;
+}
+
+.group:hover .nav-brand-bar {
+  opacity: 1;
+  transform: scaleX(1);
+  box-shadow: 0 2px 10px rgba(99, 102, 241, 0.6), 0 0 16px rgba(147, 51, 234, 0.4);
+}
+
+/* Mobile Nav Link Styles */
+.mobile-nav-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #475569;
+  border-radius: 0.625rem;
+  transition: all 0.2s ease;
+  overflow: hidden;
+}
+
+.mobile-nav-link-indicator {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3.5px;
+  background: linear-gradient(180deg, #2563eb, #6366f1, #9333ea);
+  opacity: 0;
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+}
+
+.mobile-nav-link:hover,
+.mobile-nav-link.is-active {
+  color: #4338ca;
+  background-color: rgba(238, 242, 255, 0.8);
+  padding-left: 1.125rem;
+}
+
+.mobile-nav-link:hover .mobile-nav-link-indicator,
+.mobile-nav-link.is-active .mobile-nav-link-indicator {
+  opacity: 1;
+  transform: scaleY(1);
+  box-shadow: 2px 0 8px rgba(99, 102, 241, 0.5);
 }
 
 /* ── Effort Slider ────────────────────────────────────────── */
