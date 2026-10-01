@@ -1,11 +1,31 @@
-import React from 'react';
-import { ArrowRight, BarChart3, GraduationCap } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ArrowRight, BarChart3 } from 'lucide-react';
+import BrandLogo from './landing/BrandLogo';
 import { PROJECT } from '../content/projectInfo';
 
-// Full-bleed campus image with the question-to-answer story (generated for this project).
-// Desktop: text sits bottom-left over a light scrim so the ribbon (top-left) and the
-// checked answer (top-right) stay visible. Mobile: image on top, text below.
+const HERO_IMAGES = [
+  {
+    src: '/hero-section.png',
+    alt: 'Monash University Malaysia campus with SlayQL question-to-answer cognitive pipeline flow.',
+  },
+  {
+    src: '/hero-section-2.png',
+    alt: 'SlayQL data reasoning and verified answer checkpoints on campus.',
+  },
+];
+
+const SLIDE_DURATION = 4500; // 4.5 seconds per image
+
 export default function Hero({ setView }) {
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % HERO_IMAGES.length);
+    }, SLIDE_DURATION);
+    return () => clearInterval(timer);
+  }, []);
+
   const scrollToResults = (e) => {
     e.preventDefault();
     const target = document.getElementById('results');
@@ -14,38 +34,48 @@ export default function Hero({ setView }) {
 
   return (
     <section id="hero" className="relative overflow-hidden bg-white pt-16 lg:flex lg:min-h-[100dvh] lg:items-end lg:pt-0">
-      <div className="relative h-[40dvh] min-h-[240px] lg:absolute lg:inset-0 lg:h-auto">
-        <div className="hero-parallax h-full w-full">
-        <picture>
-          <source media="(max-width: 1023px)" srcSet="/landing/hero-section-960.webp" />
-          <img
-            src="/landing/hero-section.webp"
-            width="1916"
-            height="821"
-            fetchPriority="high"
-            alt="Monash University Malaysia campus at sunrise. A question flows in as a ribbon of light, passes through data tables and two checkpoints, and ends as an answer with a check mark."
-            className="hero-image-in h-full w-full object-cover object-[70%_50%] lg:object-[58%_30%]"
-          />
-        </picture>
+      {/* Hero Image Slider Container */}
+      <div className="relative h-[45dvh] min-h-[260px] lg:absolute lg:inset-0 lg:h-auto overflow-hidden">
+        <div className="hero-parallax h-full w-full relative">
+          {HERO_IMAGES.map((img, index) => {
+            const isActive = index === currentSlide;
+            return (
+              <img
+                key={img.src}
+                src={img.src}
+                alt={img.alt}
+                loading={index === 0 ? 'eager' : 'lazy'}
+                fetchPriority={index === 0 ? 'high' : 'auto'}
+                className={`hero-slide-image absolute inset-0 h-full w-full object-cover object-[70%_50%] lg:object-[58%_30%] transition-all duration-1000 ease-in-out ${
+                  isActive
+                    ? 'opacity-100 scale-100 z-[1]'
+                    : 'opacity-0 scale-105 pointer-events-none z-0'
+                }`}
+              />
+            );
+          })}
         </div>
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0 hidden bg-[linear-gradient(18deg,#ffffff_0%,rgba(255,255,255,0.9)_30%,rgba(255,255,255,0.35)_48%,rgba(255,255,255,0)_62%)] lg:block" />
-        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white to-transparent lg:h-28" />
+
+        {/* Gradient scrims ensuring text legibility */}
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 hidden bg-[linear-gradient(18deg,#ffffff_0%,rgba(255,255,255,0.9)_30%,rgba(255,255,255,0.35)_48%,rgba(255,255,255,0)_62%)] lg:block z-10" />
+        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white to-transparent lg:h-28 z-10" />
+
       </div>
 
-      <div className="relative mx-auto w-full max-w-7xl px-4 pb-14 pt-6 sm:px-6 lg:px-8 lg:pb-24 lg:pt-24">
+      <div className="relative mx-auto w-full max-w-7xl px-4 pb-14 pt-6 sm:px-6 lg:px-8 lg:pb-24 lg:pt-24 z-20">
         <div className="hero-copy-out max-w-[46rem]">
           <p className="hero-rise inline-flex items-center gap-2 text-sm font-medium text-indigo-700">
-            <GraduationCap className="h-4 w-4" aria-hidden="true" />
+            <BrandLogo brand="monash" className="h-7 w-auto" />
             {PROJECT.institution} Final Year Project
           </p>
 
-          <h1 className="hero-rise hero-rise-1 mt-4 text-[2.5rem] font-semibold leading-[1.04] tracking-[-0.035em] text-slate-950 text-balance sm:text-6xl lg:text-[4.25rem]">
+          <h1 className="hero-rise hero-rise-1 hero-headline-font mt-4 text-[2.5rem] leading-[1.04] text-slate-950 text-balance sm:text-6xl lg:text-[4.25rem]">
             Ask your data anything.
-            <span className="block text-indigo-600">Know when to trust it.</span>
+            <span className="block text-indigo-600 font-bold">Know when to trust it.</span>
           </h1>
 
           <p className="hero-rise hero-rise-2 mt-6 max-w-[34rem] text-lg leading-relaxed text-slate-600 sm:text-xl">
-            SlayQL answers business questions in English or Bahasa Malaysia, checks every answer against your data, and says when it is unsure.
+            <span className="slayql-logo text-[1.12em] tracking-tight inline-flex align-baseline mr-1"><span className="slay">Slay</span><span className="ql">QL</span></span> answers business questions in English or Bahasa Malaysia, checks every answer against your data, and says when it is unsure.
           </p>
 
           <div className="hero-rise hero-rise-3 mt-9 flex flex-col gap-3 sm:flex-row">
