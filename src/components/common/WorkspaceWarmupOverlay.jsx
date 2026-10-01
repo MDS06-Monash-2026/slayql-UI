@@ -1,51 +1,66 @@
 import React from 'react';
-import { Loader2, Shield, Lock, Sparkles } from 'lucide-react';
+import { Check, Lock } from 'lucide-react';
 
-export default function WorkspaceWarmupOverlay({ stage = 'Preparing cognitive environment...' }) {
+// The steps App.jsx goes through when opening the demo workspace, in order. The overlay ticks
+// them off as `stage` advances, so the progress bar reflects real progress.
+export const WARMUP_STEPS = [
+  'Signing in to the demo workspace',
+  'Loading your chats and connections',
+  'Reading the database structure',
+  'Opening the workspace',
+];
+
+export default function WorkspaceWarmupOverlay({ stage = WARMUP_STEPS[0] }) {
+  const current = Math.max(0, WARMUP_STEPS.indexOf(stage));
+  const progress = ((current + 0.5) / WARMUP_STEPS.length) * 100;
+
   return (
-    <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
-      <div className="bg-white dark:bg-[#121622] border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl max-w-sm w-full p-8 text-center space-y-6 relative overflow-hidden">
-        {/* Ambient Top Glow */}
-        <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-48 h-48 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-md animate-fade-in" role="status" aria-live="polite">
+      <div className="relative w-full max-w-sm overflow-hidden rounded-[2rem] border border-white/60 bg-white p-8 shadow-[0_40px_100px_-40px_rgba(30,27,75,0.7)] dark:border-slate-800 dark:bg-[#121622]">
+        <div aria-hidden="true" className="glow pointer-events-none absolute -top-24 left-1/2 h-64 w-64 -translate-x-1/2 rounded-full" style={{ '--glow': 'rgba(165,180,252,0.55)' }} />
 
-        {/* Logo & Spinner */}
-        <div className="relative inline-block mx-auto">
-          <div className="w-20 h-20 rounded-2xl overflow-hidden shadow-lg mx-auto bg-white p-1 flex items-center justify-center border border-slate-100 dark:border-slate-800">
-            <img src="/SlayQLlogo.png" alt="SlayQL Logo" className="w-full h-full object-contain" />
+        <div className="relative flex flex-col items-center text-center">
+          {/* logo inside a slowly turning gradient ring */}
+          <div className="relative h-20 w-20">
+            <span aria-hidden="true" className="warmup-ring absolute -inset-1.5 rounded-[1.6rem]" />
+            <div className="relative flex h-full w-full items-center justify-center rounded-[1.4rem] bg-white p-1.5 shadow-md dark:bg-slate-900">
+              <img src="/SlayQLlogo.png" alt="" className="h-full w-full object-contain" />
+            </div>
           </div>
-          <div className="absolute -bottom-1.5 -right-1.5 w-7 h-7 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-md">
-            <Loader2 className="w-4 h-4 animate-spin" />
-          </div>
+
+          <h2 className="mt-6 text-xl font-semibold tracking-tight text-slate-950 dark:text-slate-100">Opening SlayQL</h2>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">This takes a few seconds.</p>
         </div>
 
-        {/* Text */}
-        <div className="space-y-1.5">
-          <h2 className="text-lg font-extrabold text-slate-900 dark:text-slate-100 flex items-center justify-center gap-1.5">
-            <span>Entering SlayQL</span>
-            <Sparkles className="w-4 h-4 text-indigo-500" />
-          </h2>
-          <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400 truncate h-5">
-            {stage || 'Preparing cognitive environment...'}
-          </p>
+        <ol className="relative mt-7 space-y-3">
+          {WARMUP_STEPS.map((label, i) => {
+            const done = i < current;
+            const active = i === current;
+            return (
+              <li key={label} className="flex items-center gap-3">
+                <span
+                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors duration-300 ${
+                    done ? 'bg-emerald-500 text-white' : active ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400 dark:bg-slate-800'
+                  }`}
+                  aria-hidden="true"
+                >
+                  {done ? <Check className="h-3.5 w-3.5" /> : active ? <span className="h-2 w-2 animate-pulse rounded-full bg-white" /> : i + 1}
+                </span>
+                <span className={`text-sm transition-colors duration-300 ${active ? 'font-semibold text-slate-950 dark:text-slate-100' : done ? 'text-slate-500' : 'text-slate-400'}`}>
+                  {label}
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+
+        <div className="relative mt-7 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800" aria-hidden="true">
+          <div className="h-full rounded-full bg-gradient-to-r from-indigo-600 via-violet-500 to-sky-400 transition-[width] duration-700 ease-out" style={{ width: `${progress}%` }} />
         </div>
 
-        {/* Progress Bar */}
-        <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
-          <div className="bg-gradient-to-r from-indigo-500 to-purple-600 h-1.5 rounded-full animate-pulse w-full" />
-        </div>
-
-        {/* Security Footer */}
-        <div className="flex items-center justify-center gap-3 text-[10.5px] text-slate-400 dark:text-slate-500 pt-2 border-t border-slate-100 dark:border-slate-800/80">
-          <div className="flex items-center gap-1">
-            <Lock className="w-3 h-3 text-emerald-500" />
-            <span>Encrypted Session</span>
-          </div>
-          <span>•</span>
-          <div className="flex items-center gap-1">
-            <Shield className="w-3 h-3 text-indigo-500" />
-            <span>Read-Only Sandbox</span>
-          </div>
-        </div>
+        <p className="relative mt-5 flex items-center justify-center gap-1.5 text-xs text-slate-400">
+          <Lock className="h-3.5 w-3.5" aria-hidden="true" /> Read-only connection
+        </p>
       </div>
     </div>
   );
