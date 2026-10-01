@@ -9,6 +9,8 @@ import DatabaseConnectors from '../components/DatabaseConnectors';
 import Footer from '../components/Footer';
 import JourneySection from '../components/landing/JourneySection';
 import QuestionMarquee from '../components/landing/QuestionMarquee';
+import ResearchSection from '../components/landing/ResearchSection';
+import MethodSection from '../components/landing/MethodSection';
 import { Reveal, ScrollProgress } from '../components/landing/motion';
 import NoveltySection from '../components/landing/NoveltySection';
 import MalaysiaSection from '../components/landing/MalaysiaSection';
@@ -52,6 +54,9 @@ export default function LandingView({ setView, onDatabaseConnect }) {
         {/* Research + trust layer as one scroll story */}
         <JourneySection />
 
+        {/* C-CaSE benchmarks, candidates chart and the running ablation */}
+        <ResearchSection />
+
         {/* Unified Engine + Live Workspace */}
         <EngineWorkspace />
 
@@ -60,6 +65,9 @@ export default function LandingView({ setView, onDatabaseConnect }) {
 
         {/* Measured results from backend/eval/results */}
         <TrustResultsSection />
+
+        {/* Test sets, component ablation, cost setting, confidence weights */}
+        <MethodSection />
 
         {/* Malaysian fit and the weekly pack */}
         <MalaysiaSection />

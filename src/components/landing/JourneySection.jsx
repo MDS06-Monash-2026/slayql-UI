@@ -4,8 +4,11 @@ import { useResearchSummary } from '../../services/useResearchSummary';
 import { AFTER, BEFORE, ConfidenceGauge, GapBars, RingStat, TrapRadar } from './charts';
 import { Reveal, prefersReducedMotion, useInView } from './motion';
 
-// Figures from the C-CaSE research runs (run/log_spider2_full_slayql, run/bird_dev_v18_full; deepseek-v4-flash).
-const RESEARCH = { spiderEx: 0.4589, spiderCorrect: 251, spiderTotal: 547, generated: 0.6877, chosen: 0.5619 };
+import { BENCHMARKS, ORACLE_AT_K, SELECTED_EX } from '../../content/researchResults';
+
+// C-CaSE figures (see content/researchResults.js for sources).
+const spider2 = BENCHMARKS.find((b) => b.name === 'Spider 2.0-Lite');
+const RESEARCH = { spiderEx: spider2.ex, spiderCorrect: 251, spiderTotal: spider2.n, generated: ORACLE_AT_K[ORACLE_AT_K.length - 1].oracle, chosen: SELECTED_EX };
 // One real run from results/trap.json (item period-03): confidence 0.8808 against the 0.8 threshold.
 const EXAMPLE = { p: 0.8808, threshold: 0.8 };
 

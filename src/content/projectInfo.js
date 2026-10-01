@@ -36,6 +36,15 @@ export const VOICES = [
   },
 ];
 
+// Headline numbers from the customer conversations (summary template in docs/CUSTOMER_CONVERSATIONS.md).
+// Replace each value with the real tally and remove `placeholder`; until then they show only in development.
+export const FIELD_STATS = [
+  { value: 'N', label: 'finance and operations conversations', placeholder: true },
+  { value: '_ h', label: 'a week spent preparing figures, on average', placeholder: true },
+  { value: '_ of N', label: 'had a real wrong-number story', placeholder: true },
+  { value: '_ of N', label: 'would try SlayQL on their own data', placeholder: true },
+];
+
 // Live site: hide placeholders. Development: show them, labelled.
 export const showPlaceholders = !import.meta.env.PROD;
 export const visible = (items) => items.filter((item) => showPlaceholders || !item.placeholder);

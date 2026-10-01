@@ -1,6 +1,6 @@
 import React from 'react';
 import { Github, GraduationCap, Quote } from 'lucide-react';
-import { PROJECT, VOICES, showPlaceholders, visible } from '../../content/projectInfo';
+import { FIELD_STATS, PROJECT, VOICES, showPlaceholders, visible } from '../../content/projectInfo';
 
 function PlaceholderTag({ show }) {
   return show ? <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-amber-800">Placeholder</span> : null;
@@ -9,11 +9,22 @@ function PlaceholderTag({ show }) {
 // Interview quotes: only rendered once at least one real (non-placeholder) quote exists on the live site.
 export function VoicesSection() {
   const quotes = visible(VOICES);
-  if (!quotes.length) return null;
+  const stats = visible(FIELD_STATS);
+  if (!quotes.length && !stats.length) return null;
   return (
     <section id="voices" className="border-t border-slate-200 bg-white py-16">
       <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
         <h2 className="text-center text-2xl font-semibold tracking-tight text-slate-950">From our conversations with finance teams</h2>
+        {stats.length > 0 && (
+          <div className="mt-8 grid grid-cols-2 gap-6 text-center lg:grid-cols-4">
+            {stats.map((stat) => (
+              <div key={stat.label}>
+                <p className="text-4xl font-semibold tracking-tight text-slate-950">{stat.value}</p>
+                <p className="mt-1 text-sm text-slate-600">{stat.label}<PlaceholderTag show={stat.placeholder} /></p>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           {quotes.map((voice) => (
             <figure key={voice.quote} className="rounded-2xl border border-slate-200 bg-slate-50 p-6">

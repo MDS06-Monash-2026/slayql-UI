@@ -268,6 +268,43 @@ def research_highlights() -> Dict[str, Any]:
                 })
         out["trap_types"] = {"source": "results/trap.json", "types": types}
 
+    # Method: what each part of the trust layer adds (B0..B3 share the same cached SQL), how the
+    # cost of a wrong answer changes the decision (B3_c1/c4/c9), language split and cost per question.
+    method_sets = []
+    for key, label, report, split in (("trap", "Business trap set", trap, "all"),
+                                      ("distributor", "Malaysian distributor", distributor, "all"),
+                                      ("bird", "BIRD Mini-Dev (held-out)", bird, "test")):
+        if not report:
+            continue
+        c = configs(report, split)
+        method_sets.append({
+            "key": key, "label": label, "n": report["splits"][split]["n"], "source": f"results/{key}.json",
+            "model": report["model"], "k": report.get("k"),
+            "configs": {name: {"wrong": c[name]["silent_error_rate"], "answered": c[name]["coverage"]}
+                        for name in ("B0", "B1", "B2", "B3", "B3_c1", "B3_c4", "B3_c9") if name in c},
+            "cost_per_question": (report["total_generation_cost_usd"] / len(report["items"]))
+                                 if report.get("total_generation_cost_usd") and report.get("items") else None,
+        })
+    if method_sets:
+        out["method"] = {"sets": method_sets}
+
+    languages = {"en": [0, 0, 0], "bm": [0, 0, 0]}
+    for report in (trap, distributor):
+        for item in (report or {}).get("items", []):
+            row = languages["en" if item.get("language") == "en" else "bm"]
+            row[0] += 1
+            row[1] += item["B0"]["outcome"] == "answer" and not item["B0"]["correct"]
+            row[2] += item["B3"]["outcome"] in ("confident", "caveat") and not item["B3"]["correct"]
+    if languages["en"][0]:
+        out["languages"] = {lang: {"n": n, "before": b / n, "after": a / n}
+                            for lang, (n, b, a) in languages.items() if n}
+
+    calibration_path = RESULTS_DIR / "calibration-bird.json"
+    if calibration_path.exists():
+        fitted = json.loads(calibration_path.read_text(encoding="utf-8"))
+        out["confidence_weights"] = {"source": "results/calibration-bird.json", "fitted_on": fitted.get("source"),
+                                     "weights": fitted.get("weights", {})}
+
     # Real evaluation questions (team-written, invented data) for the landing page's question strip.
     questions = []
     for report in (trap, distributor):

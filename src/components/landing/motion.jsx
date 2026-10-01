@@ -48,7 +48,7 @@ export function useCountFromTo(from, to, active, duration = 1400) {
     let frame;
     const start = performance.now();
     const step = (now) => {
-      const t = Math.min(1, (now - start) / duration);
+      const t = Math.min(1, Math.max(0, (now - start) / duration));
       setValue(from + (to - from) * (1 - (1 - t) ** 3));
       if (t < 1) frame = requestAnimationFrame(step);
     };
