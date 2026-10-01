@@ -24,7 +24,11 @@ export function getStoredSession() {
 }
 
 export function setStoredSession(session) {
-  clearClientCache();
+  // Cached data belongs to one signed-in user: clear it when the user changes, but keep it when
+  // the same session is stored again (a session refresh would otherwise throw away everything
+  // the warm-up just loaded and make the workspace fetch it all again).
+  const previousToken = getStoredSession()?.token || null;
+  if (!session || session.token !== previousToken) clearClientCache();
   if (session) {
     localStorage.setItem('slayql_session_data', JSON.stringify(session));
     if (session.token) setSessionToken(session.token);

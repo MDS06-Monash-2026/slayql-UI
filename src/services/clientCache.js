@@ -1,4 +1,6 @@
-const STORAGE_PREFIX = 'slayql_cache_v2:';
+const STORAGE_PREFIX = 'slayql_cache_v4:';
+// localStorage so the workspace opens instantly after a refresh, in a new tab or after a restart.
+const store = () => window.localStorage;
 const memoryCache = new Map();
 const inFlight = new Map();
 
@@ -8,7 +10,7 @@ function storageKey(key) {
 
 function readStoredEntry(key) {
   try {
-    const raw = sessionStorage.getItem(storageKey(key));
+    const raw = store().getItem(storageKey(key));
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -17,7 +19,7 @@ function readStoredEntry(key) {
 
 function removeStoredEntry(key) {
   try {
-    sessionStorage.removeItem(storageKey(key));
+    store().removeItem(storageKey(key));
   } catch {
     // Storage can be unavailable in private or embedded contexts.
   }
@@ -39,7 +41,7 @@ export function setClientCache(key, value) {
   const entry = { createdAt: Date.now(), value };
   memoryCache.set(key, entry);
   try {
-    sessionStorage.setItem(storageKey(key), JSON.stringify(entry));
+    store().setItem(storageKey(key), JSON.stringify(entry));
   } catch {
     // Keep the in-memory layer even when session storage is full or blocked.
   }
@@ -51,10 +53,10 @@ export function invalidateClientCache(prefix) {
     if (key === prefix || key.startsWith(`${prefix}:`)) memoryCache.delete(key);
   }
   try {
-    for (let index = sessionStorage.length - 1; index >= 0; index -= 1) {
-      const key = sessionStorage.key(index) || '';
+    for (let index = store().length - 1; index >= 0; index -= 1) {
+      const key = store().key(index) || '';
       if (key === storageKey(prefix) || key.startsWith(`${storageKey(prefix)}:`)) {
-        sessionStorage.removeItem(key);
+        store().removeItem(key);
       }
     }
   } catch {
@@ -65,25 +67,35 @@ export function invalidateClientCache(prefix) {
 export function clearClientCache() {
   memoryCache.clear();
   try {
-    for (let index = sessionStorage.length - 1; index >= 0; index -= 1) {
-      const key = sessionStorage.key(index) || '';
-      if (key.startsWith(STORAGE_PREFIX)) sessionStorage.removeItem(key);
+    for (let index = store().length - 1; index >= 0; index -= 1) {
+      const key = store().key(index) || '';
+      if (key.startsWith(STORAGE_PREFIX)) store().removeItem(key);
     }
   } catch {
     // Storage can be unavailable in private or embedded contexts.
   }
 }
 
+// Stale-while-revalidate: a fresh entry is returned as is; an expired one is returned at once
+// while a background request refreshes it for next time, so the UI never waits for data it has
+// already seen. Only a first-ever request (or `force`) waits for the network.
 export async function cachedRequest(key, request, ttlMs, { force = false } = {}) {
+  const refresh = () => {
+    if (inFlight.has(key)) return inFlight.get(key);
+    const pending = Promise.resolve()
+      .then(request)
+      .then((value) => setClientCache(key, value))
+      .finally(() => inFlight.delete(key));
+    inFlight.set(key, pending);
+    return pending;
+  };
   if (!force) {
-    const cached = getClientCache(key, ttlMs);
-    if (cached !== undefined) return cached;
+    const entry = memoryCache.get(key) || readStoredEntry(key);
+    if (entry) {
+      memoryCache.set(key, entry);
+      if (Date.now() - entry.createdAt > ttlMs) refresh().catch(() => {});
+      return entry.value;
+    }
   }
-  if (inFlight.has(key)) return inFlight.get(key);
-  const pending = Promise.resolve()
-    .then(request)
-    .then((value) => setClientCache(key, value))
-    .finally(() => inFlight.delete(key));
-  inFlight.set(key, pending);
-  return pending;
+  return refresh();
 }
