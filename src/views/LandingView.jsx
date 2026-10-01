@@ -1,34 +1,30 @@
 import React, { useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import Hero from '../components/Hero';
-import EngineWorkspace from '../components/EngineWorkspace';
+import ReplaySection from '../components/landing/ReplaySection';
 
-import ArchitectureSection from '../components/ArchitectureSection';
+import PipelineMap from '../components/landing/PipelineMap';
 import TrustResultsSection from '../components/TrustResultsSection';
-import DatabaseConnectors from '../components/DatabaseConnectors';
+import ConnectSection from '../components/landing/ConnectSection';
 import Footer from '../components/Footer';
 import JourneySection from '../components/landing/JourneySection';
 import QuestionMarquee from '../components/landing/QuestionMarquee';
 import ResearchSection from '../components/landing/ResearchSection';
 import MethodSection from '../components/landing/MethodSection';
-import { Reveal, ScrollProgress } from '../components/landing/motion';
+import { Reveal, ScrollProgress, observeRevealClasses } from '../components/landing/motion';
 import NoveltySection from '../components/landing/NoveltySection';
 import MalaysiaSection from '../components/landing/MalaysiaSection';
 import ProjectSection, { VoicesSection } from '../components/landing/ProjectSection';
 import HeroStats from '../components/landing/HeroStats';
 import { PROJECT } from '../content/projectInfo';
-import { ArrowRight, Github } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
+import BrandLogo from '../components/landing/BrandLogo';
 
 export default function LandingView({ setView, onDatabaseConnect }) {
   /* Global scroll-reveal for any section using .reveal that doesn't
      manage its own observer (Problem, Benchmark, etc.) */
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      entries => entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('is-visible'); }),
-      { threshold: 0.1 }
-    );
-    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
-    return () => observer.disconnect();
+    return observeRevealClasses([...document.querySelectorAll('.reveal')]);
   }, []);
 
   return (
@@ -52,16 +48,16 @@ export default function LandingView({ setView, onDatabaseConnect }) {
         <NoveltySection />
 
         {/* Research + trust layer as one scroll story */}
-        <JourneySection />
+        <JourneySection setView={setView} />
 
-        {/* C-CaSE benchmarks, candidates chart and the running ablation */}
+        {/* SlayQL Link (research) benchmarks, candidates chart and the running ablation */}
         <ResearchSection />
 
-        {/* Unified Engine + Live Workspace */}
-        <EngineWorkspace />
+        {/* Recorded runs replayed step by step */}
+        <ReplaySection />
 
         {/* Interactive Architecture */}
-        <ArchitectureSection />
+        <PipelineMap />
 
         {/* Measured results from backend/eval/results */}
         <TrustResultsSection />
@@ -76,9 +72,7 @@ export default function LandingView({ setView, onDatabaseConnect }) {
         <VoicesSection />
 
         {/* Database Connectors */}
-        <DatabaseConnectors onConnected={(dbName) => {
-          if (onDatabaseConnect) onDatabaseConnect(dbName);
-        }} />
+        <ConnectSection setView={setView} />
 
         {/* Monash University Malaysia FYP */}
         <ProjectSection />
@@ -111,7 +105,7 @@ export default function LandingView({ setView, onDatabaseConnect }) {
                   rel="noopener noreferrer"
                   className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-slate-200 bg-white px-6 py-3.5 text-base font-semibold text-slate-800 transition hover:border-slate-300 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
                 >
-                  <Github className="h-4 w-4" aria-hidden="true" />
+                  <BrandLogo brand="github" className="h-4 w-4" />
                   View on GitHub
                 </a>
               </div>
