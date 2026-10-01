@@ -3,12 +3,13 @@ import { AlertTriangle, CheckCircle2, HelpCircle, UserRound } from 'lucide-react
 import { Cell, Legend, Pie, PieChart, PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart, ResponsiveContainer, Tooltip } from 'recharts';
 import { pct } from '../../services/useResearchSummary';
 import { useCountFromTo } from './motion';
+import { RESEARCH_NAME } from '../../content/projectInfo';
 
 // Validated palettes (dataviz validator, light mode): plain vs SlayQL is one hue in two steps;
 // outcomes are four categorical hues and always carry a label and an icon.
 export const BEFORE = '#7a83f2';
 export const AFTER = '#4338ca';
-const OUTCOME = {
+export const OUTCOME = {
   correct: { color: '#4338ca', label: 'Answered correctly', icon: CheckCircle2 },
   clarified: { color: '#0891b2', label: 'Asked which meaning', icon: HelpCircle },
   handed_off: { color: '#d97706', label: 'Handed to an analyst', icon: UserRound },
@@ -84,7 +85,7 @@ export function GapBars({ rows, play }) {
           </div>
         </div>
       ))}
-      <figcaption className="text-xs text-slate-500">BIRD dev, C-CaSE research runs (deepseek-v4-flash).</figcaption>
+      <figcaption className="text-xs text-slate-500">BIRD dev, {RESEARCH_NAME} research runs (deepseek-v4-flash).</figcaption>
     </figure>
   );
 }
@@ -110,8 +111,9 @@ export function ConfidenceGauge({ p, threshold, play }) {
         <path d={arc(0, threshold, 80)} fill="none" stroke="#fde68a" strokeWidth="16" />
         <path d={arc(threshold, 1, 80)} fill="none" stroke="#c7d2fe" strokeWidth="16" />
         <line x1={tx1} y1={ty1} x2={tx2} y2={ty2} stroke="#0f172a" strokeWidth="2" />
-        <g className="needle" style={{ transform: `rotate(${play ? angle(p) : -90}deg)` }}>
-          <line x1="100" y1="100" x2="100" y2="34" stroke={AFTER} strokeWidth="4" strokeLinecap="round" />
+        {/* SVG rotate pivots exactly on the hub (100, 100); the angle follows the same counter as the number. */}
+        <g transform={`rotate(${angle(shown)} 100 100)`}>
+          <line x1="100" y1="100" x2="100" y2="24" stroke={AFTER} strokeWidth="4" strokeLinecap="round" />
         </g>
         <circle cx="100" cy="100" r="7" fill={AFTER} />
       </svg>
