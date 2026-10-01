@@ -1,5 +1,5 @@
 import React from 'react';
-import { Github } from 'lucide-react';
+import BrandLogo from './landing/BrandLogo';
 
 export default function Footer({ setView }) {
   return (
@@ -11,14 +11,16 @@ export default function Footer({ setView }) {
 
           {/* Brand Signature Column */}
           <div className="col-span-2 md:col-span-2">
-            <div className="flex items-center gap-2.5 mb-4 cursor-pointer" onClick={() => setView('landing')}>
-              <div className="w-12 h-12 rounded-xl overflow-hidden shadow-sm flex items-center justify-center">
+            <div className="flex items-center gap-2.5 mb-4 cursor-pointer group" onClick={() => setView('landing')}>
+              <div className="w-10 h-10 rounded-xl overflow-hidden shadow-sm flex items-center justify-center group-hover:scale-105 transition-transform duration-200">
                 <img src="/SlayQLlogo.png" alt="SlayQL Logo" className="w-full h-full object-contain" />
               </div>
-              <span className="text-white font-bold text-lg">SlayQL</span>
+              <span className="slayql-logo is-dark text-2xl tracking-tight">
+                <span className="slay">Slay</span><span className="ql">QL</span>
+              </span>
             </div>
             <p className="text-sm leading-relaxed max-w-xs">
-              Trustworthy answers from your company's data. A Monash University Malaysia Final Year Project (MDS06): schema-linking research (C-CaSE, extending AutoLink) plus a trust layer that checks every answer.
+              Trustworthy answers from your company's data. A Monash University Malaysia Final Year Project (MDS06): schema-linking research (SlayQL Link, extending AutoLink) plus a trust layer that checks every answer.
             </p>
           </div>
 
@@ -48,9 +50,9 @@ export default function Footer({ setView }) {
 
         {/* Footer Bottom */}
         <div className="py-6 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-          <div>© 2026 C-CaSE and SlayQL. Monash University Malaysia, MDS06 FYP group.</div>
+          <div>© 2026 SlayQL. Monash University Malaysia, MDS06 FYP group.</div>
           <a href="https://github.com/MDS06-Monash-2026/slayql-UI" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:text-slate-300 transition-colors">
-            <Github className="w-4 h-4" />
+            <BrandLogo brand="github" className="h-4 w-4 invert opacity-70" />
             <span>View on GitHub</span>
           </a>
         </div>
