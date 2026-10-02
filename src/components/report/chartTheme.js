@@ -71,11 +71,42 @@ export function axisTick(value, format) {
 const UP_IS_BAD = /\b(costs?|discounts?|refund\w*|cancel\w*|returns?|churn|overdue|late|delay\w*|complaints?|cases?|errors?|expenses?|debts?|leak\w*|loss(es)?|lost|hutang)\b/i;
 export const upIsBad = (label = '') => UP_IS_BAD.test(label);
 
-// Month labels for YYYY-MM periods: "Jun 2026".
-export function periodLabel(value) {
+// Period labels. YYYY-MM is a month ("Jun 2026"); a YYYY-MM-DD bucket start reads by the
+// report's grain: a week "22 Jun", a month "Jun 2026", a quarter "Q2 2026", a year "2026".
+export function periodLabel(value, bucket) {
   const text = String(value ?? '');
-  const match = /^(\d{4})-(\d{2})$/.exec(text);
-  if (!match) return text;
-  const date = new Date(Number(match[1]), Number(match[2]) - 1, 1);
-  return date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+  const month = /^(\d{4})-(\d{2})$/.exec(text);
+  if (month) {
+    return new Date(Number(month[1]), Number(month[2]) - 1, 1).toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+  }
+  const day = /^(\d{4})-(\d{2})-(\d{2})/.exec(text);
+  if (!day) return text;
+  const date = new Date(Number(day[1]), Number(day[2]) - 1, Number(day[3]));
+  if (bucket === 'year') return String(date.getFullYear());
+  if (bucket === 'quarter') return `Q${Math.floor(date.getMonth() / 3) + 1} ${date.getFullYear()}`;
+  if (bucket === 'month' || (!bucket && day[3] === '01' && !/[ T]/.test(text))) {
+    return date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+  }
+  return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+}
+
+// One hue, light to dark, for magnitude (heatmap cells, treemap depth).
+export const SEQUENTIAL = {
+  light: ['#eef2ff', '#c7d2fe', '#a5b4fc', '#818cf8', '#6366f1', '#4f46e5', '#3730a3'],
+  dark: ['#1e1b4b', '#312e81', '#3730a3', '#4338ca', '#4f46e5', '#6366f1', '#818cf8'],
+};
+
+export function sequentialColor(isDark, share) {
+  const ramp = isDark ? SEQUENTIAL.dark : SEQUENTIAL.light;
+  const index = Math.max(0, Math.min(ramp.length - 1, Math.round(share * (ramp.length - 1))));
+  return ramp[index];
+}
+
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+// strftime('%w') gives 0-6 from Sunday; show day names when a column is clearly a weekday.
+export function categoryLabel(value, column = '') {
+  const text = String(value ?? '');
+  if (/week_?day|dow|day_of_week/i.test(column) && /^[0-6]$/.test(text)) return WEEKDAYS[Number(text)];
+  return text;
 }
