@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   BookOpen, Bookmark, ChevronDown, ChevronsUpDown, Coins, Database, Layers, LogOut, Moon, PanelLeftClose, PanelLeftOpen,
-  Plus, Search, ShieldCheck, Sparkles, Sun, Table2, Trash2, UserRound, X,
+  Plus, Search, ShieldCheck, Sparkles, Sun, Trash2, UserRound, X,
 } from 'lucide-react';
 import AnalystAnswers from '../trust/AnalystAnswers';
 
@@ -65,7 +65,7 @@ function NavRow({ icon: Icon, label, onClick, count, buttonRef, ...rest }) {
 
 export default function AppSidebar({
   theme, setTheme, open, setOpen, session, userName, avatarInitials, creditBalance, canReview,
-  onNewChat, setView, onOpenCatalog, tableCount, onOpenSaved, savedCount, onCreateTable,
+  onNewChat, setView, onOpenCatalog, tableCount, onOpenSaved, savedCount,
   exploreRef, exploreCount, onExploreEnter, onExploreLeave, onExploreToggle,
   history, activeId, onOpenChat, loadingId, onDeleteChat, deletingId, isRunning,
   profileOpen, setProfileOpen, onSignOut,
@@ -235,7 +235,6 @@ export default function AppSidebar({
           {moreOpen && (
             <div className="space-y-0.5">
               <NavRow icon={Layers} label="Schema catalog" count={tableCount} onClick={thenClose(onOpenCatalog)} />
-              <NavRow icon={Table2} label="Create table" onClick={thenClose(onCreateTable)} />
             </div>
           )}
         </nav>
