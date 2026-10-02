@@ -29,6 +29,9 @@ const SAFE_PAYLOAD_KEYS = new Set([
   'reportable', 'resolution_code',
   'is_semantically_valid', 'missing_requirements',
   'thinking_effort', 'provider_reasoning_effort', 'max_repair_attempts',
+  // used by the step-by-step view (RunSteps)
+  'candidates', 'succeeded', 'agreement', 'excluded_by_checks', 'outcome', 'probability', 'threshold',
+  'ranked_tables', 'join_path', 'is_repair',
 ]);
 
 export function normalizeStreamEvent(event, fallbackType) {
