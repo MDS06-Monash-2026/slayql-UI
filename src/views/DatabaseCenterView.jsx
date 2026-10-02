@@ -1,10 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Activity,
+  ArrowLeft,
   CheckCircle2,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   Code2,
   Database,
   LayoutDashboard,
@@ -13,8 +10,8 @@ import {
   Plus,
   RefreshCw,
   Search,
-  Server,
   Settings2,
+  Sparkles,
   Table2,
   Trash2,
 } from 'lucide-react';
@@ -23,7 +20,6 @@ import ConnectionSettingsModal from '../components/demo/ConnectionSettingsModal'
 import ConfirmationModal from '../components/demo/ConfirmationModal';
 import ERDiagram from '../components/demo/ERDiagram';
 import ReportStudio from '../components/report/ReportStudio';
-import DatabaseHealthPanel from '../components/workbench/DatabaseHealthPanel';
 import SqlWorkbench from '../components/workbench/SqlWorkbench';
 import {
   deleteConnection,
@@ -35,11 +31,10 @@ import {
 import { getClientCache } from '../services/clientCache';
 
 const NAV_ITEMS = [
-  { id: 'workbench', label: 'SQL workbench', icon: Code2 },
-  { id: 'tables', label: 'Tables and columns', icon: Table2 },
-  { id: 'relationships', label: 'ER diagram', icon: Network },
-  { id: 'dashboard', label: 'Report studio', icon: LayoutDashboard },
-  { id: 'health', label: 'Health agent', icon: Activity },
+  { id: 'workbench', label: 'SQL workbench', icon: Code2, hint: 'Write SQL yourself or let AI draft it, then run it on this data source.' },
+  { id: 'tables', label: 'Tables', icon: Table2, hint: 'Every table and column, with row counts and types.' },
+  { id: 'relationships', label: 'ER diagram', icon: Network, hint: 'How the tables link to each other through their keys.' },
+  { id: 'dashboard', label: 'Report studio', icon: LayoutDashboard, hint: 'An AI agent builds a checked dashboard from your question. Filter it, ask for changes, and email it weekly or monthly.' },
 ];
 
 // In-memory persistent cache across component unmount/remount (0ms return)
@@ -54,7 +49,7 @@ const labMemoryState = {
   previewTable: null,
 };
 
-const VALID_SECTIONS = ['workbench', 'tables', 'relationships', 'dashboard', 'health'];
+const VALID_SECTIONS = ['workbench', 'tables', 'relationships', 'dashboard'];
 
 function getInitialLabSection() {
   const path = (window.location.pathname || '').toLowerCase().replace(/\/+$/, '');
@@ -68,9 +63,8 @@ function getInitialLabSection() {
   if (combined.includes('/tables') || combined.includes('tables')) return 'tables';
   if (combined.includes('/relationships') || combined.includes('relationships') || combined.includes('/er-diagram') || combined.includes('er-diagram')) return 'relationships';
   if (combined.includes('/dashboard') || combined.includes('dashboard') || combined.includes('/ai-report-studio') || combined.includes('report-studio')) return 'dashboard';
-  if (combined.includes('/health') || combined.includes('health')) return 'health';
   if (combined.includes('/workbench') || combined.includes('workbench')) return 'workbench';
-  return labMemoryState.activeSection || 'workbench';
+  return VALID_SECTIONS.includes(labMemoryState.activeSection) ? labMemoryState.activeSection : 'workbench';
 }
 
 export default function DatabaseCenterView({ setView, session, theme: propTheme, setTheme: propSetTheme }) {
@@ -203,11 +197,7 @@ export default function DatabaseCenterView({ setView, session, theme: propTheme,
   const tableEntries = useMemo(() => Object.entries(catalog?.tables || {}).filter(([name]) => name.toLowerCase().includes(tableFilter.toLowerCase())), [catalog, tableFilter]);
   const totalRows = useMemo(() => Object.values(catalog?.tables || {}).reduce((sum, table) => sum + Number(table.row_count_estimate || 0), 0), [catalog]);
 
-  const selectSource = (connection) => {
-    if (connection.id !== selectedId) confirmDashboardLeave();
-    setExpandedId((current) => current === connection.id ? null : connection.id);
-    setSelectedId(connection.id);
-  };
+  const activeItem = NAV_ITEMS.find((item) => item.id === activeSection) || NAV_ITEMS[0];
 
   const handleTest = async (connection) => {
     setTestingId(connection.id);
@@ -280,129 +270,71 @@ export default function DatabaseCenterView({ setView, session, theme: propTheme,
   };
 
   return (
-    <div className={`live-demo-shell theme-${theme} h-screen bg-[#f7f9fc] dark:bg-[#0b0e14] text-slate-900 dark:text-slate-100 flex flex-col overflow-hidden transition-colors`}>
-      {/* Top Header */}
-      <header className="h-14 px-4 sm:px-6 border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-[#121622]/95 backdrop-blur-md flex items-center justify-between gap-4 shrink-0 transition-colors relative overflow-hidden">
-        {/* Ambient top-left soft blue/indigo blur */}
-        <div className="absolute top-0 left-0 w-44 h-14 bg-gradient-to-r from-blue-500/15 via-indigo-500/10 to-transparent blur-xl pointer-events-none" />
-
-        <div className="flex items-center gap-2.5 min-w-0 relative z-10">
-          {/* Back Button with subtle blur aura */}
-          <div className="relative group flex items-center">
-            <div className="absolute -inset-1 bg-gradient-to-r from-blue-500/30 to-indigo-500/20 rounded-xl blur-sm opacity-60 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
-            <button
-              onClick={() => setView('demo')}
-              className="relative w-7 h-7 rounded-lg border border-blue-200/80 dark:border-indigo-800/80 bg-white/95 dark:bg-slate-800/90 hover:bg-blue-50/80 dark:hover:bg-slate-700 text-blue-600 dark:text-sky-400 flex items-center justify-center transition-all shadow-2xs active:scale-95 shrink-0"
-              title="Back to SlayQL Workspace"
-              aria-label="Back to SlayQL Workspace"
-            >
-              <ChevronLeft className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          {/* Database Identity Badge & Header */}
-          <div className="min-w-0">
-            <h1 className="text-xs sm:text-sm font-extrabold tracking-tight truncate flex items-center gap-1">
-              <span className="text-blue-600 dark:text-sky-400">Database</span>
-              <span className="text-slate-900 dark:text-slate-100 font-bold">Management</span>
-            </h1>
-            <p className="hidden sm:block text-[10px] text-slate-400 dark:text-slate-500 truncate">
-              AI schema workbench & query studio
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
+    <div className={`live-demo-shell theme-${theme} h-screen bg-[#f8fafc] dark:bg-[#0b0e16] text-slate-900 dark:text-slate-100 flex flex-col overflow-hidden transition-colors`}>
+      {/* Top navbar: way back, brand, the five tools, add a source */}
+      <header className="shrink-0 z-30 border-b border-slate-200/80 bg-white/90 backdrop-blur-md transition-colors dark:border-slate-800 dark:bg-[#0f131d]/90">
+        <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2.5 sm:px-6 lg:h-16 lg:flex-nowrap lg:py-0">
           <button
+            type="button"
+            onClick={() => setView('demo')}
+            className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            <span className="hidden sm:inline">Back to chat</span>
+          </button>
+          <span className="h-5 w-px bg-slate-200 dark:bg-slate-700" aria-hidden="true" />
+          <span className="flex items-center gap-2">
+            <span className="slayql-logo text-[22px] tracking-tight"><span className="slay">Slay</span><span className="ql">QL</span></span>
+            <span className="rounded-md bg-gradient-to-r from-indigo-600 to-violet-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white">Lab</span>
+          </span>
+
+          <nav
+            aria-label="Database tools"
+            className="order-last flex w-full items-center gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1 lg:order-none lg:mx-auto lg:w-auto dark:bg-slate-800/70"
+          >
+            {NAV_ITEMS.map((item) => {
+              const Icon = item.icon;
+              const on = activeSection === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  title={item.hint}
+                  aria-current={on ? 'page' : undefined}
+                  onClick={() => changeSection(item.id)}
+                  className={`relative inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-[13px] font-medium transition ${
+                    on
+                      ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-950 dark:text-white'
+                      : 'text-slate-600 hover:bg-white/60 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-900/60 dark:hover:text-slate-100'
+                  }`}
+                >
+                  <Icon className={`h-4 w-4 ${on ? 'text-indigo-600 dark:text-indigo-300' : ''}`} aria-hidden="true" />
+                  <span>{item.label}</span>
+                  {on && <span className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600" aria-hidden="true" />}
+                </button>
+              );
+            })}
+          </nav>
+
+          <button
+            type="button"
             onClick={() => setAddOpen(true)}
-            className="h-8 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold inline-flex items-center justify-center gap-1.5 shadow-sm transition-all"
+            className="ml-auto inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-3.5 py-2 text-sm font-semibold text-white shadow-[0_10px_24px_-12px_rgba(79,70,229,0.8)] transition hover:brightness-110 active:scale-95 lg:ml-0"
             title="Add data source"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Add source</span>
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            <span className="hidden sm:inline">Add source</span>
           </button>
         </div>
       </header>
 
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[294px_minmax(0,1fr)] min-h-0">
-        {/* Left SlayQL Style Sidebar */}
-        <aside className="hidden lg:block border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-[#121622] p-3 overflow-y-auto transition-colors">
-          <div className="flex items-center justify-between px-2 py-2">
-            <p className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider">Data sources</p>
-            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold">{connections.length}</span>
-          </div>
-
-          {loading ? (
-            <Loader2 className="w-4 h-4 animate-spin text-indigo-500 mx-auto mt-8" />
-          ) : (
-            <div className="space-y-1.5">
-              {connections.map((connection) => {
-                const expanded = expandedId === connection.id;
-                const active = selectedId === connection.id;
-                return (
-                  <div
-                    key={connection.id}
-                    className={`rounded-xl border overflow-hidden transition-all ${
-                      active 
-                        ? 'bg-slate-50/80 dark:bg-slate-800/50 border-indigo-200 dark:border-indigo-900/60 shadow-2xs' 
-                        : 'border-transparent'
-                    }`}
-                  >
-                    <button
-                      onClick={() => selectSource(connection)}
-                      className={`w-full px-2.5 py-2.5 text-left transition-all ${
-                        active ? '' : 'hover:bg-slate-100/70 dark:hover:bg-slate-800/40'
-                      }`}
-                    >
-                      <span className="flex items-center gap-2">
-                        <span className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-                          active 
-                            ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400' 
-                            : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
-                        }`}>
-                          <Database className="w-4 h-4" />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{connection.name}</span>
-                          <span className="block text-[10px] text-slate-400 dark:text-slate-500 capitalize">{connection.provider || connection.engine} / {connection.mode || 'built-in'}</span>
-                        </span>
-                        {expanded ? (
-                          <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-                        ) : (
-                          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-                        )}
-                      </span>
-                    </button>
-                    {expanded && active && (
-                      <nav className="px-2 pb-2 space-y-0.5" aria-label={`${connection.name} tools`}>
-                        {NAV_ITEMS.map((item) => {
-                          const Icon = item.icon;
-                          const isSectionActive = activeSection === item.id;
-                          return (
-                            <button
-                              key={item.id}
-                              onClick={() => changeSection(item.id)}
-                              className={`w-full h-8 px-2 rounded-lg flex items-center gap-2 text-[11px] font-semibold transition ${
-                                isSectionActive
-                                  ? 'bg-indigo-600 text-white shadow-xs'
-                                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100'
-                              }`}
-                            >
-                              <Icon className={`w-3.5 h-3.5 ${isSectionActive ? 'text-white' : ''}`} />
-                              <span>{item.label}</span>
-                            </button>
-                          );
-                        })}
-                      </nav>
-                    )}
-                  </div>
-                );
-              })}
+      <main className="review-page min-w-0 flex-1 overflow-y-auto dark:bg-[#0b0e16]">
+          {loading && !selected && (
+            <div className="flex h-80 items-center justify-center">
+              <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
             </div>
           )}
-        </aside>
 
-        {/* Main Content Area */}
-        <main className="min-w-0 overflow-y-auto">
           {!loading && !selected && (
             <section className="min-h-full flex items-center justify-center px-6 py-16">
               <div className="max-w-sm text-center">
@@ -426,102 +358,99 @@ export default function DatabaseCenterView({ setView, session, theme: propTheme,
 
           {selected && (
             <>
-              {/* Mobile View Switcher */}
-              <div className="lg:hidden px-3 py-2 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#121622]">
-                <div className="relative">
-                  <Database className="absolute left-3 top-2.5 w-3.5 h-3.5 text-indigo-500 pointer-events-none" />
-                  <select
-                    value={selectedId}
-                    onChange={(event) => {
-                      if (event.target.value !== selectedId) confirmDashboardLeave();
-                      setSelectedId(event.target.value);
-                      setExpandedId(event.target.value);
-                    }}
-                    className="w-full h-9 pl-9 pr-8 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none"
-                  >
-                    {connections.map((connection) => (
-                      <option key={connection.id} value={connection.id}>{connection.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <nav className="mt-2 flex gap-1 overflow-x-auto pb-1" aria-label="Database tools">
-                  {NAV_ITEMS.map((item) => {
-                    const Icon = item.icon;
-                    const isSectionActive = activeSection === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => changeSection(item.id)}
-                        className={`h-8 px-2.5 rounded-md inline-flex items-center gap-1.5 text-[10px] font-semibold whitespace-nowrap ${
-                          isSectionActive
-                            ? 'bg-indigo-600 text-white'
-                            : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+              {/* Title band: compact, so the tool below gets the room */}
+              <div className="mx-auto max-w-[1600px] px-4 pt-3 sm:px-7">
+                <section className="review-hero relative overflow-hidden rounded-2xl border border-indigo-100/80 px-4 py-3 sm:px-5 dark:border-indigo-500/20">
+                  <div className="relative flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
+                        <h1 className="text-lg font-semibold tracking-tight text-slate-950 dark:text-white">{activeItem.label}</h1>
+                        <p className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-indigo-700 dark:text-indigo-300">
+                          <Sparkles className="h-3 w-3" aria-hidden="true" /> AI Database Lab
+                        </p>
+                      </div>
+                      <p className="mt-0.5 truncate text-xs text-slate-600 dark:text-slate-300">{activeItem.hint}</p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="inline-flex max-w-full items-center gap-2 rounded-xl bg-white/80 px-2.5 py-1.5 text-sm shadow-sm ring-1 ring-white dark:bg-white/5 dark:ring-white/10">
+                        <Database className="h-4 w-4 shrink-0 text-indigo-600 dark:text-indigo-300" aria-hidden="true" />
+                        <span className="sr-only">Data source</span>
+                        <select
+                          value={selectedId}
+                          onChange={(event) => {
+                            if (event.target.value !== selectedId) confirmDashboardLeave();
+                            setSelectedId(event.target.value);
+                            setExpandedId(event.target.value);
+                          }}
+                          className="lab-source-select min-w-0 max-w-[14rem] truncate bg-transparent pr-1 text-[13px] font-medium text-slate-900 outline-none dark:text-slate-100 [&>option]:text-slate-900"
+                        >
+                          {connections.map((connection) => (
+                            <option key={connection.id} value={connection.id}>{connection.name}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <span
+                        title={`${selected.provider || selected.engine} / ${selected.mode || 'built-in'}`}
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize ${
+                          selected.status === 'error'
+                            ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'
+                            : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
                         }`}
                       >
-                        <Icon className="w-3.5 h-3.5" />
-                        <span>{item.label}</span>
-                      </button>
-                    );
-                  })}
-                </nav>
-              </div>
-
-              {/* Sub-Header with Active Database Info & Actions */}
-              <section className="sticky top-0 z-10 px-4 sm:px-7 py-3 border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-[#121622]/95 backdrop-blur-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
-                    <Server className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">{selected.name}</h2>
-                    <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400">
-                      <span className="capitalize">{selected.provider || selected.engine}</span>
-                      <span>/</span>
-                      <span>{Object.keys(catalog?.tables || {}).length || selected.table_count || 0} tables</span>
-                      <span>/</span>
-                      <span>{totalRows.toLocaleString()} profiled rows</span>
-                      <span className={selected.status === 'error' ? 'text-rose-600 dark:text-rose-400 font-semibold' : 'text-emerald-600 dark:text-emerald-400 font-semibold'}>
-                        ● {selected.status}
+                        <span className={`h-1.5 w-1.5 rounded-full ${selected.status === 'error' ? 'bg-rose-500' : 'bg-emerald-500'}`} aria-hidden="true" />
+                        {selected.status}
                       </span>
+                      {selected.managed_by_environment && (
+                        <span className="rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-medium text-slate-600 ring-1 ring-slate-200 dark:bg-white/5 dark:text-slate-300 dark:ring-white/10">Read-only demo</span>
+                      )}
+                      <span className="hidden h-5 w-px bg-indigo-200/70 sm:block dark:bg-white/10" aria-hidden="true" />
+                      <span className="text-xs text-slate-600 dark:text-slate-300">
+                        <b className="font-semibold tabular-nums text-slate-950 dark:text-white">{(Object.keys(catalog?.tables || {}).length || selected.table_count || 0).toLocaleString()}</b> tables
+                        <span className="mx-1.5 text-slate-300 dark:text-slate-600">·</span>
+                        <b className="font-semibold tabular-nums text-slate-950 dark:text-white">{totalRows.toLocaleString()}</b> rows
+                      </span>
+                      <div className="flex items-center gap-0.5 rounded-xl bg-white/80 p-0.5 shadow-sm ring-1 ring-white dark:bg-white/5 dark:ring-white/10">
+                        <button
+                          type="button"
+                          onClick={handleRefreshCatalog}
+                          disabled={refreshingCatalog}
+                          className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 transition hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-indigo-500/15 dark:hover:text-indigo-300"
+                          title="Refresh schema"
+                          aria-label="Refresh schema"
+                        >
+                          <RefreshCw className={`h-3.5 w-3.5 ${refreshingCatalog ? 'animate-spin' : ''}`} />
+                        </button>
+                        {!selected.managed_by_environment && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setSettingsOpen(true)}
+                              className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 transition hover:bg-indigo-50 hover:text-indigo-600 dark:text-slate-300 dark:hover:bg-indigo-500/15 dark:hover:text-indigo-300"
+                              title={selected.engine === 'sqlite' ? 'Replace database file' : 'Edit connection'}
+                              aria-label={selected.engine === 'sqlite' ? 'Replace database file' : 'Edit connection'}
+                            >
+                              <Settings2 className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeleteTarget(selected)}
+                              className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/15"
+                              title="Delete data source"
+                              aria-label="Delete data source"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleRefreshCatalog}
-                    disabled={refreshingCatalog}
-                    className="w-8 h-8 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-300 hover:text-indigo-600 hover:border-indigo-200 dark:hover:text-indigo-300 dark:hover:border-indigo-800 flex items-center justify-center transition-all disabled:opacity-50"
-                    title="Refresh schema"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${refreshingCatalog ? 'animate-spin' : ''}`} />
-                  </button>
-                  {!selected.managed_by_environment && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => setSettingsOpen(true)}
-                        className="w-8 h-8 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-300 hover:text-indigo-600 hover:border-indigo-200 dark:hover:text-indigo-300 dark:hover:border-indigo-800 flex items-center justify-center transition-all"
-                        title={selected.engine === 'sqlite' ? 'Replace database file' : 'Edit connection'}
-                      >
-                        <Settings2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDeleteTarget(selected)}
-                        className="w-8 h-8 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-400 hover:text-rose-600 hover:border-rose-200 dark:hover:border-rose-800 flex items-center justify-center transition-all"
-                        title="Delete data source"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </>
-                  )}
-                </div>
-              </section>
+                </section>
+              </div>
 
               {/* Main Content Workspace */}
-              <div className="px-4 sm:px-7 py-6 max-w-[1600px] mx-auto">
+              <div className="px-4 sm:px-7 pt-4 pb-6 max-w-[1600px] mx-auto">
                 {notice && (
                   <div className="mb-4 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-200 flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -627,16 +556,12 @@ export default function DatabaseCenterView({ setView, session, theme: propTheme,
                       />
                     )}
 
-                    {activeSection === 'health' && (
-                      <DatabaseHealthPanel connectionId={selectedId} isDark={isDark} />
-                    )}
                   </>
                 )}
               </div>
             </>
           )}
-        </main>
-      </div>
+      </main>
 
       <AddConnectionModal
         isOpen={addOpen}
