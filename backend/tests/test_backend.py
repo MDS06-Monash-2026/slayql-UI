@@ -69,9 +69,13 @@ def test_supabase_url_uses_installed_psycopg_driver():
 def test_database_url_is_backend_only(monkeypatch):
     raw_url = "postgresql://reader:secret@db.example.supabase.co:5432/postgres"
     monkeypatch.setattr(settings, "DATABASE_URL", raw_url)
-    assert default_connection_id() is None
+    # The account database never becomes a queryable data source...
     assert get_connection("supabase_default") is None
     assert get_credentials("supabase_default") == {}
+    # ...while the read-only demo database stays available on the live server, unless switched off.
+    assert default_connection_id() == "sqlite_demo"
+    monkeypatch.setattr(settings, "ENABLE_DEMO_DATABASE", False)
+    assert default_connection_id() is None
 
 
 def test_persist_user_message_updates_thread_atomically():

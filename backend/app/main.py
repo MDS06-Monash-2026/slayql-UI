@@ -619,11 +619,16 @@ if settings.demo_connections_enabled:
             "latency_ms": 1.2,
             "created_at": "2026-08-20T00:00:00Z"
         },
+    })
+
+# The PostgreSQL demo is listed only when it is actually configured.
+if settings.demo_connections_enabled and settings.DEMO_POSTGRES_URL:
+    DYNAMIC_CONNECTIONS.update({
         "postgres_demo": {
             "id": "postgres_demo",
             "name": "SlayQL Customer PostgreSQL Demo (Neon)",
             "engine": "postgresql",
-            "status": "ready" if settings.DEMO_POSTGRES_URL else "simulated",
+            "status": "ready",
             "access_mode": "read_only",
             "is_default": False,
             "managed_by_environment": True,
@@ -1379,6 +1384,8 @@ async def inspect_workbench_health(connection_id: str, request: Request):
 
 @app.post("/api/v1/connections/{connection_id}/tables")
 async def create_table(connection_id: str, req: CreateTableRequest, request: Request):
+    if connection_id in ENVIRONMENT_CONNECTION_IDS:
+        raise HTTPException(status_code=403, detail="The shared demo database is read-only.")
     if not req.table_name.strip():
         raise HTTPException(status_code=400, detail="Table name is required.")
     if not req.columns or len(req.columns) == 0:
@@ -1411,6 +1418,8 @@ async def create_table(connection_id: str, req: CreateTableRequest, request: Req
 
 @app.delete("/api/v1/connections/{connection_id}/tables/{table_name}")
 async def drop_table(connection_id: str, table_name: str, request: Request):
+    if connection_id in ENVIRONMENT_CONNECTION_IDS:
+        raise HTTPException(status_code=403, detail="The shared demo database is read-only.")
     conn = _connection_metadata(connection_id, _owner_id(request))
     if not conn:
         raise HTTPException(status_code=404, detail="Database connection not found.")

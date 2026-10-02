@@ -109,9 +109,15 @@ class Settings(BaseSettings):
             return normalized or None
         return value
 
+    # Built-in SlayQL Demo Database (read-only, shared). Unset: shown whenever its file exists,
+    # including on the live server. Set ENABLE_DEMO_DATABASE=false to hide it.
+    ENABLE_DEMO_DATABASE: Optional[bool] = None
+
     @property
     def demo_connections_enabled(self) -> bool:
-        return not bool(self.DATABASE_URL)
+        if self.ENABLE_DEMO_DATABASE is not None:
+            return self.ENABLE_DEMO_DATABASE
+        return Path(self.SQLITE_DEMO_PATH).exists()
     
     class Config:
         env_file = ".env"
