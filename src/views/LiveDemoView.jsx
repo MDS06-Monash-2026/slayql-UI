@@ -1187,14 +1187,32 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
           <div className={`max-w-3xl lg:max-w-4xl mx-auto space-y-6 w-full ${messages.length === 0 && !isRunning ? 'flex flex-col justify-center items-center my-auto' : 'pb-8'}`}>
             {/* Thread Loading Skeleton (Zero-lag transition) */}
             {loadingThreadId && messages.length === 0 && (
-              <div className="w-full space-y-5 py-4 animate-pulse">
+              <div className="w-full space-y-4 py-4" role="status" aria-label="Loading chat">
                 <div className="flex justify-end">
-                  <div className={`w-3/5 h-11 rounded-2xl rounded-tr-xs ${theme === 'dark' ? 'bg-slate-800/80' : 'bg-indigo-100/70'}`} />
+                  <div className="skel h-11 w-3/5 rounded-2xl rounded-tr-sm" />
                 </div>
-                <div className="space-y-3">
-                  <div className={`w-3/4 h-4 rounded-md ${theme === 'dark' ? 'bg-slate-800/60' : 'bg-slate-200/80'}`} />
-                  <div className={`w-full h-28 rounded-xl ${theme === 'dark' ? 'bg-slate-800/40' : 'bg-slate-200/50'}`} />
-                  <div className={`w-1/2 h-4 rounded-md ${theme === 'dark' ? 'bg-slate-800/60' : 'bg-slate-200/80'}`} />
+                <div className="skel-card flex items-center gap-3 rounded-2xl px-4 py-3">
+                  <div className="skel h-4 w-4 rounded-full" />
+                  <div className="skel h-3.5 w-48 rounded-md" />
+                </div>
+                <div className="space-y-2.5">
+                  <div className="skel h-4 w-11/12 rounded-md" />
+                  <div className="skel h-4 w-2/3 rounded-md" />
+                </div>
+                <div className="skel-card space-y-3 rounded-2xl p-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="skel h-7 w-7 rounded-full" />
+                    <div className="skel h-4 w-32 rounded-md" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+                    {[0, 1, 2, 3, 4, 5].map((i) => <div key={i} className="skel h-3 w-4/5 rounded" />)}
+                  </div>
+                </div>
+                <div className="skel-card rounded-2xl p-4">
+                  <div className="skel mb-4 h-4 w-40 rounded-md" />
+                  <div className="flex h-36 items-end gap-3">
+                    {[45, 75, 55, 90, 65, 80, 50].map((h, i) => <div key={i} className="skel flex-1 rounded-t-md" style={{ height: `${h}%` }} />)}
+                  </div>
                 </div>
               </div>
             )}
@@ -1460,6 +1478,13 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
         onOpenAddConnection={() => {
           setCatalogOpen(false);
           setAddConnectionOpen(true);
+        }}
+        readOnly={Boolean(activeConnection.managed_by_environment) || ['sqlite_demo', 'postgres_demo'].includes(selectedConnectionId)}
+        isDark={theme === 'dark'}
+        onAskAbout={(table) => {
+          setCatalogOpen(false);
+          setInputPrompt(`What can you tell me about the ${table} table? Show a summary of its key figures.`);
+          requestAnimationFrame(() => composerRef.current?.focus());
         }}
       />
 
