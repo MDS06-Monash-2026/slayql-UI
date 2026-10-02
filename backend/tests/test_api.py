@@ -66,7 +66,11 @@ async def test_api_connections_and_catalog():
         resp = await client.get("/api/v1/connections")
         assert resp.status_code == 200
         conns = resp.json()
-        assert len(conns) >= 2
+        ids = [c["id"] for c in conns]
+        assert "sqlite_demo" in ids
+        # The PostgreSQL demo is listed only when it is configured.
+        from backend.app.config import settings
+        assert ("postgres_demo" in ids) == bool(settings.DEMO_POSTGRES_URL)
         
         cat_resp = await client.get("/api/v1/connections/sqlite_demo/catalog")
         assert cat_resp.status_code == 200
@@ -152,41 +156,19 @@ async def test_api_create_and_test_database_connection():
         assert delete_resp.status_code == 200
 
 @pytest.mark.asyncio
-async def test_api_create_and_drop_custom_table():
+async def test_api_shared_demo_database_is_read_only():
+    """Anyone can use the shared demo database, so nobody may add or drop its tables."""
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
-        # Create custom table in sqlite_demo
+        before = (await client.get("/api/v1/connections/sqlite_demo/catalog")).json()["tables"].keys()
         tbl_resp = await client.post("/api/v1/connections/sqlite_demo/tables", json={
             "table_name": "marketing_campaigns_test",
-            "description": "Marketing ad spend and channel conversions",
-            "columns": [
-                {"name": "id", "type": "INTEGER", "primary_key": True, "nullable": False},
-                {"name": "campaign_name", "type": "VARCHAR(255)", "primary_key": False, "nullable": False},
-                {"name": "budget_usd", "type": "REAL", "primary_key": False, "nullable": True},
-                {"name": "status", "type": "TEXT", "primary_key": False, "nullable": True}
-            ],
-            "initial_rows": [
-                {"id": 1, "campaign_name": "Summer Blitz", "budget_usd": 15000.0, "status": "active"},
-                {"id": 2, "campaign_name": "Product Launch", "budget_usd": 25000.0, "status": "completed"}
-            ]
+            "columns": [{"name": "id", "type": "INTEGER", "primary_key": True, "nullable": False}],
         })
-        assert tbl_resp.status_code == 200
-        data = tbl_resp.json()
-        assert data["status"] == "table_created"
-        assert "marketing_campaigns_test" in data["catalog"]["tables"]
-        
-        # Verify execution against new table
-        exec_resp = await client.post("/api/v1/agent-runs/custom_run/execute", json={
-            "sql": "SELECT id, campaign_name, budget_usd FROM marketing_campaigns_test"
-        })
-        assert exec_resp.status_code == 200
-        exec_data = exec_resp.json()
-        assert len(exec_data["result"]["rows"]) == 2
-        
-        # Drop custom table
-        drop_resp = await client.delete("/api/v1/connections/sqlite_demo/tables/marketing_campaigns_test")
-        assert drop_resp.status_code == 200
-        drop_data = drop_resp.json()
-        assert "marketing_campaigns_test" not in drop_data["catalog"]["tables"]
+        assert tbl_resp.status_code == 403
+        drop_resp = await client.delete("/api/v1/connections/sqlite_demo/tables/customers")
+        assert drop_resp.status_code == 403
+        after = (await client.get("/api/v1/connections/sqlite_demo/catalog")).json()["tables"].keys()
+        assert set(before) == set(after) and "customers" in after
 
 @pytest.mark.asyncio
 async def test_api_create_agent_run_and_execute():
