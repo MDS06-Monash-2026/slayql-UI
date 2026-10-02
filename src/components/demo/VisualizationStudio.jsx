@@ -35,7 +35,11 @@ const CHART_OPTIONS = [
 
 function inferType(values) {
   if (values.some((value) => typeof value === 'number')) return 'quantitative';
-  if (values.some((value) => typeof value === 'string' && /^\d{4}-\d{2}/.test(value))) return 'temporal';
+  // Months and weeks ("2026-01", "2026-W03") are evenly spaced periods, not exact moments.
+  if (values.every((value) => typeof value !== 'string' || /^\d{4}-(\d{2}|W\d{2})$/.test(value))) {
+    if (values.some((value) => typeof value === 'string')) return 'ordinal';
+  }
+  if (values.some((value) => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value))) return 'temporal';
   return 'nominal';
 }
 
@@ -98,7 +102,7 @@ function buildVegaSpec(idiom, rows, columns, recommendation, colors, isDark) {
       type: types[x] || 'nominal',
       sort: types[x] === 'nominal' ? '-y' : undefined,
       title: x,
-      axis: types[x] === 'nominal' ? {
+      axis: types[x] === 'ordinal' ? { labelAngle: values.length > 12 ? -35 : 0, labelOverlap: 'greedy' } : types[x] === 'nominal' ? {
         labelAngle: values.length > 8 ? -35 : 0,
         labelLimit: 90,
         labelOverlap: 'greedy',
@@ -212,7 +216,7 @@ function buildVegaSpec(idiom, rows, columns, recommendation, colors, isDark) {
       mark: {
         type: 'line',
         point: true,
-        interpolate: idiom === 'step' ? 'step-after' : 'monotone',
+        interpolate: idiom === 'step' ? 'step-after' : 'linear',
         strokeWidth: 2.5,
       },
       encoding: {
@@ -262,15 +266,22 @@ export default function VisualizationStudio({
   onSwitchToTable,
 }) {
   const rec = chartRecommendation || recommendation;
+  const options = useMemo(() => {
+    const ids = new Set(CHART_OPTIONS.map((o) => o.id));
+    const fromServer = (rec?.options || []).filter((o) => ids.has(o.type));
+    if (fromServer.length) return fromServer;
+    if (rows.length === 1) return [{ type: 'kpi', label: 'KPI', reason: 'A single value is clearest as a headline number.' }];
+    const first = rec?.type || rec?.idiom || 'bar';
+    return ['bar', 'line', 'area'].includes(first) ? [first, ...['bar', 'line', 'area'].filter((t) => t !== first)].map((type) => ({ type, label: CHART_OPTIONS.find((o) => o.id === type).label.replace(' Chart', '') }))
+      : [{ type: first, label: (CHART_OPTIONS.find((o) => o.id === first)?.label || first) }];
+  }, [rec, rows.length]);
   const [chartType, setChartType] = useState('bar');
   const [error, setError] = useState('');
   const containerRef = useRef(null);
 
   useEffect(() => {
-    if (rec?.type || rec?.idiom) {
-      setChartType(rec.type || rec.idiom);
-    }
-  }, [rec]);
+    setChartType(options[0]?.type || rec?.type || rec?.idiom || 'bar');
+  }, [rec, options]);
 
   const colors = useMemo(() => ({
     background: isDark ? '#121622' : '#ffffff',
@@ -310,7 +321,7 @@ export default function VisualizationStudio({
   };
 
   const spec = useMemo(() => {
-    if (!visibleRows.length || !columns.length) return null;
+    if (!visibleRows.length || !columns.length || chartType === 'kpi') return null;
     return buildVegaSpec(chartType, visibleRows, columns, rec, colors, isDark);
   }, [chartType, visibleRows, columns, rec, colors, isDark]);
 
@@ -347,7 +358,6 @@ export default function VisualizationStudio({
       ? `${columns[1]} by ${columns[0]}`
       : 'Query Results Visualization');
 
-  const isRecommendedView = !rec?.type && !rec?.idiom ? true : (chartType === (rec?.type || rec?.idiom));
 
   if (!rec && rows.length === 0) {
     return (
@@ -362,65 +372,49 @@ export default function VisualizationStudio({
   }
 
   return (
-    <div className={`rounded-2xl border shadow-xs p-5 space-y-4 transition-all ${
+    <div className={`rounded-2xl border p-4 sm:p-5 space-y-4 transition-all ${
       isDark ? 'bg-[#121622] border-slate-800 text-slate-100' : 'bg-white border-slate-200/90 text-slate-900'
     }`}>
-      {/* Studio Header & Controls */}
-      <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4 ${
-        isDark ? 'border-slate-800' : 'border-slate-100'
-      }`}>
-        <div>
-          <div className="flex items-center gap-1.5">
-            <h3 className={`text-sm font-bold ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>{title}</h3>
-            {rec && (
-              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                isRecommendedView
-                  ? isDark
-                    ? 'bg-indigo-950/60 text-indigo-300 border-indigo-800/60'
-                    : 'bg-indigo-50 text-indigo-700 border-indigo-200/60'
-                  : isDark
-                  ? 'bg-slate-800 text-slate-400 border-slate-700'
-                  : 'bg-slate-50 text-slate-500 border-slate-200'
-              }`}>
-                <Sparkles className="w-2.5 h-2.5" />
-                {isRecommendedView ? (rec?.mode === 'gemini' ? 'Gemini recommended' : 'Vega-Lite recommended') : 'Custom view'}
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-slate-400 mt-0.5">
-            {rec?.recommendation_reason || (rec ? 'Auto-profiled Vega-Lite specification' : 'Interactive visualization')}
+      {/* Header: what is shown, why, and only the charts that suit this result */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h3 className={`truncate text-sm font-semibold ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>{title}</h3>
+          <p className={`mt-0.5 flex items-center gap-1.5 text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+            <Sparkles className={`h-3 w-3 shrink-0 ${isDark ? 'text-indigo-300' : 'text-indigo-500'}`} aria-hidden="true" />
+            {options.find((o) => o.type === chartType)?.reason || rec?.recommendation_reason || 'Chosen from the shape of the result.'}
           </p>
         </div>
-
-        {/* Idiom Selector Dropdown */}
-        <div className="flex items-center gap-2">
-          <label htmlFor="vega-chart-type" className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-            View as
-          </label>
-          <div className="relative">
-            <select
-              id="vega-chart-type"
-              value={chartType}
-              onChange={(event) => setChartType(event.target.value)}
-              className={`appearance-none min-w-[150px] pl-3 pr-8 py-2 rounded-xl text-xs font-semibold outline-none transition-all border ${
-                isDark
-                  ? 'bg-slate-800/80 hover:bg-slate-800 border-slate-700 text-slate-200 focus:border-indigo-500'
-                  : 'bg-slate-50 hover:bg-white border-slate-200 text-slate-700 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100'
-              }`}
-            >
-              {CHART_OPTIONS.map((opt) => (
-                <option key={opt.id} value={opt.id}>
-                  {opt.label}{(rec?.type === opt.id || rec?.idiom === opt.id) ? ' (recommended)' : ''}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+        {options.length > 1 && (
+          <div role="radiogroup" aria-label="Chart type" className={`inline-flex shrink-0 rounded-xl p-1 ${isDark ? 'bg-slate-800/80' : 'bg-slate-100'}`}>
+            {options.map((option, index) => {
+              const Icon = CHART_OPTIONS.find((o) => o.id === option.type)?.icon || BarChart2;
+              const active = chartType === option.type;
+              return (
+                <button
+                  key={option.type}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  title={option.reason}
+                  onClick={() => setChartType(option.type)}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
+                    active
+                      ? isDark ? 'bg-slate-950 text-white shadow-sm' : 'bg-white text-slate-900 shadow-sm'
+                      : isDark ? 'text-slate-400 hover:text-slate-100' : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                  {option.label}
+                  {index === 0 && <span className={`rounded px-1 text-[9px] font-semibold ${isDark ? 'bg-indigo-500/20 text-indigo-200' : 'bg-indigo-50 text-indigo-600'}`}>Best</span>}
+                </button>
+              );
+            })}
           </div>
-        </div>
+        )}
       </div>
 
       {/* Exploration Toolbar: Window info, Quick presets & View all in Table */}
-      {(rows.length > 15 || onSwitchToTable) && (
+      {chartType !== 'kpi' && (rows.length > 15 || onSwitchToTable) && (
         <div className={`flex flex-wrap items-center justify-between gap-2.5 px-3.5 py-2 rounded-xl text-xs border ${
           isDark ? 'bg-slate-800/50 border-slate-700/60' : 'bg-slate-50/90 border-slate-200/80'
         }`}>
@@ -491,9 +485,24 @@ export default function VisualizationStudio({
         </div>
       )}
 
-      {/* Vega-Lite Chart Canvas */}
-      <div className="w-full min-h-[300px] flex items-center justify-center pt-2">
-        {error ? (
+      {/* Chart canvas (a KPI is a native headline card) */}
+      <div className={`w-full flex items-center justify-center ${chartType === 'kpi' ? '' : 'min-h-[300px] pt-2'}`}>
+        {chartType === 'kpi' && visibleRows.length > 0 ? (
+          <div className="grid w-full gap-3 sm:grid-cols-[repeat(auto-fit,minmax(180px,1fr))]">
+            {columns.map((column, index) => {
+              const value = visibleRows[0][index];
+              if (typeof value !== 'number') return null;
+              return (
+                <div key={column} className={`rounded-2xl px-5 py-4 ${isDark ? 'bg-slate-800/60' : 'bg-slate-50'}`}>
+                  <p className={`text-xs font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{column.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase())}</p>
+                  <p className={`mt-1 text-3xl font-semibold tracking-tight tabular-nums ${isDark ? 'text-white' : 'text-slate-950'}`}>
+                    {value.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        ) : error ? (
           <p className="text-xs text-rose-500 p-4">{error}</p>
         ) : !visibleRows.length ? (
           <p className="text-xs text-slate-400">No plottable rows returned.</p>

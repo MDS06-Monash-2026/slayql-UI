@@ -707,16 +707,20 @@ class GeminiWorkbenchAgent:
                 seen_prompts.add(normalized)
         return {**result, "suggestions": suggestions}
 
-    async def recommend_chart(self, question: str, result_summary: Dict[str, Any]) -> Dict[str, Any]:
-        allowed = [item[0] for item in CHART_IDIOMS]
+    async def recommend_chart(self, question: str, result_summary: Dict[str, Any], allowed: Optional[List[str]] = None) -> Dict[str, Any]:
+        # When the result's shape limits the sensible charts, the model chooses only among those.
+        allowed = list(allowed) if allowed else [item[0] for item in CHART_IDIOMS]
         columns = result_summary.get("columns", [])
         numeric = [item["name"] for item in columns if "average" in item]
         dimensions = [item["name"] for item in columns if "average" not in item]
         fallback_type = "line" if any("date" in item["name"].lower() or "month" in item["name"].lower() for item in columns) else "bar" if numeric and dimensions else "kpi"
+        if fallback_type not in allowed:
+            fallback_type = allowed[0]
         fallback = {"idiom": fallback_type, "title": question or "Query result", "reason": "Selected from the result shape and field types.", "x_field": dimensions[0] if dimensions else (columns[0]["name"] if columns else ""), "y_fields": numeric[:3]}
         schema = {"type": "object", "properties": {"idiom": {"type": "string", "enum": allowed}, "title": {"type": "string"}, "reason": {"type": "string"}, "x_field": {"type": "string"}, "y_fields": {"type": "array", "items": {"type": "string"}, "maxItems": 4}}, "required": ["idiom", "title", "reason", "x_field", "y_fields"], "additionalProperties": False}
-        prompt = json.dumps({"question": question, "result_profile": result_summary, "available_idioms": chart_idiom_payload()}, ensure_ascii=True)
-        system = "You are a data visualization architect. Choose exactly one available idiom based on analytical intent, cardinality, temporal ordering, dimensionality, and perceptual accuracy. Prefer position/length encodings over angles, avoid pie beyond six categories, use slope for two-period change and bump for rank-over-time. Return only fields present in the result profile."
+        idioms = [item for item in chart_idiom_payload() if item["id"] in allowed] or [{"id": a, "label": a, "family": ""} for a in allowed]
+        prompt = json.dumps({"question": question, "result_profile": result_summary, "available_idioms": idioms}, ensure_ascii=True)
+        system = "You are a data visualization architect. Choose exactly one of the available idioms (they are already the ones that suit this result) based on analytical intent, cardinality, temporal ordering, dimensionality, and perceptual accuracy. Prefer position/length encodings over angles, avoid pie beyond six categories, use slope for two-period change and bump for rank-over-time. Return only fields present in the result profile."
         return await self._generate_json(system=system, prompt=prompt, schema=schema, fallback=fallback)
 
     async def build_dashboard(self, preference: Dict[str, Any], catalog_summary: Dict[str, Any], result_summary: Dict[str, Any]) -> Dict[str, Any]:
