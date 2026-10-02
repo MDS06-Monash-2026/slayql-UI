@@ -90,7 +90,7 @@ async def test_scheduling_needs_an_analyst_and_sending_refreshes_the_report(monk
         result = await client.post(f"/api/v1/report-schedules/{schedule['id']}/send", headers=headers)
         assert result.status_code == 200, result.text
         assert result.json()["status"].startswith("Sent to 1 recipient(s); 1 of 1 figures passed")
-        assert sent[0][0] == "owner@example.com" and sent[0][1].startswith("Customer count: ")
+        assert sent[0][0] == "owner@example.com" and sent[0][1].startswith("Customer count · ")
         assert "Customers:" in sent[0][2] and "passed SlayQL's checks" in sent[0][2]
         listed = (await client.get("/api/v1/report-schedules", headers=headers)).json()
         assert any(s["id"] == schedule["id"] and s["last_status"].startswith("Sent") for s in listed)

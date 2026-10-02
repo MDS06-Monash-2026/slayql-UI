@@ -617,6 +617,8 @@ class LLMClient:
                         except json.JSONDecodeError:
                             continue
                         if chunk.get("error"):
+                            detail = chunk["error"].get("message") if isinstance(chunk["error"], dict) else chunk["error"]
+                            logger.warning("Provider error from %s: %s", execution_model_id, str(detail)[:300])
                             raise ProviderError("The AI provider rejected the request.")
                         response_id = chunk.get("id") or response_id
                         resolved_model_id = chunk.get("model") or resolved_model_id

@@ -287,6 +287,8 @@ class ControlDatabase:
             Column("report", Text, nullable=False),
             Column("created_at", String, nullable=False),
             Column("updated_at", String, nullable=False),
+            # A small JSON digest (period, key figures, charts, checks) for the history list.
+            Column("summary", Text, nullable=False, server_default="{}"),
         )
         Index("idx_saved_reports_owner", self.saved_reports.c.owner_id, self.saved_reports.c.connection_id)
         # Saved reports emailed on a schedule (the weekly pack), refreshed without AI each time.
@@ -302,6 +304,9 @@ class ControlDatabase:
             Column("weekday", Integer, nullable=False),
             Column("hour", Integer, nullable=False),
             Column("active", Integer, nullable=False, server_default="1"),
+            # "weekly" (weekday) or "monthly" (day_of_month); added after the first release.
+            Column("cadence", String, nullable=False, server_default="weekly"),
+            Column("day_of_month", Integer, nullable=False, server_default="1"),
             Column("next_run_at", String, nullable=False),
             Column("last_sent_at", String),
             Column("last_status", String),
@@ -331,8 +336,33 @@ class ControlDatabase:
                 )
                 connection.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{self.schema}"'))
                 self.metadata.create_all(connection)
+                self._add_missing_columns(connection)
         else:
             self.metadata.create_all(self.engine)
+            with self.engine.begin() as connection:
+                self._add_missing_columns(connection)
+
+    # Columns added to existing tables after release. create_all only creates missing tables.
+    ADDED_COLUMNS = {
+        "saved_reports": {
+            "summary": "TEXT NOT NULL DEFAULT '{}'",
+        },
+        "report_schedules": {
+            "cadence": "VARCHAR NOT NULL DEFAULT 'weekly'",
+            "day_of_month": "INTEGER NOT NULL DEFAULT 1",
+        },
+    }
+
+    def _add_missing_columns(self, connection) -> None:
+        from sqlalchemy import inspect
+
+        inspector = inspect(connection)
+        for table, columns in self.ADDED_COLUMNS.items():
+            existing = {column["name"] for column in inspector.get_columns(table, schema=self.schema)}
+            qualified = f'"{self.schema}"."{table}"' if self.schema else f'"{table}"'
+            for name, definition in columns.items():
+                if name not in existing:
+                    connection.execute(text(f'ALTER TABLE {qualified} ADD COLUMN "{name}" {definition}'))
 
     @property
     def backend(self) -> str:

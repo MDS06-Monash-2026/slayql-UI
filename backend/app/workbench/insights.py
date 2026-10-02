@@ -98,7 +98,7 @@ def panel_facts(panel: Dict[str, Any], columns: List[str], rows: List[List[Any]]
     """Facts for one chart, plus display hints (which mark to emphasise, partial periods)."""
     item_id = panel["id"]
     hints: Dict[str, Any] = {}
-    if not rows or panel.get("chart") == "table":
+    if not rows or panel.get("chart") in {"table", "scatter"}:
         return ([_fact(item_id, "rows", f"{panel.get('title')}: {len(rows):,} rows.", 0.1, rows=len(rows))] if rows else []), hints
     try:
         x = columns.index(panel.get("x")) if panel.get("x") in columns else 0

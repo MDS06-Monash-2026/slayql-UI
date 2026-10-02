@@ -56,7 +56,7 @@ from backend.app.workbench.gemini_agent import (
     summarize_result,
 )
 from backend.app.workbench.health import inspect_sqlite_health
-from backend.app.workbench import trusted_report
+from backend.app.workbench import report_agent, report_periods, trusted_report
 from backend.app.workbench.report_packs import available_templates, build_template
 from backend.app.workbench.schedules import render_email, schedule_store
 from backend.app.workbench.saved_reports import saved_report_store
@@ -229,10 +229,37 @@ class DashboardAssistRequest(BaseModel):
 class TrustedReportRequest(BaseModel):
     question: str = Field(default="", max_length=2000)
     title: str = Field(default="", max_length=200)
+    grain: Optional[str] = Field(default=None, pattern="^(week|month)$")
+    # Earlier turns of the same request, e.g. the agent's clarifying question and the user's answer.
+    history: List[Dict[str, str]] = Field(default_factory=list, max_length=12)
 
 
-class ReportRefreshRequest(BaseModel):
+class ReportView(BaseModel):
+    """Which period and slicers a report is shown for."""
+    grain: Optional[str] = Field(default=None, pattern="^(week|month|quarter|year|all)$")
+    offset: int = Field(default=0, ge=-120, le=0)
+    start: Optional[str] = Field(default=None, max_length=10)
+    end: Optional[str] = Field(default=None, max_length=10)
+    filter_state: Optional[Dict[str, List[str]]] = None
+
+
+class ReportRefreshRequest(ReportView):
     report: Dict[str, Any]
+
+
+class ReportFollowUpRequest(BaseModel):
+    report: Dict[str, Any]
+    message: str = Field(default="", max_length=2000)
+    # Past chat questions to add to the report, each {"question", "sql"}.
+    questions: List[Dict[str, str]] = Field(default_factory=list, max_length=8)
+
+
+class SchedulePreviewRequest(BaseModel):
+    report: Dict[str, Any]
+    cadence: str = Field(default="weekly", pattern="^(weekly|monthly)$")
+    weekday: int = Field(default=0, ge=0, le=6)
+    day_of_month: int = Field(default=1, ge=1, le=28)
+    hour: int = Field(default=8, ge=0, le=23)
 
 
 class ReportReviseRequest(BaseModel):
@@ -1159,11 +1186,11 @@ async def create_trusted_report(connection_id: str, req: TrustedReportRequest, r
 
     async def stream():
         try:
-            async for event in trusted_report.generate(req.question, req.title, ctx):
+            async for event in report_agent.build(req.question, req.title, ctx, grain=req.grain, history=req.history):
                 yield json.dumps(event, default=str) + "\n"
                 if event.get("type") == "report":
                     # Charge only for a report that was actually built.
-                    credits = _consume_ai_credit(request, "Trusted report generation")
+                    credits = _consume_ai_credit(request, "AI report agent")
                     yield json.dumps({"type": "credits", "credits_remaining": credits}) + "\n"
         except HTTPException as exc:
             yield json.dumps({"type": "error", "detail": exc.detail}) + "\n"
@@ -1178,8 +1205,100 @@ class ReportScheduleRequest(BaseModel):
     connection_id: str
     report: Dict[str, Any]
     recipients: List[str] = Field(min_length=1, max_length=10)
+    cadence: str = Field(default="weekly", pattern="^(weekly|monthly)$")
     weekday: int = Field(default=0, ge=0, le=6)
+    day_of_month: int = Field(default=1, ge=1, le=28)
     hour: int = Field(default=8, ge=0, le=23)
+
+
+@app.post("/api/v1/connections/{connection_id}/reports/followup")
+async def follow_up_trusted_report(connection_id: str, req: ReportFollowUpRequest, request: Request):
+    """Change a report from a chat message, streamed like a build. Charged only when the report changes."""
+    conn = _connection_metadata(connection_id, _owner_id(request))
+    if not conn:
+        raise HTTPException(status_code=404, detail="Database connection not found.")
+    if not req.message.strip() and not req.questions:
+        raise HTTPException(status_code=400, detail="Say what to change, or pick questions to add.")
+    _ensure_ai_credit(request)
+    ctx = await _report_context(conn, connection_id, request)
+
+    async def stream():
+        try:
+            async for event in report_agent.follow_up(req.report, req.message, ctx, req.questions):
+                yield json.dumps(event, default=str) + "\n"
+                if event.get("type") == "report":
+                    credits = _consume_ai_credit(request, "AI report agent edit")
+                    yield json.dumps({"type": "credits", "credits_remaining": credits}) + "\n"
+        except Exception:
+            logger.exception("Report follow-up failed for %s", connection_id)
+            yield json.dumps({"type": "error", "detail": "That change could not be made. Try saying it another way."}) + "\n"
+
+    return StreamingResponse(stream(), media_type="application/x-ndjson")
+
+
+@app.get("/api/v1/connections/{connection_id}/report-questions")
+async def list_report_questions(connection_id: str, request: Request):
+    """Questions asked in chat on this data source that produced SQL, newest first, to add to a report."""
+    session = _session_from_request(request, required=True)
+    owner_id = session["user"]["id"]
+    if not _connection_metadata(connection_id, owner_id):
+        raise HTTPException(status_code=404, detail="Database connection not found.")
+    return await asyncio.to_thread(_past_questions, owner_id, connection_id)
+
+
+def _past_questions(owner_id: str, connection_id: str, limit: int = 40) -> List[Dict[str, Any]]:
+    from sqlalchemy import select as sa_select
+
+    db = control_database
+    conversations = db.chat_conversations
+    messages = db.chat_messages
+    with db.engine.connect() as conn:
+        threads = {row.id: row.title for row in conn.execute(sa_select(conversations.c.id, conversations.c.title).where(
+            conversations.c.owner_id == owner_id, conversations.c.connection_id == connection_id))}
+        if not threads:
+            return []
+        rows = conn.execute(sa_select(messages.c.id, messages.c.conversation_id, messages.c.role, messages.c.content,
+                                      messages.c.sql, messages.c.created_at)
+                            .where(messages.c.owner_id == owner_id, messages.c.conversation_id.in_(list(threads)))
+                            .order_by(messages.c.conversation_id, messages.c.created_at)).fetchall()
+    out: List[Dict[str, Any]] = []
+    last_question: Dict[str, str] = {}
+    for row in rows:
+        if row.role == "user":
+            last_question[row.conversation_id] = row.content
+        elif row.sql and row.sql.strip() and last_question.get(row.conversation_id):
+            out.append({"id": row.id, "question": last_question[row.conversation_id][:300], "sql": row.sql.strip(),
+                        "asked_at": row.created_at, "chat": threads.get(row.conversation_id, "")})
+    seen, unique = set(), []
+    for item in sorted(out, key=lambda q: q["asked_at"], reverse=True):
+        key = item["question"].strip().lower()
+        if key not in seen:
+            seen.add(key)
+            unique.append(item)
+    return unique[:limit]
+
+
+@app.post("/api/v1/connections/{connection_id}/reports/schedule-preview")
+async def preview_report_schedule(connection_id: str, req: SchedulePreviewRequest, request: Request):
+    """When the next email goes out, which dates it covers, and the email itself. No AI, so free."""
+    owner_id = _owner_id(request)
+    conn = _connection_metadata(connection_id, owner_id)
+    if not conn:
+        raise HTTPException(status_code=404, detail="Database connection not found.")
+    send_at = report_periods.next_send(req.cadence, weekday=req.weekday, day_of_month=req.day_of_month, hour=req.hour)
+    send_day = send_at.astimezone(report_periods.MYT)
+    ctx = await _pack_context(conn, connection_id, owner_id)
+    report = await trusted_report.refresh(req.report, ctx, grain=report_periods.CADENCE_GRAIN[req.cadence],
+                                          today=send_day.date().isoformat())
+    message = render_email(report, settings.PUBLIC_APP_URL, cadence=req.cadence)
+    return {
+        "next_send": send_at.isoformat(),
+        "next_send_label": f"{send_day:%A} {send_day.day} {send_day:%b %Y}, {send_day:%H:%M} Malaysia time",
+        "when": report_periods.describe_cadence(req.cadence, req.weekday, req.day_of_month, req.hour),
+        "period": report.get("period"),
+        "subject": message["subject"],
+        "html": message["html"],
+    }
 
 
 EMAIL_ADDRESS = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -1231,8 +1350,10 @@ async def _deliver_schedule(schedule: Dict[str, Any]) -> str:
     else:
         try:
             ctx = await _pack_context(conn, schedule["connection_id"], schedule["owner_id"])
-            report = await trusted_report.refresh(schedule["report"], ctx)
-            message = render_email(report, settings.PUBLIC_APP_URL)
+            cadence = schedule.get("cadence") or "weekly"
+            # The period that just ended: last Monday-to-Sunday week, or last calendar month.
+            report = await trusted_report.refresh(schedule["report"], ctx, grain=report_periods.CADENCE_GRAIN[cadence])
+            message = render_email(report, settings.PUBLIC_APP_URL, cadence=cadence)
             for recipient in schedule["recipients"]:
                 await asyncio.to_thread(send_email, recipient, message["subject"], message["text"], message["html"])
             status = f"Sent to {len(schedule['recipients'])} recipient(s); {report['trust'].get('confident', 0) + report['trust'].get('caveat', 0)} of {len(report['kpis']) + len(report['panels'])} figures passed."
@@ -1280,6 +1401,17 @@ async def get_saved_report(report_id: str, request: Request):
     return record
 
 
+class DeleteReportsRequest(BaseModel):
+    ids: List[str] = Field(min_length=1, max_length=100)
+
+
+@app.post("/api/v1/saved-reports/delete")
+async def delete_saved_reports(req: DeleteReportsRequest, request: Request):
+    """Delete several reports from the history at once (only the caller's own)."""
+    deleted = await asyncio.to_thread(saved_report_store.delete_many, req.ids, _saved_report_owner(request))
+    return {"deleted": deleted}
+
+
 @app.delete("/api/v1/saved-reports/{report_id}")
 async def delete_saved_report(report_id: str, request: Request):
     if not await asyncio.to_thread(saved_report_store.delete, report_id, _saved_report_owner(request)):
@@ -1303,12 +1435,14 @@ async def create_report_schedule(req: ReportScheduleRequest, request: Request):
     invalid = [address for address in recipients if not EMAIL_ADDRESS.match(address)]
     if invalid or not recipients:
         raise HTTPException(status_code=400, detail=f"Not an email address: {', '.join(invalid) or 'none given'}")
-    report = {key: req.report.get(key) for key in ("title", "subtitle", "question", "kpis", "panels")}
+    report = {key: req.report.get(key) for key in (
+        "title", "subtitle", "question", "kpis", "panels", "filters", "filter_state", "grain", "anchor_sql", "agent")}
     if not (report.get("kpis") or report.get("panels")):
         raise HTTPException(status_code=400, detail="The report has no figures to send.")
     return await asyncio.to_thread(
         schedule_store.create, owner_id=session["user"]["id"], connection_id=req.connection_id,
         report=report, recipients=recipients, weekday=req.weekday, hour=req.hour,
+        cadence=req.cadence, day_of_month=req.day_of_month,
     )
 
 
@@ -1340,7 +1474,8 @@ async def refresh_trusted_report(connection_id: str, req: ReportRefreshRequest, 
         raise HTTPException(status_code=404, detail="Database connection not found.")
     ctx = await _report_context(conn, connection_id, request)
     ctx.llm = False
-    return await trusted_report.refresh(req.report, ctx)
+    return await trusted_report.refresh(req.report, ctx, grain=req.grain, offset=req.offset, start=req.start,
+                                        end=req.end, filter_state=req.filter_state)
 
 
 @app.post("/api/v1/connections/{connection_id}/reports/revise")
@@ -1354,6 +1489,7 @@ async def revise_trusted_report_item(connection_id: str, req: ReportReviseReques
     if not ctx.llm:
         raise HTTPException(status_code=503, detail="Changing a figure needs the AI provider, which is not configured.")
     try:
+        await trusted_report.prepare(ctx, trusted_report.plan_from_report(req.report), filter_state=req.report.get("filter_state"))
         response = await trusted_report.revise_item(req.report, req.instruction, req.item, req.kind, ctx)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
