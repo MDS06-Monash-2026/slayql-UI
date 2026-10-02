@@ -32,6 +32,7 @@ from backend.app.providers.llm_client import (
     llm_client,
 )
 from backend.app import privacy
+from backend.app.queries.chart_options import apply_options, chart_options
 from backend.app.knowledge.store import knowledge_store
 from backend.app.verification.learning import workspace_learning
 from backend.app.verification.repairs import anchor_relative_dates
@@ -2083,7 +2084,10 @@ class SlayQLPipeline:
                         execution_result.column_types,
                         execution_result.rows,
                     )
-                    chart_plan = await gemini_workbench_agent.recommend_chart(question, result_profile)
+                    suitable = chart_options(execution_result.columns, execution_result.column_types, execution_result.rows)
+                    chart_plan = await gemini_workbench_agent.recommend_chart(
+                        question, result_profile, allowed=[o["type"] for o in suitable] or None
+                    )
                     chart = materialize_chart_recommendation(
                         chart_plan,
                         execution_result.columns,
@@ -2123,6 +2127,11 @@ class SlayQLPipeline:
                             "summary": "Gemini was unavailable; the bounded local chart fallback was used.",
                         },
                     )
+            # Only charts that suit the result are offered; the chosen one is always among them.
+            chart = apply_options(
+                chart,
+                chart_options(execution_result.columns, execution_result.column_types, execution_result.rows),
+            ) if chart or execution_result.rows else chart
             SlayQLPipeline._emit(
                 run_id,
                 "visualization",
