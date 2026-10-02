@@ -104,6 +104,17 @@
 @keyframes ring-turn { to { --ring-angle: 360deg; } }
 @media (prefers-reduced-motion: reduce) { .warmup-ring { animation: none; } }
 
+/* Chat loading skeleton: visible blocks with a light sweeping shimmer, in both themes. */
+.skel {
+  background: linear-gradient(90deg, #e2e8f0 0%, #eef2f7 40%, #e2e8f0 80%) 0 0 / 220% 100%;
+  animation: skel-sweep 1.4s ease-in-out infinite;
+}
+.skel-card { background: #ffffff; border: 1px solid #e2e8f0; }
+.live-demo-shell.theme-dark .skel { background: linear-gradient(90deg, #1e2535 0%, #2a3346 40%, #1e2535 80%) 0 0 / 220% 100%; animation: skel-sweep 1.4s ease-in-out infinite; }
+.live-demo-shell.theme-dark .skel-card { background: #121622; border-color: #1e2535; }
+@keyframes skel-sweep { from { background-position: 100% 0; } to { background-position: -120% 0; } }
+@media (prefers-reduced-motion: reduce) { .skel, .live-demo-shell.theme-dark .skel { animation: none; } }
+
 /* Sign-in: indeterminate loading bar. */
 @keyframes login-progress { from { transform: translateX(-100%); } to { transform: translateX(200%); } }
 
