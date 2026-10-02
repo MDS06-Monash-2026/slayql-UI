@@ -447,7 +447,7 @@ export default function SqlWorkbench({ connectionId, initialTable, initialTableK
         )}
 
         {/* Live IDE Editor Body with Real-Time Syntax Highlighting */}
-        <div className={`relative flex h-60 overflow-hidden ${isDark ? 'bg-[#0f141c]' : 'bg-slate-50/40'}`}>
+        <div className={`relative flex h-[clamp(320px,calc(100dvh-330px),760px)] overflow-hidden ${isDark ? 'bg-[#0f141c]' : 'bg-slate-50/40'}`}>
           {/* Synchronized Line Numbers */}
           <div
             ref={lineNumbersRef}

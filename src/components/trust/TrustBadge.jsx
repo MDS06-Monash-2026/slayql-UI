@@ -28,10 +28,21 @@ export const OUTCOME_STYLES = {
   },
 };
 
-export default function TrustBadge({ outcome, probability, threshold, approved = false, isDark = false, size = 'md' }) {
+export default function TrustBadge({ outcome, probability, threshold, approved = false, isDark = false, size = 'md', compact = false }) {
   const style = OUTCOME_STYLES[outcome];
   if (!style) return null;
   const { Icon } = style;
+  if (compact) {
+    // An icon chip for dense layouts (report cards); the label stays available on hover and to screen readers.
+    const label = `${style.label}${approved ? ' · approved definition' : ''}`;
+    return (
+      <span title={label} className={`inline-flex h-6 items-center gap-1 rounded-full border px-1.5 ${isDark ? style.dark : style.light}`}>
+        <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+        {approved && <BadgeCheck className="h-3.5 w-3.5" aria-hidden="true" />}
+        <span className="sr-only">{label}</span>
+      </span>
+    );
+  }
   const padding = size === 'sm' ? 'px-2 py-0.5 text-[10px]' : 'px-2.5 py-1 text-xs';
   return (
     <span className="inline-flex flex-wrap items-center gap-1.5">
