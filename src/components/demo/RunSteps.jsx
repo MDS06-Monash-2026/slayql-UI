@@ -25,10 +25,6 @@ function seconds(ms) {
 function details(events) {
   const out = ['', '', '', '', ''];
   const find = (type, stage) => events.filter((e) => e.type === type && (!stage || e.stage === stage));
-  const tables = find('stage.evidence', 'schema_discovery')[0]?.payload?.ranked_tables;
-  if (Array.isArray(tables) && tables.length) out[0] = `Most relevant: ${tables.slice(0, 3).map((t) => t.table).join(', ')}`;
-  const join = find('stage.evidence', 'graph_expansion')[0]?.payload?.join_path;
-  if (Array.isArray(join) && join.length) out[1] = `Linked ${join.length} related tables through their relationships`;
   const gen = find('provider.completed', 'model_generation');
   if (gen.length) {
     const last = gen[gen.length - 1].payload || {};
@@ -45,6 +41,114 @@ function details(events) {
   const viz = find('visualization.agent_completed')[0]?.payload;
   if (viz?.idiom && CHART_WORD[viz.idiom]) out[4] = `Shown as ${CHART_WORD[viz.idiom]}`;
   return out;
+}
+
+function evidence(events) {
+  const pick = (type, stage) => events.find((e) => e.type === type && e.stage === stage)?.payload || {};
+  const discovery = pick('stage.evidence', 'schema_discovery');
+  const graph = pick('stage.evidence', 'graph_expansion');
+  const grounding = pick('stage.evidence', 'value_grounding');
+  const ranked = (discovery.ranked_tables || []).map((t) => t.table).filter(Boolean);
+  // Tables the final, validated query actually reads (the last validation wins after a repair).
+  const validations = events.filter((e) => e.type === 'sql.validation_completed' && Array.isArray(e.payload?.referenced_tables));
+  const used = (validations[validations.length - 1]?.payload?.referenced_tables || []).map((t) => String(t).split('.').pop().toLowerCase());
+  return {
+    ranked,
+    used,
+    linked: (graph.join_path || []).filter(Boolean),
+    relationships: (graph.relationships || []).filter((r) => r.from_table && r.to_table),
+    values: (grounding.grounded_values || [])
+      .filter((v) => v.table && v.column && v.value !== undefined && Number(v.score ?? 1) > 0)
+      .slice(0, 6),
+  };
+}
+
+function Chip({ children, strong, isDark, title }) {
+  return (
+    <span
+      title={title}
+      className={`inline-flex max-w-[16rem] items-center truncate rounded-md border px-1.5 py-0.5 font-mono text-[11px] ${
+        strong
+          ? isDark ? 'border-indigo-500/40 bg-indigo-500/15 text-indigo-200' : 'border-indigo-200 bg-indigo-50 text-indigo-800'
+          : isDark ? 'border-slate-700 bg-slate-800/60 text-slate-300' : 'border-slate-200 bg-slate-50 text-slate-700'
+      }`}
+    >
+      {children}
+    </span>
+  );
+}
+
+function ChipList({ items, limit = 8, isDark, strongSet, strongTitle = 'Best match for your question' }) {
+  const [all, setAll] = useState(false);
+  const shown = all ? items : items.slice(0, limit);
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      {shown.map((item) => (
+        <Chip key={item} isDark={isDark} strong={strongSet?.has(item)} title={strongSet?.has(item) ? strongTitle : undefined}>{item}</Chip>
+      ))}
+      {items.length > limit && (
+        <button type="button" onClick={() => setAll((v) => !v)} className={`text-[11px] font-medium ${isDark ? 'text-indigo-300' : 'text-indigo-600'} hover:underline`}>
+          {all ? 'Show less' : `+${items.length - limit} more`}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function StepEvidence({ index, ev, isDark }) {
+  const [showLinks, setShowLinks] = useState(false);
+  const label = `text-[11px] font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`;
+  if (index === 0 && ev.ranked.length) {
+    return (
+      <div className="mt-1.5 space-y-1">
+        <p className={label}>Most relevant tables</p>
+        <ChipList items={ev.ranked} isDark={isDark} strongSet={new Set(ev.ranked.slice(0, 1))} />
+      </div>
+    );
+  }
+  if (index === 1 && (ev.linked.length || ev.values.length)) {
+    const usedSet = new Set(ev.used);
+    const linked = ev.used.length ? [...ev.linked.filter((t) => usedSet.has(t.toLowerCase())), ...ev.linked.filter((t) => !usedSet.has(t.toLowerCase()))] : ev.linked;
+    return (
+      <div className="mt-1.5 space-y-2">
+        {ev.linked.length > 0 && (
+          <div className="space-y-1">
+            <p className={label}>
+              {ev.used.length ? `Tables considered (${ev.linked.length}) · the query reads the highlighted ${ev.used.length === 1 ? 'one' : ev.used.length}` : `Tables considered (${ev.linked.length})`}
+            </p>
+            <ChipList items={linked} isDark={isDark} strongSet={new Set(linked.filter((t) => usedSet.has(t.toLowerCase())))} strongTitle="Read by the final query" />
+          </div>
+        )}
+        {ev.values.length > 0 && (
+          <div className="space-y-1">
+            <p className={label}>Values matched in your data</p>
+            <div className="flex flex-wrap gap-1">
+              {ev.values.map((v) => (
+                <Chip key={`${v.table}.${v.column}=${v.value}`} isDark={isDark} title={`${v.table}.${v.column} = ${v.value}`}>{v.table}.{v.column} = {String(v.value)}</Chip>
+              ))}
+            </div>
+          </div>
+        )}
+        {ev.relationships.length > 0 && (
+          <div>
+            <button type="button" onClick={() => setShowLinks((v) => !v)} className={`text-[11px] font-medium ${isDark ? 'text-indigo-300' : 'text-indigo-600'} hover:underline`}>
+              {showLinks ? 'Hide how they connect' : `How they connect (${ev.relationships.length} links)`}
+            </button>
+            {showLinks && (
+              <ul className={`mt-1.5 space-y-0.5 rounded-lg p-2 font-mono text-[11px] ${isDark ? 'bg-slate-800/50 text-slate-300' : 'bg-slate-50 text-slate-700'}`}>
+                {ev.relationships.map((r) => (
+                  <li key={`${r.from_table}.${r.from_column}-${r.to_table}.${r.to_column}`}>
+                    {r.from_table}.{r.from_column} <span className={isDark ? 'text-slate-500' : 'text-slate-400'}>→</span> {r.to_table}.{r.to_column}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+  return null;
 }
 
 export default function RunSteps({ events = [], isRunning = false, sql, isDark = false, defaultOpen = false }) {
@@ -78,6 +182,7 @@ export default function RunSteps({ events = [], isRunning = false, sql, isDark =
     };
   }, [events]);
   const notes = useMemo(() => details(events), [events]);
+  const ev = useMemo(() => evidence(events), [events]);
 
   if (!events.length && !isRunning) return null;
   const done = !isRunning && !failed;
@@ -133,6 +238,7 @@ export default function RunSteps({ events = [], isRunning = false, sql, isDark =
                       {state === 'done' && times[i] !== null && <span className={`shrink-0 text-[11px] tabular-nums ${muted}`}>{seconds(times[i])}</span>}
                     </div>
                     {notes[i] && state !== 'pending' && <p className={`mt-0.5 truncate text-xs ${muted}`}>{notes[i]}</p>}
+                    {state !== 'pending' && i < 2 && <StepEvidence index={i} ev={ev} isDark={isDark} />}
                   </div>
                 </li>
               );

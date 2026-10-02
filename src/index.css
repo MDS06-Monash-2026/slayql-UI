@@ -115,6 +115,23 @@
 @keyframes skel-sweep { from { background-position: 100% 0; } to { background-position: -120% 0; } }
 @media (prefers-reduced-motion: reduce) { .skel, .live-demo-shell.theme-dark .skel { animation: none; } }
 
+/* Review page: soft page wash, gradient hero and question band. */
+.review-page {
+  background:
+    radial-gradient(50% 40% at 10% 0%, rgba(199, 210, 254, 0.45) 0%, transparent 70%),
+    radial-gradient(40% 35% at 95% 5%, rgba(221, 214, 254, 0.5) 0%, transparent 70%),
+    #f8fafc;
+}
+.review-hero {
+  background:
+    radial-gradient(60% 120% at 0% 0%, rgba(224, 231, 255, 0.95) 0%, transparent 60%),
+    radial-gradient(50% 120% at 100% 100%, rgba(237, 233, 254, 0.9) 0%, transparent 60%),
+    linear-gradient(120deg, #eef2ff 0%, #f5f3ff 55%, #f0f9ff 100%);
+}
+.review-question { background: linear-gradient(180deg, rgba(238, 242, 255, 0.85) 0%, rgba(245, 243, 255, 0.4) 60%, transparent 100%); }
+.dark .review-hero, .theme-dark .review-hero { background: linear-gradient(120deg, rgba(79, 70, 229, 0.18) 0%, rgba(124, 58, 237, 0.12) 55%, rgba(14, 165, 233, 0.08) 100%); }
+.dark .review-question, .theme-dark .review-question { background: linear-gradient(180deg, rgba(79, 70, 229, 0.14) 0%, transparent 100%); }
+
 /* Sign-in: indeterminate loading bar. */
 @keyframes login-progress { from { transform: translateX(-100%); } to { transform: translateX(200%); } }
 
@@ -1331,6 +1348,12 @@ button:disabled,
   color: var(--demo-text);
   border-color: var(--demo-border);
   caret-color: #818cf8;
+}
+
+.live-demo-shell.theme-dark select.lab-source-select {
+  background-color: transparent;
+  color: #f1f5f9;
+  color-scheme: dark;
 }
 
 .live-demo-shell.theme-dark input::placeholder,
