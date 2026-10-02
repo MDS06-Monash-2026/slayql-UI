@@ -11,6 +11,8 @@ Stages:
             number that no fact contains is removed
 
 Refreshing a saved report re-runs the same checked SQL with no model calls.
+Queries carry period and slicer placeholders (report_periods.py), so the same
+checked SQL answers any week, month or filter without asking the model again.
 """
 from __future__ import annotations
 
@@ -33,13 +35,46 @@ from backend.app.queries.validator import SqlValidator
 from backend.app.verification import candidate_from_result, verify
 from backend.app.verification.checks import DATE_COLUMN, STATUS_COLUMN
 from backend.app.verification.learning import workspace_learning
-from backend.app.workbench import insights
+from backend.app.workbench import insights, report_periods
 
 logger = logging.getLogger(__name__)
 
-CHARTS = {"line", "area", "bar", "bar_h", "stacked_bar", "table"}
+CHARTS = {"line", "area", "bar", "bar_h", "stacked_bar", "table", "donut", "treemap", "funnel", "heatmap", "scatter", "waterfall"}
+# Charts whose rows are split by a second column (long format).
+SERIES_CHARTS = {"stacked_bar", "heatmap", "line"}
 FORMATS = {"number", "currency", "percent"}
-MAX_KPIS, MAX_PANELS = 4, 6
+MAX_KPIS, MAX_PANELS = 6, 10
+MAX_FILTERS = 3
+
+# What each chart needs from its query. Shared by the planner and the report agent.
+CHART_CONTRACTS = """Chart contracts (x, y, series and label name columns your SQL returns; alias them clearly):
+- line: x = period, y = measure. Optional series (at most 4 groups, long format) to compare a few groups over time.
+- area: x = period, y = one measure. The headline trend.
+- bar: x = category (at most 8), y = measure. Comparing a few groups.
+- bar_h: x = label, y = measure, at most 10 rows ordered by y descending. Rankings (top customers, products).
+- stacked_bar: x = period or category, series = a second dimension (at most 5 values), y = measure, long format.
+- donut: x = category (at most 6), y = measure. Part of a whole only.
+- treemap: x = category (at most 20), y = measure. Share of a total across many categories.
+- funnel: x = stage, y = count, rows in process order (for example an order or case status lifecycle).
+- heatmap: x = column dimension (weekday, hour, period), series = row dimension, y = measure, long format, each at most 12 values.
+- scatter: label = entity name, x = measure A, y = measure B, one row per entity, at most 150 rows. How two measures relate.
+- waterfall: x = period in order, y = measure. The chart shows how each period rose or fell from the one before.
+- table: the records a manager would follow up, at most 20 rows."""
+
+PERIOD_RULES = """Periods. The report covers one period (a week Monday to Sunday, or a calendar month). Never hard-code dates and
+never use the current date: write these placeholders, without quotes, and the server fills them for whichever period
+and slicers the reader picks, including weekly and monthly emails:
+- {{start}} and {{end}}: the reported period, end exclusive. Filter with  col >= {{start}} AND col < {{end}}.
+- {{prev_start}} and {{prev_end}}: the period before it.
+- {{trend_start}}: where trend charts begin. Trends filter with  col >= {{trend_start}} AND col < {{end}}.
+- {{bucket:<date expression>}}: the start date of the period a row falls in, for grouping trends, for example
+  SELECT {{bucket:o.order_date}} AS period, SUM(o.total_amount) AS value ... GROUP BY {{bucket:o.order_date}} ORDER BY period
+- {{filter:<slicer id>:<column expression>}}: a slicer condition, for example  AND {{filter:segment:c.segment}}.
+  It becomes c.segment IN (...) when the reader picks values and 1=1 otherwise.
+KPIs use the series form (period, value) over {{trend_start}} to {{end}}: the tile shows the reported period, its change
+from the period before and a sparkline. A KPI that is not about time may return one row with a column named value.
+Rankings, shares and detail tables cover {{start}} to {{end}}. Trends, heatmaps over periods and waterfalls cover
+{{trend_start}} to {{end}}."""
 ANSWERED = {"confident", "caveat"}
 LABEL_COLUMN = re.compile(r"(^|_)(name|title|label|segment|category|type|region|city|country|carrier|channel|department|status)($|_)", re.I)
 MONEY_COLUMN = re.compile(r"amount|total|revenue|sales|price|value|cost|spend|budget|salary|balance", re.I)
@@ -50,30 +85,25 @@ PLANNER_RULES = """You plan a management report on a SQL database. Every figure 
 for double counting, missing business filters and dates outside the data, so write SQL a careful analyst would.
 
 Return only JSON:
-{"title": str, "subtitle": str,
+{"title": str, "subtitle": str, "grain": "week|month",
  "kpis": [{"id": str, "label": str, "question": str, "format": "number|currency|percent", "sql": str}],
- "panels": [{"id": str, "title": str, "question": str, "purpose": "trend|ranking|composition|comparison|detail",
-             "chart": "line|area|bar|bar_h|stacked_bar|table", "x": str, "y": str, "series": str|null,
+ "panels": [{"id": str, "title": str, "question": str, "purpose": "trend|ranking|composition|comparison|relationship|flow|detail",
+             "chart": "line|area|bar|bar_h|stacked_bar|donut|treemap|funnel|heatmap|scatter|waterfall|table",
+             "x": str, "y": str, "series": str|null, "label": str|null,
              "format": "number|currency|percent", "span": 1|2|3, "sql": str}]}
 
 Rules:
-- 3 or 4 KPIs, 3 to 5 panels. Each answers a distinct question a manager would act on. No decoration.
-- KPI SQL returns ONE row with a column named value (a total over the whole data), or a monthly series with
-  columns period (YYYY-MM) and value ordered by period: then the latest month is shown, compared with the month
-  before, with a sparkline. Prefer the series form for any "latest" or "change" KPI. Never compute growth rates
-  in SQL; the report computes changes. Keep every query short and readable.
-- Relative periods ("last month", "this year") are relative to the latest date in the data coverage, not today.
-- Panel SQL returns the columns named in x, y (and series for stacked_bar, in long format). Alias them clearly.
-- Trends use line or area with x a month string (YYYY-MM) sorted ascending, at most 24 points.
-- Rankings use bar_h with at most 10 rows, ordered by y descending. Comparisons of few categories use bar.
-- Composition uses stacked_bar with at most 5 series, or bar_h of shares. Never a pie.
-- A detail panel uses table and returns at most 20 rows of the records a manager would follow up.
+- 4 to 6 KPIs and 8 to 10 panels, each panel a different chart type. Each answers a distinct question a manager
+  would act on. No decoration.
+- Never compute growth rates in SQL; the report computes changes. Keep every query short and readable.
 - Aggregate a parent table's measure at its own grain: never SUM an orders column after joining order lines or
   shipments; use EXISTS or pre-aggregate the child table instead.
 - Apply approved definitions exactly when a term they define is used. Without one, when a table has a status
   column, say in the question which statuses you counted.
 - Use only tables and columns in the schema. Use the SQL dialect given. One SELECT per sql, no semicolons.
-- Spans: KPIs are separate. A main trend spans 2, rankings 1, detail tables 3."""
+- Spans on a 3-column grid: the main trend and heatmaps span 2, most charts 1, detail tables 3.
+
+""" + CHART_CONTRACTS + "\n\n" + PERIOD_RULES
 
 NARRATIVE_RULES = """You write the summary of a management report. You receive numbered facts computed from the data.
 Return only JSON: {"headline": str, "findings": [{"text": str, "fact_ids": [str]}], "next_steps": [str]}.
@@ -99,6 +129,12 @@ class ReportContext:
     model: Dict[str, Any] = field(default_factory=dict)
     llm: bool = True
     usage: Dict[str, float] = field(default_factory=lambda: {"cost": 0.0, "calls": 0, "tokens": 0})
+    # The period and slicer selection queries are rendered for (see report_periods.render).
+    window: Optional[Dict[str, Any]] = None
+    filter_values: Dict[str, List[Any]] = field(default_factory=dict)
+
+    def render(self, sql: str) -> str:
+        return report_periods.render(sql, self.window, self.dialect, self.filter_values)
 
     async def run(self, sql: str) -> ExecutionResult:
         """Validated, read-only execution with the app's row limit and timeout."""
@@ -238,12 +274,28 @@ def normalize_plan(raw: Dict[str, Any]) -> Dict[str, Any]:
                 "format": item.get("format") if item.get("format") in FORMATS else "number",
                 "sql": str(item["sql"]).strip().rstrip(";"),
             })
+    filters = []
+    for index, item in enumerate(raw.get("filters") or []):
+        if isinstance(item, dict) and str(item.get("values_sql") or "").strip() and len(filters) < MAX_FILTERS:
+            filter_id = _slug(item.get("id") or item.get("label"), f"filter-{index + 1}")
+            if filter_id in {f["id"] for f in filters}:
+                continue
+            filters.append({
+                "id": filter_id,
+                "label": str(item.get("label") or filter_id.replace("-", " ").title())[:40],
+                "values_sql": str(item["values_sql"]).strip().rstrip(";"),
+                "values": [str(v) for v in (item.get("values") or [])][:50],
+            })
+    filter_ids = {f["id"] for f in filters}
+
     panels = []
     for index, item in enumerate(raw.get("panels") or []):
         if isinstance(item, dict) and str(item.get("sql") or "").strip() and len(panels) < MAX_PANELS:
             chart = item.get("chart") if item.get("chart") in CHARTS else "bar"
-            if chart == "stacked_bar" and not item.get("series"):
+            if chart in {"stacked_bar", "heatmap"} and not item.get("series"):
                 chart = "bar"
+            if chart == "scatter" and not item.get("label"):
+                chart = "table"
             try:
                 span = max(1, min(3, int(item.get("span") or (3 if chart == "table" else 1))))
             except (TypeError, ValueError):
@@ -255,16 +307,23 @@ def normalize_plan(raw: Dict[str, Any]) -> Dict[str, Any]:
                 "purpose": str(item.get("purpose") or "comparison")[:20],
                 "chart": chart,
                 "x": str(item.get("x") or ""), "y": str(item.get("y") or ""),
-                "series": str(item["series"]) if item.get("series") and chart == "stacked_bar" else None,
+                "series": str(item["series"]) if item.get("series") and chart in SERIES_CHARTS else None,
+                "label": str(item["label"]) if item.get("label") and chart == "scatter" else None,
+                "filter_id": item.get("filter_id") if item.get("filter_id") in filter_ids else None,
                 "format": item.get("format") if item.get("format") in FORMATS else "number",
                 "span": span,
                 "sql": str(item["sql"]).strip().rstrip(";"),
+                **({"source": item["source"]} if item.get("source") in {"question", "agent", "pack"} else {}),
             })
+    grain = raw.get("grain") if raw.get("grain") in report_periods.GRAINS else None
     return {
         "title": str(raw.get("title") or "Management report")[:120],
         "subtitle": str(raw.get("subtitle") or "")[:200],
         "kpis": kpis,
         "panels": panels,
+        "filters": filters,
+        "grain": grain,
+        "anchor_sql": str(raw.get("anchor_sql") or "").strip().rstrip(";"),
     }
 
 
@@ -401,7 +460,8 @@ async def _repair_sql(item: Dict[str, Any], kind: str, sql: str, problem: str, c
     tables = report_tables(ctx.catalog, item.get("question", ""))
     raw = await _complete_json(ctx, (
         "You fix one SQL query for a management report. Return only JSON {\"sql\": str}. One SELECT, no semicolon, "
-        "only tables and columns in the schema."), {
+        "only tables and columns in the schema. Keep every {{...}} placeholder exactly as written: the server "
+        "replaces them with dates and filters.\n\n" + PERIOD_RULES), {
         "question": item.get("question"), "dialect": ctx.dialect, "schema": schema_text(ctx.catalog, tables),
         "approved_definitions": knowledge_store.definitions_context(ctx.definitions),
         "previous_sql": sql, "problem": problem, "output_contract": contract,
@@ -412,10 +472,30 @@ async def _repair_sql(item: Dict[str, Any], kind: str, sql: str, problem: str, c
 
 # --- Checking --------------------------------------------------------------
 
-def _kpi_values(item: Dict[str, Any], result: ExecutionResult) -> Optional[str]:
+def _kpi_values(item: Dict[str, Any], result: ExecutionResult, win: Optional[Dict[str, Any]] = None) -> Optional[str]:
     """Fill value, previous and spark from a KPI result; returns an error message if the shape is wrong."""
     columns = [c.lower() for c in result.columns]
     rows = result.rows
+    if win and report_periods.uses_period(item.get("sql", "")) and len(columns) >= 2 and "{{bucket" in item.get("sql", ""):
+        # A period series: the tile shows the reported period, not whichever period has data last.
+        value_index = columns.index("value") if "value" in columns else next(
+            (i for i in range(1, len(columns)) if rows and insights.to_number(rows[0][i]) is not None), None)
+        if value_index is None:
+            return "The KPI series must have a numeric value column."
+        by_period = {str(r[0])[:10]: insights.to_number(r[value_index]) for r in rows if r[0] is not None}
+        item["spark"] = [[p, v] for p, v in sorted(by_period.items()) if v is not None][-24:]
+        item["period"] = win["start"]
+        item["value"] = by_period.get(win["start"])
+        item["previous"] = by_period.get(win["prev_start"])
+        item["comparison_label"] = win.get("prev_label") or "the previous period"
+        if item["value"] is None:
+            # No rows in the period: a total or count is zero; an average or rate has no value.
+            ratio = item.get("format") == "percent" or re.search(r"avg|average|rate|ratio|share|margin|per\b", f"{item.get('label')} {item.get('question')}", re.I)
+            item["value"] = None if ratio else 0.0
+            item["empty_period"] = True
+            if item["value"] is None:
+                return "No records in this period, so there is no value to show."
+        return None
     if not rows:
         return "The KPI query returned no rows."
     numeric = [i for i, _ in enumerate(columns) if insights.to_number(rows[0][i]) is not None]
@@ -450,20 +530,21 @@ async def run_item(item: Dict[str, Any], kind: str, ctx: ReportContext, *, repai
     out = {key: value for key, value in item.items() if key not in {
         "columns", "rows", "row_count", "outcome", "probability", "findings", "options", "value", "previous",
         "spark", "period", "comparison_label", "error", "definitions_used", "repaired", "facts", "highlight", "partial",
-        "features", "summary", "truncated", "duration_ms"}}
+        "features", "summary", "truncated", "duration_ms", "sql_run", "empty_period", "no_data"}}
     out["kind"] = kind
     sql = out["sql"]
     started = time.perf_counter()
-    result = await ctx.run(sql)
+    # The stored SQL keeps its placeholders; this run fills them for the current period and slicers.
+    result = await ctx.run(ctx.render(sql))
     repaired = False
     if result.error and repair:
         fixed = await _repair_sql(out, kind, sql, f"The query failed: {result.error}", ctx)
         if fixed:
-            second = await ctx.run(fixed)
+            second = await ctx.run(ctx.render(fixed))
             if not second.error:
                 sql, result, repaired = fixed, second, True
     if result.error:
-        return {**out, "sql": sql, "outcome": "handoff", "error": result.error, "findings": [
+        return {**out, "sql": sql, "sql_run": ctx.render(sql), "outcome": "handoff", "error": result.error, "findings": [
             {"check": "execution", "severity": "blocking", "title": "The query could not run", "detail": result.error[:300]}]}
 
     async def check(current_sql: str, current: ExecutionResult):
@@ -473,20 +554,21 @@ async def run_item(item: Dict[str, Any], kind: str, ctx: ReportContext, *, repai
             penalty=ctx.penalty, definitions=ctx.definitions, repairs=int(repaired), model=ctx.model,
         )
 
-    verification = await check(sql, result)
+    verification = await check(ctx.render(sql), result)
     blocking = [f for f in verification.findings if f.severity == "blocking" and f.repair_hint]
     if blocking and repair:
         fixed = await _repair_sql(out, kind, sql, " ".join(f.repair_hint for f in blocking), ctx)
         if fixed:
-            second = await ctx.run(fixed)
+            second = await ctx.run(ctx.render(fixed))
             if not second.error:
-                second_check = await check(fixed, second)
+                second_check = await check(ctx.render(fixed), second)
                 # Keep the rewrite only if it passes; a rejected attempt is not a repair.
                 if not any(f.severity == "blocking" for f in second_check.findings):
                     sql, result, verification, repaired = fixed, second, second_check, True
 
     out.update({
         "sql": sql,
+        "sql_run": ctx.render(sql),
         "columns": result.columns,
         "rows": result.rows[: settings.MAX_RESULT_ROWS],
         "row_count": len(result.rows),
@@ -507,8 +589,10 @@ async def run_item(item: Dict[str, Any], kind: str, ctx: ReportContext, *, repai
         out["findings"] = [f for f in out["findings"] if f["title"] != "The query returned no rows"]
         out.update({"outcome": "confident", "summary": "Nothing to report: no rows matched."})
     if kind == "kpi":
-        problem = _kpi_values(out, result)
-        if problem:
+        problem = _kpi_values(out, result, ctx.window)
+        if problem and out.get("empty_period"):
+            out["no_data"] = True  # nothing happened in this period: not a failed check
+        elif problem:
             out.update({"outcome": "handoff", "error": problem})
             out["findings"].append({"check": "shape", "severity": "blocking", "title": "Not a single figure", "detail": problem})
     elif out.get("chart") != "table":
@@ -520,6 +604,8 @@ async def run_item(item: Dict[str, Any], kind: str, ctx: ReportContext, *, repai
             out["y"] = numeric[0] if numeric else (columns[1] if len(columns) > 1 else columns[0])
         if out.get("series") and out["series"] not in columns:
             out["series"] = None
+        if out.get("label") and out["label"] not in columns:
+            out["label"] = next((c for c in columns if c not in {out["x"], out["y"]}), None)
     return out
 
 
@@ -634,9 +720,16 @@ def trust_summary(items: List[Dict[str, Any]]) -> Dict[str, int]:
 
 
 def assemble(plan: Dict[str, Any], kpis: List[Dict[str, Any]], panels: List[Dict[str, Any]], narrative: Dict[str, Any],
-             facts: List[Dict[str, Any]], ctx: ReportContext, *, question: str, planner: str, started: float) -> Dict[str, Any]:
+             facts: List[Dict[str, Any]], ctx: ReportContext, *, question: str, planner: str, started: float,
+             agent: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     return {
-        "version": 2,
+        "version": 3,
+        "grain": plan.get("grain") or (ctx.window or {}).get("grain"),
+        "anchor_sql": plan.get("anchor_sql") or "",
+        "period": ctx.window,
+        "filters": plan.get("filters") or [],
+        "filter_state": {k: v for k, v in (ctx.filter_values or {}).items() if v},
+        "agent": agent or {},
         "title": plan["title"],
         "subtitle": plan.get("subtitle", ""),
         "question": question,
@@ -691,6 +784,7 @@ async def generate(question: str, title: str, ctx: ReportContext) -> AsyncGenera
     started = time.perf_counter()
     yield {"type": "stage", "stage": "plan", "label": "Planning the figures this question needs"}
     plan, planner = await plan_report(question, title, ctx)
+    await prepare(ctx, plan)
     yield {"type": "plan", "planner": planner, "title": plan["title"], "subtitle": plan["subtitle"],
            "kpis": [{"id": k["id"], "label": k["label"]} for k in plan["kpis"]],
            "panels": [{"id": p["id"], "title": p["title"], "chart": p["chart"], "span": p["span"]} for p in plan["panels"]]}
@@ -709,18 +803,66 @@ async def generate(question: str, title: str, ctx: ReportContext) -> AsyncGenera
     yield {"type": "report", "report": report}
 
 
-async def refresh(report: Dict[str, Any], ctx: ReportContext) -> Dict[str, Any]:
-    """Re-run a saved report's checked SQL on current data. No model calls, so no AI cost."""
+async def data_range(ctx: ReportContext, plan: Dict[str, Any]) -> Tuple[Optional[Any], Optional[Any]]:
+    """First and last date of the report's main date column, from its anchor query."""
+    anchor = plan.get("anchor_sql") or ""
+    if not anchor:
+        return None, None
+    result = await ctx.run(anchor)
+    if result.error or not result.rows:
+        return None, None
+    row = result.rows[0]
+    first = report_periods.parse_day(row[0]) if row else None
+    last = report_periods.parse_day(row[1]) if len(row) > 1 else first
+    return first, last
+
+
+async def prepare(ctx: ReportContext, plan: Dict[str, Any], *, grain: Optional[str] = None, offset: int = 0,
+                  start: Any = None, end: Any = None, filter_state: Optional[Dict[str, List[Any]]] = None,
+                  today: Any = None) -> None:
+    """Set the period and slicers the report's queries are rendered for, and load slicer values."""
+    texts = [i.get("sql", "") for i in plan.get("kpis", []) + plan.get("panels", [])]
+    if any(report_periods.uses_period(t) for t in texts):
+        first, last = await data_range(ctx, plan)
+        ctx.window = report_periods.window(
+            grain or plan.get("grain") or "month", data_min=first, data_max=last, offset=int(offset or 0),
+            start=report_periods.parse_day(start), end=report_periods.parse_day(end),
+            today=report_periods.parse_day(today) if today else None,
+        )
+    else:
+        ctx.window = None
+    for spec in plan.get("filters") or []:
+        result = await ctx.run(spec["values_sql"])
+        if not result.error:
+            spec["values"] = report_periods.first_values(result.rows)[:50]
+    allowed = {spec["id"]: set(spec.get("values") or []) for spec in plan.get("filters") or []}
+    ctx.filter_values = {
+        key: [str(v) for v in values if str(v) in allowed[key]][:50]
+        for key, values in (filter_state or {}).items() if key in allowed and isinstance(values, list)
+    }
+
+
+def plan_from_report(report: Dict[str, Any]) -> Dict[str, Any]:
+    return normalize_plan({key: report.get(key) for key in ("title", "subtitle", "kpis", "panels", "filters", "grain", "anchor_sql")})
+
+
+async def refresh(report: Dict[str, Any], ctx: ReportContext, *, grain: Optional[str] = None, offset: int = 0,
+                  start: Any = None, end: Any = None, filter_state: Optional[Dict[str, List[Any]]] = None,
+                  today: Any = None) -> Dict[str, Any]:
+    """Re-run a saved report's checked SQL for a period and slicer selection. No model calls, so no AI cost."""
     started = time.perf_counter()
-    plan = normalize_plan({"title": report.get("title"), "subtitle": report.get("subtitle"),
-                           "kpis": report.get("kpis") or [], "panels": report.get("panels") or []})
+    plan = plan_from_report(report)
+    if grain is None and start is None:
+        grain = (report.get("period") or {}).get("grain") if (report.get("period") or {}).get("grain") in report_periods.GRAINS else None
+    await prepare(ctx, plan, grain=grain, offset=offset, start=start, end=end,
+                  filter_state=report.get("filter_state") if filter_state is None else filter_state, today=today)
     done = [item async for item in _run_all(ctx, plan, repair=False)]
     kpis = _ordered([i for i in done if i["kind"] == "kpi"], plan["kpis"])
     panels = _ordered([i for i in done if i["kind"] == "panel"], plan["panels"])
     facts = collect_facts(kpis, panels)
     narrative = deterministic_narrative(facts)
     out = assemble(plan, kpis, panels, narrative, facts, ctx, question=str(report.get("question") or ""),
-                   planner=(report.get("meta") or {}).get("planner", "saved"), started=started)
+                   planner=(report.get("meta") or {}).get("planner", "saved"), started=started, agent=report.get("agent"))
     out["meta"]["refreshed"] = True
     return out
 
