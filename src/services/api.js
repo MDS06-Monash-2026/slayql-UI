@@ -405,12 +405,11 @@ export function generateWorkbenchDashboard(connectionId, { preference, result })
 
 // --- Trusted reports: every figure is a checked query on the full data ---
 
-/** Build a report, calling onEvent for each streamed event (stage, plan, item, report). */
-export async function streamReport(connectionId, { question, title = '' }, onEvent, { signal } = {}) {
-  const res = await fetch(`${API_BASE}/connections/${encodeURIComponent(connectionId)}/reports`, {
+async function streamNdjson(path, body, onEvent, { signal } = {}) {
+  const res = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-    body: JSON.stringify({ question, title }),
+    body: JSON.stringify(body),
     signal,
   });
   if (!res.ok || !res.body) {
@@ -437,9 +436,38 @@ export async function streamReport(connectionId, { question, title = '' }, onEve
   if (buffer.trim()) onEvent(JSON.parse(buffer));
 }
 
-/** Re-run a saved report's checked SQL on current data (no AI, no credits). */
-export function refreshReport(connectionId, report) {
-  return jsonRequest(`/connections/${encodeURIComponent(connectionId)}/reports/refresh`, { method: 'POST', body: { report } });
+/**
+ * Build a report with the AI report agent. onEvent receives each streamed event:
+ * stage, tool (one agent step), plan, item (one checked figure), clarify, report, credits, error.
+ */
+export function streamReport(connectionId, { question, title = '', grain = null, history = [] }, onEvent, options) {
+  return streamNdjson(`/connections/${encodeURIComponent(connectionId)}/reports`, { question, title, grain, history }, onEvent, options);
+}
+
+/** Change a report from a chat message and/or past questions to add. Streams like streamReport, plus reply. */
+export function streamReportFollowUp(connectionId, { report, message = '', questions = [] }, onEvent, options) {
+  return streamNdjson(`/connections/${encodeURIComponent(connectionId)}/reports/followup`, { report, message, questions }, onEvent, options);
+}
+
+/**
+ * Re-run a report's checked SQL for a period and slicer selection (no AI, no credits).
+ * view: { grain: 'week'|'month'|'quarter'|'year'|'all', offset: 0 or negative, start, end, filter_state }.
+ */
+export function refreshReport(connectionId, report, view = {}) {
+  return jsonRequest(`/connections/${encodeURIComponent(connectionId)}/reports/refresh`, { method: 'POST', body: { report, ...view } });
+}
+
+/** Questions asked in chat on this data source that produced SQL, to add to a report. */
+export function fetchReportQuestions(connectionId) {
+  return jsonRequest(`/connections/${encodeURIComponent(connectionId)}/report-questions`);
+}
+
+/** When a schedule would next send, which dates that edition covers, and the email itself. */
+export function previewReportSchedule(connectionId, { report, cadence, weekday, dayOfMonth, hour }) {
+  return jsonRequest(`/connections/${encodeURIComponent(connectionId)}/reports/schedule-preview`, {
+    method: 'POST',
+    body: { report, cadence, weekday, day_of_month: dayOfMonth, hour },
+  });
 }
 
 /** Reports saved on the server for this data source (newest first, without bodies). */
@@ -460,6 +488,11 @@ export function deleteSavedReport(reportId) {
   return jsonRequest(`/saved-reports/${encodeURIComponent(reportId)}`, { method: 'DELETE' });
 }
 
+/** Delete several reports from the history at once. */
+export function deleteSavedReports(ids) {
+  return jsonRequest('/saved-reports/delete', { method: 'POST', body: { ids } });
+}
+
 /** Ready-made report packs this data source supports (e.g. the weekly distributor pack). */
 export function fetchReportTemplates(connectionId) {
   return jsonRequest(`/connections/${encodeURIComponent(connectionId)}/report-templates`);
@@ -474,10 +507,10 @@ export function fetchReportSchedules() {
   return jsonRequest('/report-schedules');
 }
 
-export function createReportSchedule({ connectionId, report, recipients, weekday, hour }) {
+export function createReportSchedule({ connectionId, report, recipients, cadence = 'weekly', weekday = 0, dayOfMonth = 1, hour = 8 }) {
   return jsonRequest('/report-schedules', {
     method: 'POST',
-    body: { connection_id: connectionId, report, recipients, weekday, hour },
+    body: { connection_id: connectionId, report, recipients, cadence, weekday, day_of_month: dayOfMonth, hour },
   });
 }
 
@@ -666,19 +699,24 @@ export function chooseClarification(runId, optionIndex) {
   return jsonRequest(`/agent-runs/${runId}/clarify`, { method: 'POST', body: { option_index: optionIndex } });
 }
 
-export function fetchReviewItems(status = 'open') {
-  return jsonRequest(`/review-items?status=${encodeURIComponent(status)}`);
+// The review queue opens from cache and refreshes in the background (see cachedRequest).
+export function fetchReviewItems(status = 'open', { force = false } = {}) {
+  return cachedRequest(`review-items:${status}`, () => jsonRequest(`/review-items?status=${encodeURIComponent(status)}`), 60 * 1000, { force });
 }
 
-export function fetchReviewCount() {
-  return jsonRequest('/review-items/count');
+export function fetchReviewCount({ force = false } = {}) {
+  return cachedRequest('review-count', () => jsonRequest('/review-items/count'), 60 * 1000, { force });
 }
 
-export function resolveReviewItem(itemId, { resolution, note = '', correctedSql = null, saveVerifiedQuery = false }) {
-  return jsonRequest(`/review-items/${itemId}/resolve`, {
+export async function resolveReviewItem(itemId, { resolution, note = '', correctedSql = null, saveVerifiedQuery = false }) {
+  const result = await jsonRequest(`/review-items/${itemId}/resolve`, {
     method: 'POST',
     body: { resolution, note, corrected_sql: correctedSql, save_verified_query: saveVerifiedQuery },
   });
+  invalidateClientCache('review-items');
+  invalidateClientCache('review-count');
+  invalidateClientCache('calibration');
+  return result;
 }
 
 export function fetchMembers() {
@@ -689,21 +727,28 @@ export function updateMemberRole(userId, accessRole) {
   return jsonRequest(`/organization/members/${encodeURIComponent(userId)}`, { method: 'PATCH', body: { access_role: accessRole } });
 }
 
-export function fetchCalibration(connectionId) {
-  return jsonRequest(`/connections/${encodeURIComponent(connectionId)}/calibration`);
+export function fetchCalibration(connectionId, { force = false } = {}) {
+  return cachedRequest(`calibration:${connectionId}`, () => jsonRequest(`/connections/${encodeURIComponent(connectionId)}/calibration`), 5 * 60 * 1000, { force });
 }
 
-export function fetchDefinitions(connectionId, status) {
+// Definitions open from cache and refresh in the background; any change clears the cache.
+export function fetchDefinitions(connectionId, status, { force = false } = {}) {
   const query = status ? `?status=${encodeURIComponent(status)}` : '';
-  return jsonRequest(`/connections/${connectionId}/definitions${query}`);
+  return cachedRequest(`definitions:${connectionId}:${status || 'all'}`, () => jsonRequest(`/connections/${connectionId}/definitions${query}`), 5 * 60 * 1000, { force });
 }
 
-export function createDefinition(connectionId, definition) {
-  return jsonRequest(`/connections/${connectionId}/definitions`, { method: 'POST', body: definition });
+export async function createDefinition(connectionId, definition) {
+  const result = await jsonRequest(`/connections/${connectionId}/definitions`, { method: 'POST', body: definition });
+  invalidateClientCache('definitions');
+  invalidateClientCache('definition-suggestions');
+  return result;
 }
 
-export function updateDefinitionStatus(definitionId, status) {
-  return jsonRequest(`/definitions/${definitionId}`, { method: 'PATCH', body: { status } });
+export async function updateDefinitionStatus(definitionId, status) {
+  const result = await jsonRequest(`/definitions/${definitionId}`, { method: 'PATCH', body: { status } });
+  invalidateClientCache('definitions');
+  invalidateClientCache('definition-suggestions');
+  return result;
 }
 
 // Questions I asked that an analyst has answered, corrected or dismissed.
@@ -715,8 +760,8 @@ export function fetchMyAnswerResult(itemId) {
   return jsonRequest(`/my-answers/${itemId}/result`);
 }
 
-export function fetchDefinitionSuggestions(connectionId) {
-  return jsonRequest(`/connections/${connectionId}/definitions/suggestions`);
+export function fetchDefinitionSuggestions(connectionId, { force = false } = {}) {
+  return cachedRequest(`definition-suggestions:${connectionId}`, () => jsonRequest(`/connections/${connectionId}/definitions/suggestions`), 10 * 60 * 1000, { force });
 }
 
 // "Always use this": make a clarify choice the company's approved definition.
