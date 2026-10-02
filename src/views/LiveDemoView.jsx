@@ -33,7 +33,7 @@ import {
 
 import ModelSelector from '../components/demo/ModelSelector';
 import ThinkingEffortSelector, { THINKING_EFFORT_LEVELS } from '../components/demo/ThinkingEffortSelector';
-import SlayQLTraceTimeline from '../components/demo/SlayQLTraceTimeline';
+import RunSteps from '../components/demo/RunSteps';
 import AgentStreamPanel, { normalizeStreamEvent } from '../components/demo/AgentStreamPanel';
 import SqlEditorPanel from '../components/demo/SqlEditorPanel';
 import VisualizationStudio from '../components/demo/VisualizationStudio';
@@ -103,6 +103,7 @@ const ConversationAssistantMessage = React.memo(function ConversationAssistantMe
 
   return (
     <div className="py-4 space-y-3">
+      {isSqlQuery && <RunSteps events={(payload.stream_events || []).map((e) => normalizeStreamEvent(e))} sql={message.sql} isDark={isDark} />}
       <div className="ai-response-text">
         <MarkdownContent content={message.content} isDark={isDark} />
       </div>
@@ -139,10 +140,6 @@ const ConversationAssistantMessage = React.memo(function ConversationAssistantMe
           </p>
         </details>
       )}
-      {isSqlQuery && <AgentStreamPanel events={payload.stream_events || []} sql={message.sql} isDark={isDark} />}
-      {message.sql && (
-        <SqlEditorPanel sql={message.sql} isExecuting={false} isDark={isDark} />
-      )}
       {payload.chart && rows.length > 0 && !['clarify', 'handoff'].includes(payload.verification?.outcome) && (
         <VisualizationStudio
           rows={rows}
@@ -155,7 +152,9 @@ const ConversationAssistantMessage = React.memo(function ConversationAssistantMe
           onSwitchToTable={columns.length > 0 ? handleScrollToTable : undefined}
         />
       )}
-      {columns.length > 0 && (
+      {/* A single number is already shown as the headline; the table would only repeat it. */}
+      {/* A query that returns fixed text instead of reading data has no result worth showing. */}
+      {columns.length > 0 && !(payload.verification?.findings || []).some((f) => /does not read any data/i.test(f.title || '')) && !(rows.length === 1 && payload.chart?.type === 'kpi' && !['clarify', 'handoff'].includes(payload.verification?.outcome)) && (
         <div ref={tableContainerRef}>
           {['clarify', 'handoff'].includes(payload.verification?.outcome) && (
             <p className={`mb-1.5 text-[11px] font-medium ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>
@@ -170,6 +169,9 @@ const ConversationAssistantMessage = React.memo(function ConversationAssistantMe
             isDark={isDark}
           />
         </div>
+      )}
+      {message.sql && (
+        <SqlEditorPanel sql={message.sql} isExecuting={false} isDark={isDark} />
       )}
       {payload.reportable !== false && (
         <div className="flex items-center gap-2 pt-1">
@@ -1050,7 +1052,6 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
         tableCount={catalog ? Object.keys(catalog.tables || {}).length : 0}
         onOpenSaved={() => setSavedQueriesOpen(true)}
         savedCount={savedQueries.length}
-        onCreateTable={() => setAddTableOpen(true)}
         exploreRef={exploreButtonRef}
         exploreCount={exploreSuggestions.length}
         onExploreEnter={handleExploreMouseEnter}
@@ -1143,7 +1144,6 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
                   <div className={`mt-1.5 flex flex-col gap-0.5 border-t pt-1.5 ${theme === 'dark' ? 'border-slate-700' : 'border-slate-100'}`}>
                     {[
                       { icon: Layers, label: 'Manage data sources', action: () => setView('databases') },
-                      selectedConnectionId && { icon: Plus, label: 'Create new table', action: () => setAddTableOpen(true) },
                       { icon: Database, label: 'Add database connection', action: () => setAddConnectionOpen(true) },
                     ].filter(Boolean).map(({ icon: Icon, label, action }) => (
                       <button
@@ -1233,14 +1233,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
                     {/* Thinking Process */}
                     {activeIsSqlQuery === true && (
                       <>
-                        <SlayQLTraceTimeline
-                          stages={activeStages}
-                          activeStageKey={activeStageKey}
-                          isRunning={isRunning}
-                          tokenUsage={activeTokenUsage}
-                          reasoning={activeReasoning}
-                        />
-                        <AgentStreamPanel events={activeStreamEvents} isRunning={isRunning} sql={activeSql} isDark={theme === 'dark'} />
+                        <RunSteps events={activeStreamEvents} isRunning={isRunning} sql={activeSql} isDark={theme === 'dark'} />
                       </>
                     )}
 
