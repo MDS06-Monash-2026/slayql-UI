@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import {
   BookOpen, Bookmark, ChevronDown, ChevronsUpDown, Coins, Database, Layers, LogOut, Moon, PanelLeftClose, PanelLeftOpen,
-  Plus, Search, ShieldCheck, Sparkles, Sun, Trash2, UserRound, X,
+  Plus, Search, ShieldCheck, Sun, Trash2, UserRound, X,
 } from 'lucide-react';
 import AnalystAnswers from '../trust/AnalystAnswers';
+import { fetchReviewItems } from '../../services/api';
 
 // The workspace sidebar, in the pattern of modern chat apps (Claude, ChatGPT, Gemini): a new-chat
 // button and chat search at the top, a short list of places, history as the main content grouped
@@ -66,7 +67,6 @@ function NavRow({ icon: Icon, label, onClick, count, buttonRef, ...rest }) {
 export default function AppSidebar({
   theme, setTheme, open, setOpen, session, userName, avatarInitials, creditBalance, canReview,
   onNewChat, setView, onOpenCatalog, tableCount, onOpenSaved, savedCount,
-  exploreRef, exploreCount, onExploreEnter, onExploreLeave, onExploreToggle,
   history, activeId, onOpenChat, loadingId, onDeleteChat, deletingId, isRunning,
   profileOpen, setProfileOpen, onSignOut,
 }) {
@@ -141,7 +141,6 @@ export default function AppSidebar({
         <div className={`my-3 h-px w-8 ${dark ? 'bg-slate-800' : 'bg-slate-200'}`} />
         <div className="flex flex-col items-center gap-1.5">
           <RailButton icon={Database} label="AI Database Lab" onClick={() => setView('databases')} />
-          <RailButton icon={Sparkles} label="Explore" buttonRef={exploreRef} onClick={onExploreToggle} onMouseEnter={onExploreEnter} onMouseLeave={onExploreLeave} />
           <RailButton icon={Bookmark} label="Saved queries" onClick={onOpenSaved} />
           <RailButton icon={Layers} label="Schema catalog" onClick={onOpenCatalog} />
           <RailButton icon={BookOpen} label="Definitions" onClick={() => setView('definitions')} />
@@ -210,18 +209,9 @@ export default function AppSidebar({
         {/* places */}
         <nav className="mt-2 space-y-0.5 px-3" aria-label="Workspace">
           <NavRow icon={Database} label="AI Database Lab" onClick={thenClose(() => setView('databases'))} />
-          <NavRow
-            icon={Sparkles}
-            label="Explore"
-            count={exploreCount}
-            buttonRef={exploreRef}
-            onClick={onExploreToggle}
-            onMouseEnter={onExploreEnter}
-            onMouseLeave={onExploreLeave}
-          />
           <NavRow icon={Bookmark} label="Saved queries" count={savedCount} onClick={thenClose(onOpenSaved)} />
           <NavRow icon={BookOpen} label="Definitions" onClick={thenClose(() => setView('definitions'))} />
-          {canReview && <NavRow icon={ShieldCheck} label="Review queue" onClick={thenClose(() => setView('review'))} />}
+          {canReview && <NavRow icon={ShieldCheck} label="Review queue" onClick={thenClose(() => setView('review'))} onMouseEnter={() => fetchReviewItems('open').catch(() => {})} onFocus={() => fetchReviewItems('open').catch(() => {})} />}
           <AnalystAnswers enabled={Boolean(session)} />
           <button
             type="button"
