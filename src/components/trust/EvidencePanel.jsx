@@ -11,14 +11,15 @@ const SEVERITY = {
 function consensusText(consensus) {
   if (!consensus || !consensus.candidates) return null;
   if (consensus.candidates <= 1) return 'One query was generated; no independent comparison at this effort level.';
-  const agreeing = Math.round((consensus.agreement || 0) * (consensus.succeeded || 0));
-  const excluded = consensus.excluded_by_checks
-    ? ` ${consensus.excluded_by_checks} failed a check and did not get a vote.`
-    : '';
+  const excludedCount = consensus.excluded_by_checks || 0;
+  const voters = Math.max(0, (consensus.succeeded || 0) - excludedCount);
+  if (!voters) return `None of the ${consensus.candidates} independently written queries passed the checks, so none could be trusted.`;
+  const agreeing = Math.min(voters, Math.round((consensus.agreement || 0) * (consensus.succeeded || 0)));
+  const excluded = excludedCount ? ` ${excludedCount} failed a check and did not get a vote.` : '';
   return `${agreeing} of ${consensus.candidates} independently written queries returned the same answer.${excluded}`;
 }
 
-export default function EvidencePanel({ verification, dataSent, isDark = false, defaultOpen = false }) {
+export default function EvidencePanel({ verification, dataSent, isDark = false, defaultOpen = false, embedded = false }) {
   if (!verification) return null;
   const findings = verification.findings || [];
   const consensus = consensusText(verification.consensus);
@@ -28,10 +29,12 @@ export default function EvidencePanel({ verification, dataSent, isDark = false, 
   return (
     <details
       open={defaultOpen}
-      className={`rounded-xl border px-3.5 py-2 text-xs ${isDark ? 'border-slate-800 bg-[#121622] text-slate-200' : 'border-slate-200 bg-white text-slate-700'}`}
+      className={embedded
+        ? `px-3 py-2 text-xs ${isDark ? 'text-slate-200' : 'text-slate-700'}`
+        : `rounded-xl border px-3.5 py-2 text-xs ${isDark ? 'border-slate-800 bg-[#121622] text-slate-200' : 'border-slate-200 bg-white text-slate-700'}`}
     >
-      <summary className={`cursor-pointer font-semibold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-        Why SlayQL says this
+      <summary className={`cursor-pointer font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+        {embedded ? 'Details: what was checked and sent' : 'Why SlayQL says this'}
       </summary>
       <div className="mt-2 space-y-2.5">
         {findings.length === 0 ? (
