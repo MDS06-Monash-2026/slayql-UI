@@ -477,6 +477,16 @@ GENERIC_TERMS = {
 }
 
 
+# Calendar parts a query can compute from any date column (strftime('%w', d) AS weekday).
+CALENDAR_LABELS = {"weekday", "week", "day", "hour", "month", "quarter", "year", "period", "date", "dow", "time", "minute"}
+DATE_FUNCTION = re.compile(r"strftime|extract|date_trunc|datepart|datename|to_char|date_format|dayofweek|weekday|time_to_str|date\s*\(|hour\s*\(|month\s*\(|year\s*\(", re.I)
+
+
+def _calendar_part(token: str, expression_sql: str) -> bool:
+    """A label naming a calendar part, computed with a date function, is grounded in the date it comes from."""
+    return _stem(token) in CALENDAR_LABELS and bool(DATE_FUNCTION.search(expression_sql))
+
+
 def _describes_action(token: str) -> bool:
     """Verb forms describe a filter or event, not a missing thing.
 
@@ -584,7 +594,7 @@ def check_grounding(
                 continue
             if any(code and code[0] == token[0] and (len(code) <= 2 or _abbreviates(code, token)) for code in codes):
                 continue
-            if not _grounded(token, vocabulary) and not _describes_action(token):
+            if not _grounded(token, vocabulary) and not _describes_action(token) and not _calendar_part(token, alias.this.sql()):
                 missing[stem] = f"{alias.this.sql()} AS {label}"
     if not missing:
         return []

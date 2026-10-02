@@ -336,10 +336,14 @@ class SlayQLPipeline:
             "reportable", "resolution_code",
             "is_semantically_valid", "missing_requirements",
             "thinking_effort", "provider_reasoning_effort", "max_repair_attempts",
+            # What the steps view shows: tables and links found, values matched, and how the
+            # candidate queries compared (names and matched values only, never result rows).
+            "ranked_tables", "join_path", "relationships", "grounded_values", "referenced_tables",
+            "candidates", "succeeded", "agreement", "excluded_by_checks", "outcome", "probability", "threshold",
         }
         for event in events:
             payload = {
-                key: value
+                key: (value[:25] if isinstance(value, list) else value)
                 for key, value in event.payload.items()
                 if key in safe_keys
             }
