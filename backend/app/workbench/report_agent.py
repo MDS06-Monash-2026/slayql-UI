@@ -311,7 +311,7 @@ async def _probe_items(plan: Dict[str, Any], ctx: ReportContext) -> List[str]:
         if missing:
             problems.append(f"{name}: columns {missing} are not in the result {columns}")
             return
-        if len(result.rows) >= 3:
+        if result.rows:
             empty = [c for i, c in enumerate(columns) if all(r[i] is None for r in result.rows)]
             if empty:
                 problems.append(f"{name}: columns {empty} are empty; remove them")

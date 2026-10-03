@@ -518,12 +518,27 @@ def _kpi_values(item: Dict[str, Any], result: ExecutionResult, win: Optional[Dic
     return "The KPI query must return one number."
 
 
+def _without_empty_columns(result: ExecutionResult) -> Tuple[ExecutionResult, List[str]]:
+    """Drop columns that are NULL in every row (with at least one row); returns the names dropped."""
+    if not result.rows or len(result.columns) < 2:
+        return result, []
+    keep = [i for i in range(len(result.columns)) if any(row[i] is not None for row in result.rows)]
+    if len(keep) == len(result.columns) or not keep:
+        return result, []
+    hidden = [result.columns[i] for i in range(len(result.columns)) if i not in keep]
+    return result.model_copy(update={
+        "columns": [result.columns[i] for i in keep],
+        "column_types": [result.column_types[i] for i in keep] if len(result.column_types) == len(result.columns) else result.column_types,
+        "rows": [[row[i] for i in keep] for row in result.rows],
+    }), hidden
+
+
 async def run_item(item: Dict[str, Any], kind: str, ctx: ReportContext, *, repair: bool = True) -> Dict[str, Any]:
     """Execute one KPI or panel on the full data and put it through the trust layer."""
     out = {key: value for key, value in item.items() if key not in {
         "columns", "rows", "row_count", "outcome", "probability", "findings", "options", "value", "previous",
         "spark", "period", "comparison_label", "error", "definitions_used", "repaired", "facts", "highlight", "partial",
-        "features", "summary", "truncated", "duration_ms", "sql_run", "empty_period", "no_data"}}
+        "features", "summary", "truncated", "duration_ms", "sql_run", "empty_period", "no_data", "hidden_columns"}}
     out["kind"] = kind
     sql = out["sql"]
     started = time.perf_counter()
@@ -539,6 +554,12 @@ async def run_item(item: Dict[str, Any], kind: str, ctx: ReportContext, *, repai
     if result.error:
         return {**out, "sql": sql, "sql_run": ctx.render(sql), "outcome": "handoff", "error": result.error, "findings": [
             {"check": "execution", "severity": "blocking", "title": "The query could not run", "detail": result.error[:300]}]}
+
+    hidden: List[str] = []
+    if kind == "panel" and out.get("chart") == "table":
+        # A detail table can hold a column nobody has filled yet (resolution time on open cases).
+        # Hide it rather than fail the whole table; a chart's empty column still counts against it.
+        result, hidden = _without_empty_columns(result)
 
     async def check(current_sql: str, current: ExecutionResult):
         return await verify(
@@ -575,6 +596,7 @@ async def run_item(item: Dict[str, Any], kind: str, ctx: ReportContext, *, repai
         "features": verification.features,
         "repaired": repaired,
         "duration_ms": int((time.perf_counter() - started) * 1000),
+        **({"hidden_columns": hidden} if hidden else {}),
     })
     if (kind == "panel" and out.get("purpose") == "exception" and not result.rows
             and not any(f["severity"] == "blocking" for f in out["findings"])):
