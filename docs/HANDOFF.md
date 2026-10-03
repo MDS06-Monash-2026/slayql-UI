@@ -106,7 +106,7 @@ Tests: `python -m pytest -q` passes 111 (30 September). `npm run build` passes.
 
 ## 5. Results (all measured; details and caveats in REPORT_NARRATIVE.md)
 
-- **Trap set (52 items), B3 against B0:** wrong answers stated as fact 26.9% → 0%, 73.1% answered, no false alarms; all 5 unanswerable questions handed off (English and Bahasa Malaysia).
+- **Trap set (52 items), B3 against B0, re-run 3 October 2026 on the enriched demo data with `gpt-5.6-luna` (`results/trap-luna.json`):** wrong answers stated as fact 28.8% → 1.9% (one Bahasa Malaysia question), 75.0% answered, no false alarms; all 5 unanswerable questions handed off and all 8 definition questions clarified. The earlier run on the first demo database (26.9% → 0%) is in `results/trap.json`.
 - **BIRD test (233), c = 1:** 59.7% → 15.9%, 42.1% answered, 7.6% false alarms (checks alone: 0% false alarms). At c = 4, 0% answered. With evidence hints: accuracy 49.0%; at c = 1, 48.1% → 27.9% with 67.4% answered.
 - **Learning:** 33.9% → 1.6% after 40 random reviews and 0% after 80 (10.3% after 40 when learning from hand-offs only).
 - **Distributor set (22 AutoCount-style questions, OpenTK):** wrong answers stated as fact 45.5% → 0%; 40.9% answered at c = 4 (25% false alarms), 77.3% at c = 1 (8.3% false alarms). All infeasible questions handed off.

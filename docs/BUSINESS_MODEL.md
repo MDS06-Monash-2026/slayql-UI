@@ -12,7 +12,7 @@ Draft of 30 September 2026. Items marked **[fill in]** come from the customer co
 ## Problem
 
 1. **Figures are slow.** Managers wait for the one person who can pull the numbers. **[fill in: hours per week spent preparing reports, from conversations]**
-2. **Figures can be wrong without anyone noticing.** Examples: sales counted with cancelled invoices, with or without SST, or double-counted through joins. When AI writes the query, it states wrong answers as confidently as right ones. In our tests, a plain AI pipeline stated wrong answers as fact on **26.9%** of business questions and **45.5%** of AutoCount-style questions (`docs/REPORT_NARRATIVE.md`).
+2. **Figures can be wrong without anyone noticing.** Examples: sales counted with cancelled invoices, with or without SST, or double-counted through joins. When AI writes the query, it states wrong answers as confidently as right ones. In our tests, a plain AI pipeline stated wrong answers as fact on **28.8%** of business questions and **45.5%** of AutoCount-style questions (`docs/REPORT_NARRATIVE.md`).
 3. **People disagree on what a number means.** "Sales" can have several totals, and every new report re-opens the question.
 
 **[fill in: 1–2 anonymised quotes, e.g. "Finance executive, Klang Valley distributor: …"]**
@@ -84,8 +84,8 @@ AI costs are negligible even at RM 99 a month. The real costs are **onboarding**
 
 | Claim | Status |
 | --- | --- |
-| AI answers on business data are often wrong without warning | **Measured:** 26.9% and 45.5% before SlayQL, 0% after, on our test sets |
-| SlayQL answers most business questions safely | **Measured:** 73% (trap set) and 86% (distributor, starter pack), with no right answers held back on the distributor set |
+| AI answers on business data are often wrong without warning | **Measured:** 28.8% and 45.5% before SlayQL; 1.9% and 0% after, on our test sets |
+| SlayQL answers most business questions safely | **Measured:** 75% (trap set) and 86% (distributor, starter pack), with no right answers held back on the distributor set |
 | With a person in the loop, most questions end correct | **Measured (simulated person):** 98.1% and 95.5% |
 | Malaysian finance staff feel this pain | **[fill in from conversations]** |
 | They would pay | **[fill in from conversations]** |
