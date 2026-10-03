@@ -9,8 +9,10 @@ only token counts are tracked.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
+import os
 import re
 import time
 from typing import Any, AsyncGenerator, Awaitable, Callable, Dict, List, Optional, Tuple
@@ -180,8 +182,19 @@ def _fallback_table() -> Dict[str, List[str]]:
 FALLBACKS = _fallback_table()
 
 
+# Evaluation runs set LLM_STRICT_MODEL=1: every result must come from the model under test,
+# so a failed call is retried on the same model instead of falling back to another one.
+STRICT_RETRIES = 6
+
+
+def strict_model() -> bool:
+    return os.environ.get("LLM_STRICT_MODEL") == "1"
+
+
 def fallback_chain(model_id: str) -> List[str]:
     """The model, then the offered models to try if it fails before answering."""
+    if strict_model():
+        return [model_id] * STRICT_RETRIES
     chain = [model_id]
     for backup in FALLBACKS.get(model_id, []) + [DEFAULT_MODEL]:
         if backup in MODEL_IDS and backup not in chain:
@@ -528,6 +541,8 @@ class LLMClient:
                 if produced or last or str(error) == "The AI provider is not configured.":
                     raise
                 logger.warning("Model %s failed (%s); trying %s", model_id, error, chain[index + 1])
+                if strict_model():
+                    await asyncio.sleep(min(60, 8 * (index + 1)))  # an overloaded provider needs a moment
 
     async def _stream_completion_once(
         self,

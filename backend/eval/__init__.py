@@ -8,5 +8,7 @@ import os
 import tempfile
 
 os.environ["DATABASE_URL"] = ""
+# Results must come from the model under test: retry it, never fall back to another model.
+os.environ["LLM_STRICT_MODEL"] = "1"
 os.environ["DEMO_POSTGRES_URL"] = ""
 os.environ["CONTROL_DB_PATH"] = os.path.join(tempfile.mkdtemp(prefix="slayql-eval-"), "control.sqlite3")

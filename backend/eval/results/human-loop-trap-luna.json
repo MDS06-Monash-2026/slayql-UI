@@ -1,0 +1,617 @@
+{
+  "dataset": "trap",
+  "definitions": "none",
+  "human_model": "gpt-6.1-sol",
+  "generation_model": "gpt-5.6-luna",
+  "n": 52,
+  "summary": {
+    "no_human": {
+      "correct": 0.7307692307692307,
+      "wrong_delivered": 0.019230769230769232,
+      "unanswered": 0.25
+    },
+    "simulated_human": {
+      "correct": 0.9807692307692307,
+      "wrong_delivered_by_slayql": 0.019230769230769232,
+      "wrong_after_review": 0.0,
+      "unresolved": 0.0,
+      "needed_a_person": 0.25,
+      "analyst_accuracy": 1.0
+    },
+    "perfect_human": {
+      "correct": 0.9807692307692307,
+      "needed_a_person": 0.25
+    },
+    "clarify_readings": {
+      "tested": 16,
+      "picked_the_meant_option": 1.0
+    }
+  },
+  "items": [
+    {
+      "id": "plain-01",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "plain-02",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "plain-03",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "plain-04",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "plain-05",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "plain-06",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "plain-07",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "plain-08",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "plain-09",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "plain-10",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "plain-11",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "plain-12",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "plain-13",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "plain-14",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "plain-15",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "fanout-01",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "fanout-02",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "fanout-03",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "fanout-04",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "fanout-05",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "fanout-06",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "fanout-07",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "fanout-08",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "definition-01",
+      "expected": "clarify",
+      "language": "en",
+      "path": "clarified",
+      "correct": true,
+      "person": true,
+      "choice": 0
+    },
+    {
+      "id": "definition-02",
+      "expected": "clarify",
+      "language": "en",
+      "path": "clarified",
+      "correct": true,
+      "person": true,
+      "choice": 0
+    },
+    {
+      "id": "definition-03",
+      "expected": "clarify",
+      "language": "en",
+      "path": "clarified",
+      "correct": true,
+      "person": true,
+      "choice": 0
+    },
+    {
+      "id": "definition-04",
+      "expected": "clarify",
+      "language": "en",
+      "path": "clarified",
+      "correct": true,
+      "person": true,
+      "choice": 0
+    },
+    {
+      "id": "definition-05",
+      "expected": "clarify",
+      "language": "en",
+      "path": "clarified",
+      "correct": true,
+      "person": true,
+      "choice": 0
+    },
+    {
+      "id": "period-01",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "period-02",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "period-03",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "period-04",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "period-05",
+      "expected": "answer",
+      "language": "en",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "infeasible-01",
+      "expected": "handoff",
+      "language": "en",
+      "path": "analyst",
+      "correct": true,
+      "person": true,
+      "decision": "unanswerable",
+      "delivered_wrong": false,
+      "steps": 0
+    },
+    {
+      "id": "infeasible-02",
+      "expected": "handoff",
+      "language": "en",
+      "path": "analyst",
+      "correct": true,
+      "person": true,
+      "decision": "unanswerable",
+      "delivered_wrong": false,
+      "steps": 0
+    },
+    {
+      "id": "infeasible-03",
+      "expected": "handoff",
+      "language": "en",
+      "path": "analyst",
+      "correct": true,
+      "person": true,
+      "decision": "unanswerable",
+      "delivered_wrong": false,
+      "steps": 0
+    },
+    {
+      "id": "ms-01",
+      "expected": "answer",
+      "language": "ms",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "ms-02",
+      "expected": "answer",
+      "language": "ms",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "ms-03",
+      "expected": "answer",
+      "language": "ms",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "ms-04",
+      "expected": "clarify",
+      "language": "ms",
+      "path": "clarified",
+      "correct": true,
+      "person": true,
+      "choice": 0
+    },
+    {
+      "id": "ms-05",
+      "expected": "answer",
+      "language": "ms",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "ms-06",
+      "expected": "answer",
+      "language": "ms",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "ms-07",
+      "expected": "answer",
+      "language": "ms",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "ms-08",
+      "expected": "answer",
+      "language": "ms",
+      "path": "answered",
+      "correct": false,
+      "person": false
+    },
+    {
+      "id": "ms-09",
+      "expected": "answer",
+      "language": "ms",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "ms-10",
+      "expected": "clarify",
+      "language": "ms",
+      "path": "clarified",
+      "correct": true,
+      "person": true,
+      "choice": 0
+    },
+    {
+      "id": "ms-11",
+      "expected": "clarify",
+      "language": "ms",
+      "path": "clarified",
+      "correct": true,
+      "person": true,
+      "choice": 0
+    },
+    {
+      "id": "ms-12",
+      "expected": "answer",
+      "language": "ms",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "ms-13",
+      "expected": "answer",
+      "language": "ms",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    },
+    {
+      "id": "ms-14",
+      "expected": "handoff",
+      "language": "ms",
+      "path": "analyst",
+      "correct": true,
+      "person": true,
+      "decision": "unanswerable",
+      "delivered_wrong": false,
+      "steps": 0
+    },
+    {
+      "id": "ms-15",
+      "expected": "handoff",
+      "language": "ms",
+      "path": "analyst",
+      "correct": true,
+      "person": true,
+      "decision": "unanswerable",
+      "delivered_wrong": false,
+      "steps": 0
+    },
+    {
+      "id": "mixed-01",
+      "expected": "answer",
+      "language": "mixed",
+      "path": "answered",
+      "correct": true,
+      "person": false
+    }
+  ],
+  "reading_picks": [
+    {
+      "id": "definition-01",
+      "reading": "SELECT SUM(total_amount) FROM orders",
+      "matching": [
+        0
+      ],
+      "choice": 0,
+      "right": true
+    },
+    {
+      "id": "definition-01",
+      "reading": "SELECT SUM(total_amount) FROM orders WHERE status NOT IN ('cancelled', 'refunded')",
+      "matching": [
+        1
+      ],
+      "choice": 1,
+      "right": true
+    },
+    {
+      "id": "definition-02",
+      "reading": "SELECT SUM(total_amount) FROM orders WHERE order_date >= '2025-01-01' AND order_date < '2026-01-01'",
+      "matching": [
+        0
+      ],
+      "choice": 0,
+      "right": true
+    },
+    {
+      "id": "definition-02",
+      "reading": "SELECT SUM(total_amount) FROM orders WHERE status NOT IN ('cancelled', 'refunded') AND order_date >= '2025-01-01' AND order_date < '2026-01-01'",
+      "matching": [
+        1
+      ],
+      "choice": 1,
+      "right": true
+    },
+    {
+      "id": "definition-03",
+      "reading": "SELECT c.segment, SUM(o.total_amount) FROM orders o JOIN customers c ON c.id = o.customer_id GROUP BY c.segment",
+      "matching": [
+        0
+      ],
+      "choice": 0,
+      "right": true
+    },
+    {
+      "id": "definition-03",
+      "reading": "SELECT c.segment, SUM(o.total_amount) FROM orders o JOIN customers c ON c.id = o.customer_id WHERE o.status NOT IN ('cancelled', 'refunded') GROUP BY c.segment",
+      "matching": [
+        1
+      ],
+      "choice": 1,
+      "right": true
+    },
+    {
+      "id": "definition-04",
+      "reading": "SELECT SUM(total_amount) FROM orders WHERE order_date >= '2026-01-01' AND order_date < '2026-04-01'",
+      "matching": [
+        0
+      ],
+      "choice": 0,
+      "right": true
+    },
+    {
+      "id": "definition-04",
+      "reading": "SELECT SUM(total_amount) FROM orders WHERE status NOT IN ('cancelled', 'refunded') AND order_date >= '2026-01-01' AND order_date < '2026-04-01'",
+      "matching": [
+        1
+      ],
+      "choice": 1,
+      "right": true
+    },
+    {
+      "id": "definition-05",
+      "reading": "SELECT SUM(o.total_amount) FROM orders o JOIN customers c ON c.id = o.customer_id WHERE c.segment = 'Enterprise'",
+      "matching": [
+        0
+      ],
+      "choice": 0,
+      "right": true
+    },
+    {
+      "id": "definition-05",
+      "reading": "SELECT SUM(o.total_amount) FROM orders o JOIN customers c ON c.id = o.customer_id WHERE c.segment = 'Enterprise' AND o.status NOT IN ('cancelled', 'refunded')",
+      "matching": [
+        1
+      ],
+      "choice": 1,
+      "right": true
+    },
+    {
+      "id": "ms-04",
+      "reading": "SELECT SUM(total_amount) FROM orders",
+      "matching": [
+        0
+      ],
+      "choice": 0,
+      "right": true
+    },
+    {
+      "id": "ms-04",
+      "reading": "SELECT SUM(total_amount) FROM orders WHERE status NOT IN ('cancelled', 'refunded')",
+      "matching": [
+        1
+      ],
+      "choice": 1,
+      "right": true
+    },
+    {
+      "id": "ms-10",
+      "reading": "SELECT SUM(total_amount) FROM orders WHERE order_date >= '2025-01-01' AND order_date < '2026-01-01'",
+      "matching": [
+        0
+      ],
+      "choice": 0,
+      "right": true
+    },
+    {
+      "id": "ms-10",
+      "reading": "SELECT SUM(total_amount) FROM orders WHERE status NOT IN ('cancelled', 'refunded') AND order_date >= '2025-01-01' AND order_date < '2026-01-01'",
+      "matching": [
+        1
+      ],
+      "choice": 1,
+      "right": true
+    },
+    {
+      "id": "ms-11",
+      "reading": "SELECT c.segment, SUM(o.total_amount) FROM orders o JOIN customers c ON c.id = o.customer_id GROUP BY c.segment",
+      "matching": [
+        0
+      ],
+      "choice": 0,
+      "right": true
+    },
+    {
+      "id": "ms-11",
+      "reading": "SELECT c.segment, SUM(o.total_amount) FROM orders o JOIN customers c ON c.id = o.customer_id WHERE o.status NOT IN ('cancelled', 'refunded') GROUP BY c.segment",
+      "matching": [
+        1
+      ],
+      "choice": 1,
+      "right": true
+    }
+  ]
+}
