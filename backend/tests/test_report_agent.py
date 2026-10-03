@@ -358,3 +358,16 @@ async def test_requests_to_the_deep_model_ask_for_high_reasoning(monkeypatch):
     sol, luna = sent
     assert sol["reasoning_effort"] == "high" and sol["max_tokens"] == 900 + module.HIGH_REASONING_EXTRA_TOKENS
     assert "reasoning_effort" not in luna and luna["max_tokens"] == 900
+
+
+def test_qualifiers_before_the_subject_are_not_treated_as_missing_concepts():
+    from backend.app.verification import checks
+
+    catalog = CatalogService.get_sqlite_catalog(settings.SQLITE_DEMO_PATH)
+    for question in ("Which valid order statuses make up orders in the period?",
+                     "Which active customers ordered most?", "Which top products sold best this month?",
+                     "Which segments contribute most orders across the period?", "Which categories combine sales and order volume?"):
+        assert checks.check_answer_subject(question, catalog) == [], question
+    # A qualifier does not hide a concept the data lacks.
+    flagged = checks.check_answer_subject("Which valid salesperson closed the most deals?", catalog)
+    assert flagged and "salesperson" in flagged[0].title
