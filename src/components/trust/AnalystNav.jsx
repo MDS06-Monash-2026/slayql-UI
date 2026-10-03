@@ -51,7 +51,7 @@ export default function AnalystNav({ current, setView, session, openCount: openC
                 <Icon className="h-4 w-4" aria-hidden="true" />
                 <span className="hidden sm:inline">{label}</span>
                 {id === 'review' && openCount > 0 && (
-                  <span className="rounded-full bg-rose-500 px-1.5 text-[11px] font-semibold tabular-nums text-white">{openCount}</span>
+                  <span className="rounded-full bg-rose-600 px-1.5 text-[11px] font-semibold tabular-nums text-white">{openCount}</span>
                 )}
               </button>
             );

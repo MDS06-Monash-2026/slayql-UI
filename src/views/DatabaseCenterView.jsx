@@ -507,7 +507,7 @@ export default function DatabaseCenterView({ setView, session, theme: propTheme,
                                     {column.name}{' '}
                                     <span className="text-slate-400 dark:text-slate-500 text-[9px]">{column.type}</span>
                                     {column.primary_key && (
-                                      <span className="ml-1 text-amber-600 dark:text-amber-400 font-bold">PK</span>
+                                      <span className="ml-1 text-amber-700 dark:text-amber-400 font-bold">PK</span>
                                     )}
                                   </span>
                                 ))}

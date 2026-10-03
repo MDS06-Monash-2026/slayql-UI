@@ -278,7 +278,7 @@ export default function SqlWorkbench({ connectionId, initialTable, initialTableK
             >
               <Sparkles className="w-3.5 h-3.5" />
               <span>AI Edit</span>
-              <kbd className="hidden sm:inline-block px-1 rounded text-[9px] font-mono opacity-80 bg-black/10 dark:bg-white/10">
+              <kbd className="hidden sm:inline-block px-1 rounded text-[9px] font-mono bg-black/10 dark:bg-white/10">
                 ⌘K
               </kbd>
             </button>
@@ -303,7 +303,7 @@ export default function SqlWorkbench({ connectionId, initialTable, initialTableK
               type="button"
               onClick={() => runQuery()}
               disabled={running || !sql.trim()}
-              className="h-8 px-3.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-sm disabled:opacity-50 transition-all active:scale-95"
+              className="h-8 px-3.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-sm disabled:opacity-50 transition-all active:scale-95"
             >
               {running ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5 fill-current" />}
               <span>Run</span>
@@ -427,7 +427,7 @@ export default function SqlWorkbench({ connectionId, initialTable, initialTableK
               <button
                 type="button"
                 onClick={handleAcceptSuggestion}
-                className="h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-xs transition-all active:scale-95"
+                className="h-8 px-3 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-xs transition-all active:scale-95"
                 title="Accept AI suggestion (Ctrl+Enter)"
               >
                 <CheckCheck className="w-3.5 h-3.5" />
@@ -526,7 +526,7 @@ export default function SqlWorkbench({ connectionId, initialTable, initialTableK
             <span className="hidden sm:inline">•</span>
             <span>Tab to indent</span>
             <span>•</span>
-            <span className="font-semibold text-emerald-600 dark:text-emerald-400">Ctrl + Enter to run</span>
+            <span className="font-semibold text-emerald-700 dark:text-emerald-400">Ctrl + Enter to run</span>
           </div>
         </div>
       </section>

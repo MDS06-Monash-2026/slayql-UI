@@ -1022,7 +1022,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
               >
                 <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${selectedConnectionId ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}><Database className="w-3.5 h-3.5" /></span>
                 <span className="text-left leading-tight">
-                  <span className={`block text-[9px] font-semibold ${selectedConnectionId ? 'text-emerald-600' : 'text-slate-400'}`}>{selectedConnectionId ? `Connected / ${activeConnection.engine}` : 'Not connected'}</span>
+                  <span className={`block text-[9px] font-semibold ${selectedConnectionId ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400'}`}>{selectedConnectionId ? `Connected / ${activeConnection.engine}` : 'Not connected'}</span>
                   <span className="block truncate max-w-[82px] sm:max-w-[155px] text-slate-900 font-bold">{activeConnection.name}</span>
                 </span>
                 <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${dbDropdownOpen ? 'rotate-180' : ''}`} />

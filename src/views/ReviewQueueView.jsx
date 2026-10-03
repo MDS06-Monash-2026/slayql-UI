@@ -407,7 +407,7 @@ export default function ReviewQueueView({ setView, session }) {
                     className={`flex-1 rounded-lg px-2 py-1.5 text-sm font-medium transition ${status === f.id ? 'bg-slate-100 text-slate-950 dark:bg-slate-800 dark:text-white' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'}`}
                   >
                     {f.label}
-                    {f.id === 'open' && counts.open ? <span className="ml-1.5 rounded-full bg-rose-500 px-1.5 text-[11px] font-semibold text-white">{counts.open}</span> : null}
+                    {f.id === 'open' && counts.open ? <span className="ml-1.5 rounded-full bg-rose-600 px-1.5 text-[11px] font-semibold text-white">{counts.open}</span> : null}
                   </button>
                 ))}
               </div>
