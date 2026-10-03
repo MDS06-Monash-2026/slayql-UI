@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
-  BookOpen, Bookmark, ChevronDown, ChevronsUpDown, Coins, Database, Layers, LogOut, Moon, PanelLeftClose, PanelLeftOpen,
+  BookOpen, Bookmark, ChevronDown, ChevronsUpDown, Coins, Database, Layers, LayoutDashboard, LogOut, Moon, PanelLeftClose, PanelLeftOpen,
   Plus, Search, ShieldCheck, Sun, Trash2, UserRound, X,
 } from 'lucide-react';
 import AnalystAnswers from '../trust/AnalystAnswers';
@@ -140,6 +140,7 @@ export default function AppSidebar({
         </div>
         <div className={`my-3 h-px w-8 ${dark ? 'bg-slate-800' : 'bg-slate-200'}`} />
         <div className="flex flex-col items-center gap-1.5">
+          <RailButton icon={LayoutDashboard} label="Reports" onClick={() => setView('reports')} />
           <RailButton icon={Database} label="AI Database Lab" onClick={() => setView('databases')} />
           <RailButton icon={Bookmark} label="Saved queries" onClick={onOpenSaved} />
           <RailButton icon={Layers} label="Schema catalog" onClick={onOpenCatalog} />
@@ -208,6 +209,7 @@ export default function AppSidebar({
 
         {/* places */}
         <nav className="mt-2 space-y-0.5 px-3" aria-label="Workspace">
+          <NavRow icon={LayoutDashboard} label="Reports" onClick={thenClose(() => setView('reports'))} />
           <NavRow icon={Database} label="AI Database Lab" onClick={thenClose(() => setView('databases'))} />
           <NavRow icon={Bookmark} label="Saved queries" count={savedCount} onClick={thenClose(onOpenSaved)} />
           <NavRow icon={BookOpen} label="Definitions" onClick={thenClose(() => setView('definitions'))} />

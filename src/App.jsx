@@ -6,6 +6,7 @@ import ProfileView from './views/ProfileView';
 import DatabaseCenterView from './views/DatabaseCenterView';
 import ReviewQueueView from './views/ReviewQueueView';
 import DefinitionsView from './views/DefinitionsView';
+import ReportsView from './views/ReportsView';
 import ResetPasswordView from './views/ResetPasswordView';
 import ArenaPlayerView from './views/ArenaPlayerView';
 import ArenaScreenView from './views/ArenaScreenView';
@@ -38,10 +39,11 @@ const SLUG_TO_VIEW = {
   '/database-lab/workbench': 'databases',
   '/database-lab/tables': 'databases',
   '/database-lab/relationships': 'databases',
-  '/database-lab/dashboard': 'databases',
+  '/database-lab/dashboard': 'reports',
   '/database-lab/health': 'databases',
   '/database-lab/er-diagram': 'databases',
-  '/database-lab/ai-report-studio': 'databases',
+  '/database-lab/ai-report-studio': 'reports',
+  '/reports': 'reports',
   '/databases': 'databases',
   '/lab': 'databases',
   '/ai-database-lab': 'databases',
@@ -65,6 +67,7 @@ const VIEW_TO_SLUG = {
   profile: '/profile',
   review: '/review',
   definitions: '/definitions',
+  reports: '/reports',
   play: '/play',
   'arena-screen': '/arena/screen',
   'arena-host': '/arena/host',
@@ -74,6 +77,9 @@ function getViewFromLocation() {
   const hash = window.location.hash.replace(/^#\/?/, '/');
   const path = window.location.pathname.replace(/\/+$/, '') || '/';
   const target = (hash || path).toLowerCase();
+  if (target.startsWith('/reports') || target.startsWith('/database-lab/dashboard') || target.startsWith('/database-lab/ai-report-studio')) {
+    return 'reports';
+  }
   if (target.startsWith('/database-lab') || target.startsWith('/databases') || target.startsWith('/lab') || target.startsWith('/ai-database-lab')) {
     return 'databases';
   }
@@ -123,6 +129,15 @@ export default function App() {
     } catch {}
   }, [theme]);
 
+  // Report studio used to live in AI Database Lab: old links open Reports and show its address.
+  useEffect(() => {
+    if (view === 'reports' && window.location.pathname !== '/reports') {
+      try {
+        window.history.replaceState({ view: 'reports' }, '', '/reports');
+      } catch {}
+    }
+  }, [view]);
+
   const changeView = (targetView, replace = false) => {
     setView(targetView);
     const targetSlug = VIEW_TO_SLUG[targetView] || (targetView.startsWith('/') ? targetView : `/${targetView}`);
@@ -156,7 +171,7 @@ export default function App() {
   useEffect(() => {
     let active = true;
     const currentSession = getStoredSession();
-    if (!currentSession && ['demo', 'databases', 'profile', 'review', 'definitions', 'arena-host'].includes(view)) {
+    if (!currentSession && ['demo', 'databases', 'reports', 'profile', 'review', 'definitions', 'arena-host'].includes(view)) {
       loginOrganization({ is_reviewer: true }).then((reviewerSession) => {
         if (!active) return;
         setSession(reviewerSession);
@@ -274,6 +289,7 @@ export default function App() {
       )}
       {view === 'review' && <ReviewQueueView setView={changeView} session={session} />}
       {view === 'definitions' && <DefinitionsView setView={changeView} session={session} />}
+      {view === 'reports' && <ReportsView setView={changeView} session={session} theme={theme} setTheme={setTheme} />}
       {view === 'reset-password' && <ResetPasswordView setView={changeView} />}
       {view === 'play' && <ArenaPlayerView />}
       {view === 'arena-screen' && <ArenaScreenView />}
