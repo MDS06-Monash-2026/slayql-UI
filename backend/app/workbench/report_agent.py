@@ -30,7 +30,7 @@ from typing import Any, AsyncGenerator, Awaitable, Callable, Dict, List, Optiona
 from backend.app import privacy
 from backend.app.knowledge.store import knowledge_store
 from backend.app.providers.llm_client import llm_client
-from backend.app.workbench import report_periods, trusted_report
+from backend.app.workbench import chart_rules, report_periods, trusted_report
 from backend.app.workbench.trusted_report import (
     CHART_CONTRACTS,
     PERIOD_RULES,
@@ -54,8 +54,7 @@ logger = logging.getLogger(__name__)
 
 MAX_ROUNDS = 14
 MAX_SUBMISSIONS = 3
-MIN_PANELS, MIN_KPIS = 8, 4
-ROW_LIMITS = {"donut": 6, "bar": 12, "bar_h": 12, "funnel": 10, "treemap": 30, "heatmap": 200, "scatter": 200, "table": 50}
+MIN_PANELS, MIN_KPIS = 8, 3
 Emit = Callable[[Dict[str, Any]], Awaitable[None]]
 
 
@@ -124,8 +123,8 @@ REPORT_SHAPE = """submit_report takes {"report": {
   "anchor_sql": "SELECT MIN(<main date column>), MAX(<main date column>) FROM <table>",
   "filters": [{"id": str, "label": str, "values_sql": "SELECT DISTINCT <column> FROM <table> WHERE <column> IS NOT NULL ORDER BY 1"}],
   "kpis": [{"id": str, "label": str, "question": str, "format": "number|currency|percent", "sql": str}],
-  "panels": [{"id": str, "title": str, "question": str, "purpose": "trend|ranking|composition|comparison|relationship|flow|detail",
-              "chart": str, "x": str, "y": str, "series": str|null, "label": str|null, "filter_id": str|null,
+  "panels": [{"id": str, "title": str, "question": str, "purpose": "trend|ranking|composition|comparison|relationship|flow|distribution|target|detail",
+              "chart": str, "x": str, "y": str, "series": str|null, "label": str|null, "target": str|null, "filter_id": str|null,
               "format": "number|currency|percent", "span": 1|2|3, "sql": str}]}}"""
 
 BUILD_RULES = f"""You are SlayQL's report analyst. You build a management dashboard on a live SQL database, using tools.
@@ -138,11 +137,14 @@ How to work:
    Never ask about periods, charts or layout: decide those yourself.
 4. Call submit_report. The server runs every query; if it lists problems, fix them and submit again.
 
-What a good report has:
-- 4 to 6 KPIs a manager reads first (revenue, orders, average value, customers, refunds, open cases...).
-- 8 to 10 panels, EVERY panel a different chart type, each chosen because it is the right form for its question.
-  Order them like a professional dashboard: the headline trend first (area or line, span 2), then the shares and
-  rankings, then flows and relationships (funnel, heatmap, scatter, waterfall), then a detail table (span 3).
+What a good report has (a manager should get it in 10 seconds):
+- 3 to 5 KPIs a manager reads first (revenue, orders, average value, refunds, open cases...). Labels of 1 to 3 words.
+- 8 or 9 panels, EVERY panel a different chart type from the chart guide, each the right form for its question and
+  its data. Variety never beats fit: if a type has no question that fits this data, use another type.
+  Order them like a professional dashboard: the headline trend first (span 2), then shares and rankings, then flows,
+  distributions and relationships, then at most one detail table (span 3).
+- Few words. Titles are 2 to 5 words ("Revenue trend", "Top customers"); questions at most 12 words; the subtitle at
+  most 8 words. The dashboard computes each chart's takeaway, so do not write conclusions into titles.
 - 1 to 3 slicers (filters) on dimensions a manager filters by (segment, region, category, channel, carrier,
   priority). Use each slicer in every query that can reach that column, through {{{{filter:<id>:<alias.column>}}}}.
   When a panel's x is a slicer's column, set its filter_id so clicking a bar filters the whole report.
@@ -174,7 +176,7 @@ asks a question about it. Use the read tools if you need to, then either:
   "kpis"?: [items to add or replace], "panels"?: [items to add or replace], "remove"?: [ids]}}, plus a short reply.
   Keep an item's id to replace it. New panels should use a chart type the report does not use yet, when one fits.
   When the user gives a past question with its SQL, adapt that SQL to the period placeholders where it is about
-  time, pick the right chart, and add it as a panel.
+  time, pick the right chart from the guide, and add it as a panel. Keep titles 2 to 5 words and replies short.
 - answer: a short reply when nothing needs to change. Use only numbers shown in the current report.
 
 {CHART_CONTRACTS}
@@ -286,13 +288,6 @@ async def _tool(call: Dict[str, Any], state: AgentState, ctx: ReportContext) -> 
 
 # --- Checking a submission -----------------------------------------------------------
 
-def _limit_problem(panel: Dict[str, Any], rows: int) -> Optional[str]:
-    limit = ROW_LIMITS.get(panel["chart"])
-    if limit and rows > limit:
-        return f"returns {rows} rows; a {panel['chart']} shows at most {limit}"
-    return None
-
-
 async def _probe_items(plan: Dict[str, Any], ctx: ReportContext) -> List[str]:
     """Run each figure once for the current period and report contract problems (no trust checks yet)."""
     problems: List[str] = []
@@ -311,18 +306,18 @@ async def _probe_items(plan: Dict[str, Any], ctx: ReportContext) -> List[str]:
                 problems.append(f"{name}: return a column named value (one row), or period and value")
             return
         needed = [item.get("x"), item.get("y")] if item["chart"] != "table" else []
-        needed += [item.get("series")] if item.get("series") else []
-        needed += [item.get("label")] if item.get("label") else []
+        needed += [item.get(key) for key in ("series", "label", "target") if item.get(key)]
         missing = [c for c in needed if c and c not in columns]
         if missing:
             problems.append(f"{name}: columns {missing} are not in the result {columns}")
+            return
         if len(result.rows) >= 3:
             empty = [c for i, c in enumerate(columns) if all(r[i] is None for r in result.rows)]
             if empty:
                 problems.append(f"{name}: columns {empty} are empty; remove them")
-        limit = _limit_problem(item, len(result.rows))
-        if limit:
-            problems.append(f"{name}: {limit}")
+        unfit = chart_rules.problem(item, columns, result.rows)
+        if unfit:
+            problems.append(f"{name} ({item['chart']}): {unfit}. Choose a chart from the guide that fits, or a question that fits this chart.")
 
     await asyncio.gather(*[probe(k, "kpi") for k in plan["kpis"]], *[probe(p, "panel") for p in plan["panels"]])
     return problems
@@ -333,9 +328,9 @@ async def validate_plan(plan: Dict[str, Any], ctx: ReportContext, *, full: bool 
     problems: List[str] = []
     if full:
         if len(plan["kpis"]) < MIN_KPIS:
-            problems.append(f"Only {len(plan['kpis'])} KPIs: give 4 to 6.")
+            problems.append(f"Only {len(plan['kpis'])} KPIs: give 3 to 5.")
         if len(plan["panels"]) < MIN_PANELS:
-            problems.append(f"Only {len(plan['panels'])} panels: give 8 to 10.")
+            problems.append(f"Only {len(plan['panels'])} panels: give 8 or 9.")
         charts = [p["chart"] for p in plan["panels"]]
         repeated = sorted({c for c in charts if charts.count(c) > 1})
         if repeated:
