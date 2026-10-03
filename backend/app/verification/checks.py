@@ -594,7 +594,11 @@ def check_grounding(
         # Coded values stand for the concept they abbreviate: element = 'cl' for chlorine.
         # Coded filter values anywhere in the query (gender = 'M') stand for what they abbreviate.
         codes = all_codes
-        for token in tokenize(label):
+        label_tokens = tokenize(label)
+        # A calendar part computed from a date (hour_band, week_bucket) is grounded as a whole.
+        if any(_calendar_part(token, alias.this.sql()) for token in label_tokens):
+            continue
+        for token in label_tokens:
             stem = _stem(token)
             if len(token) < 4 or token.isdigit() or stem not in question_words or stem in missing:
                 continue
