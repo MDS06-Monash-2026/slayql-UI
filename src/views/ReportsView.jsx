@@ -65,7 +65,7 @@ export default function ReportsView({ setView, session, theme: propTheme, setThe
   };
 
   return (
-    <div className={`live-demo-shell theme-${theme} review-page flex h-screen flex-col overflow-hidden text-slate-900 dark:bg-[#0b0e16] dark:text-slate-100`}>
+    <div className={`live-demo-shell theme-${theme} review-page flex h-[100dvh] flex-col overflow-clip text-slate-900 dark:bg-[#0b0e16] dark:text-slate-100`}>
       <header className="z-30 shrink-0 border-b border-slate-200/80 bg-white/90 backdrop-blur-md dark:border-slate-800 dark:bg-[#0f131d]/90">
         <div className="mx-auto flex h-16 max-w-[1600px] items-center gap-3 px-4 sm:px-6">
           <button type="button" onClick={() => setView('demo')}
@@ -96,7 +96,7 @@ export default function ReportsView({ setView, session, theme: propTheme, setThe
         </div>
       </header>
 
-      <main className="min-w-0 flex-1 overflow-y-auto">
+      <main className="relative min-w-0 flex-1 overflow-y-auto">
         <div className="mx-auto max-w-[1600px] px-4 py-5 sm:px-6">
           {connectionId ? (
             <ReportStudio key={connectionId} connectionId={connectionId} isDark={isDark} />
