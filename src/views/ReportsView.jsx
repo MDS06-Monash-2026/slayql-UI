@@ -80,7 +80,7 @@ export default function ReportsView({ setView, session, theme: propTheme, setThe
           </span>
 
           <div className="ml-auto flex items-center gap-2">
-            <label className="inline-flex max-w-[16rem] items-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:max-w-xs">
+            <label className="inline-flex max-w-[8rem] items-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:max-w-xs">
               <Database className="h-4 w-4 shrink-0 text-indigo-600 dark:text-indigo-300" aria-hidden="true" />
               <span className="sr-only">Data source</span>
               <select value={connectionId || ''} onChange={(e) => choose(e.target.value)}
@@ -89,7 +89,7 @@ export default function ReportsView({ setView, session, theme: propTheme, setThe
               </select>
             </label>
             <button type="button" onClick={() => setTheme(isDark ? 'light' : 'dark')} aria-label={isDark ? 'Use light mode' : 'Use dark mode'}
-              className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white">
+              className="hidden h-9 w-9 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 sm:flex hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white">
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
           </div>

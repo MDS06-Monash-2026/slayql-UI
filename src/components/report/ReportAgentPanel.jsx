@@ -117,14 +117,14 @@ export function ReportCopilot({ messages, steps, running, draft, setDraft, onSen
         <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white"><Bot className="h-4.5 w-4.5" /></span>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-slate-900 dark:text-white">Report agent</p>
-          <p className="truncate text-[11px] text-slate-500">{model ? `${model} · ` : ''}changes are checked before they appear</p>
+          <p className="truncate text-[11px] text-slate-500">{model ? `${model} · ` : ''}every change is checked</p>
         </div>
         <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-800 dark:hover:bg-slate-800 dark:hover:text-white" aria-label="Close the agent"><X className="h-4 w-4" /></button>
       </header>
       <div data-scroll-box className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain scroll-smooth px-4 py-4">
         {messages.length === 0 && !running && (
           <div className="rounded-2xl bg-gradient-to-br from-indigo-50 to-violet-50 p-4 text-sm text-slate-700 dark:from-indigo-500/10 dark:to-violet-500/10 dark:text-slate-200">
-            Ask for a change in plain words, or a question about the figures. The agent reads your data, rewrites what is needed and checks it before it reaches the dashboard.
+            Ask for a change, or a question about the figures.
           </div>
         )}
         {messages.map((m, i) => (

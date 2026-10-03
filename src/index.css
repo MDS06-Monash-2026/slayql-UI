@@ -2262,3 +2262,13 @@ button:disabled,
   .report-print-root { position: absolute; inset: 0 auto auto 0; width: 100%; background: #fff !important; }
   .report-print-root article { break-inside: avoid; }
 }
+
+/* Report replay: figures fade and lift in as they arrive; a bar tracks the replay. */
+@keyframes report-reveal { from { opacity: 0; transform: translateY(10px) scale(0.985); } to { opacity: 1; transform: none; } }
+.report-reveal { animation: report-reveal 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+@keyframes replay-fill { from { width: 0; } to { width: 100%; } }
+.replay-fill { animation: replay-fill var(--replay-ms, 10000ms) linear forwards; }
+@media (prefers-reduced-motion: reduce) {
+  .report-reveal { animation: none; }
+  .replay-fill { animation-duration: 1ms; }
+}

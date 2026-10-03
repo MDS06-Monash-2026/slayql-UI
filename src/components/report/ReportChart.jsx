@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Area,
   AreaChart,
@@ -26,6 +26,25 @@ import { axisTick, categoryLabel, formatValue, periodLabel, sequentialColor, the
 import { fitChart } from './chartFit';
 
 const MAX_SERIES = 5;
+
+const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+const MONTH_ORDER = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+
+function calendarIndex(value) {
+  const text = String(value ?? '').trim().toLowerCase().slice(0, 3);
+  const day = DAY_ORDER.indexOf(text);
+  if (day >= 0) return day;
+  const month = MONTH_ORDER.indexOf(text);
+  return month >= 0 ? 100 + month : -1;
+}
+
+// Weekdays Monday first and months in calendar order; numbers numerically; otherwise A–Z.
+function orderValues(a, b) {
+  const ca = calendarIndex(a);
+  const cb = calendarIndex(b);
+  if (ca >= 0 && cb >= 0) return ca - cb;
+  return String(a).localeCompare(String(b), undefined, { numeric: true });
+}
 
 // One tooltip for every chart: the value leads, the label follows (dataviz interaction rules).
 function ChartTooltip({ active, payload, label, format, theme, partial, bucket, labelOf }) {
@@ -265,7 +284,7 @@ function DonutChart({ data, theme, format, selected, onSelect }) {
         {parts.map((d, i) => (
           <li key={d.x} className="flex items-center gap-2">
             <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: color(d, i) }} />
-            <span className="min-w-0 flex-1 truncate" style={{ color: theme.textSecondary }} title={d.x}>{d.x}</span>
+            <span className="line-clamp-2 min-w-0 flex-1 leading-tight" style={{ color: theme.textSecondary }} title={d.x}>{d.x}</span>
             <span className="font-semibold tabular-nums" style={{ color: theme.text }}>{Math.round((Math.max(0, d.y) / total) * 100)}%</span>
           </li>
         ))}
@@ -338,7 +357,13 @@ function HeatmapChart({ panel, rows, columns, theme, format, isDark, bucket }) {
       const key = `${r[xi]}\u0000${r[si]}`;
       map.set(key, (map.get(key) || 0) + (toNumber(r[yi]) || 0));
     });
-    const sortKey = (a, b) => String(a).localeCompare(String(b), undefined, { numeric: true });
+    const sortKey = (a, b) => {
+      // strftime('%w') numbers Sunday 0; show the week from Monday.
+      const weekday = (v) => (/week_?day|dow/i.test(panel.x) && /^[0-6]$/.test(String(v)) ? (Number(v) + 6) % 7 : null);
+      const wa = weekday(a);
+      const wb = weekday(b);
+      return wa !== null && wb !== null ? wa - wb : orderValues(a, b);
+    };
     const xValues = [...new Set(rows.map((r) => String(r[xi])))].sort(sortKey).slice(0, 14);
     const yValues = [...new Set(rows.map((r) => String(r[si])))].sort(sortKey).slice(0, 12);
     return { xs: xValues, ys: yValues, cells: map, peak: Math.max(...map.values(), 1) };
@@ -484,7 +509,7 @@ function SunburstChart({ panel, rows, columns, theme, format }) {
         {parents.slice(0, 6).map((p) => (
           <li key={p.name} className="flex items-center gap-2">
             <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: p.fill }} />
-            <span className="min-w-0 flex-1 truncate" style={{ color: theme.textSecondary }} title={p.name}>{p.name}</span>
+            <span className="line-clamp-2 min-w-0 flex-1 leading-tight" style={{ color: theme.textSecondary }} title={p.name}>{p.name}</span>
             <span className="font-semibold tabular-nums" style={{ color: theme.text }}>{Math.round((p.value / total) * 100)}%</span>
           </li>
         ))}
@@ -592,7 +617,7 @@ function BulletChart({ panel, rows, columns, theme, format }) {
         const reached = item.target ? item.actual / item.target : null;
         return (
           <div key={item.label} className="grid grid-cols-[minmax(0,28%)_1fr_auto] items-center gap-3 text-xs">
-            <span className="truncate text-right" style={{ color: theme.textSecondary }} title={item.label}>{item.label}</span>
+            <span className="line-clamp-2 text-right leading-tight" style={{ color: theme.textSecondary }} title={item.label}>{item.label}</span>
             <div className="relative h-5 rounded" style={{ background: theme.grid }}>
               <div className="absolute inset-y-1 left-0 rounded-sm" style={{ width: `${(item.actual / peak) * 100}%`, background: reached !== null && reached < 1 ? theme.series[1] : theme.series[0] }} />
               {item.target > 0 && <div className="absolute -inset-y-0.5 w-0.5 rounded" style={{ left: `${(item.target / peak) * 100}%`, background: theme.text }} title={`Target ${formatValue(item.target, format)}`} />}
@@ -616,7 +641,25 @@ function quartiles(values) {
     const base = Math.floor(pos);
     return v[base + 1] !== undefined ? v[base] + (pos - base) * (v[base + 1] - v[base]) : v[base];
   };
-  return { min: v[0], q1: at(0.25), median: at(0.5), q3: at(0.75), max: v[v.length - 1], n: v.length };
+  const q1 = at(0.25);
+  const q3 = at(0.75);
+  // Whiskers reach the furthest values within 1.5 × the middle half; the rest are outliers.
+  const reach = 1.5 * (q3 - q1);
+  const inside = v.filter((x) => x >= q1 - reach && x <= q3 + reach);
+  return { min: inside[0], q1, median: at(0.5), q3, max: inside[inside.length - 1], n: v.length, outliers: v.length - inside.length };
+}
+
+// The width a chart actually has, so SVG text stays readable instead of being scaled down.
+function useWidth() {
+  const ref = useRef(null);
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    if (!ref.current) return undefined;
+    const observer = new ResizeObserver(([entry]) => setWidth(Math.round(entry.contentRect.width)));
+    observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, []);
+  return [ref, width];
 }
 
 // The spread of values per group: box from the 25th to 75th percentile, line at the median.
@@ -633,7 +676,8 @@ function BoxPlot({ panel, rows, columns, theme, format }) {
     });
     return [...map.entries()].map(([name, values]) => ({ name, ...quartiles(values) })).sort((a, b) => b.median - a.median).slice(0, 8);
   }, [panel, rows, columns]);
-  const W = 640;
+  const [box, measured] = useWidth();
+  const W = Math.max(280, measured || 480);
   const H = 240;
   const pad = { l: 52, r: 12, t: 12, b: 36 };
   const low = Math.min(...groups.map((g) => g.min));
@@ -642,7 +686,8 @@ function BoxPlot({ panel, rows, columns, theme, format }) {
   const step = (W - pad.l - pad.r) / Math.max(groups.length, 1);
   const ticks = [0, 0.25, 0.5, 0.75, 1].map((t) => low + t * (high - low));
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="h-full w-full" role="img" aria-label={`${panel.title}: spread by ${panel.x}`}>
+    <div ref={box} className="h-full w-full">
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${panel.title}: spread by ${panel.x}`}>
       {ticks.map((t) => (
         <g key={t}>
           <line x1={pad.l} x2={W - pad.r} y1={y(t)} y2={y(t)} stroke={theme.grid} />
@@ -654,7 +699,7 @@ function BoxPlot({ panel, rows, columns, theme, format }) {
         const half = Math.min(28, step * 0.28);
         return (
           <g key={g.name}>
-            <title>{`${g.name}: median ${formatValue(g.median, format)}, middle half ${formatValue(g.q1, format)}–${formatValue(g.q3, format)}, ${g.n} records`}</title>
+            <title>{`${g.name}: median ${formatValue(g.median, format)}, middle half ${formatValue(g.q1, format)}–${formatValue(g.q3, format)}, ${g.n} records${g.outliers ? `, ${g.outliers} beyond the whiskers` : ''}`}</title>
             <line x1={cx} x2={cx} y1={y(g.max)} y2={y(g.min)} stroke={theme.axis} strokeWidth={1.5} />
             <line x1={cx - half / 2} x2={cx + half / 2} y1={y(g.max)} y2={y(g.max)} stroke={theme.axis} strokeWidth={1.5} />
             <line x1={cx - half / 2} x2={cx + half / 2} y1={y(g.min)} y2={y(g.min)} stroke={theme.axis} strokeWidth={1.5} />
@@ -666,6 +711,7 @@ function BoxPlot({ panel, rows, columns, theme, format }) {
         );
       })}
     </svg>
+    </div>
   );
 }
 
@@ -774,9 +820,13 @@ export default function ReportChart({ panel: original, isDark = false, height = 
       break;
     case 'table':
       return null;
-    default:
-      body = <CategoryChart {...props} horizontal={panel.chart === 'bar_h'} />;
-      if (panel.chart === 'bar_h') chartHeight = Math.max(160, Math.min(420, data.length * 30 + 40));
+    default: {
+      // Columns with long or many labels read better as horizontal bars.
+      const labelChars = data.reduce((sum, d) => sum + String(d.x).length, 0);
+      const horizontal = panel.chart === 'bar_h' || data.length > 8 || labelChars > 42;
+      body = <CategoryChart {...props} horizontal={horizontal} />;
+      if (horizontal) chartHeight = Math.max(160, Math.min(420, data.length * 30 + 40));
+    }
   }
   if (!data.length && !['stacked_bar', 'heatmap', 'scatter', 'line', 'streamgraph', 'sunburst', 'sankey', 'boxplot', 'bullet'].includes(panel.chart)) {
     return <Empty theme={theme}>This result has no numeric column to chart.</Empty>;

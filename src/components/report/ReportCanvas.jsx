@@ -213,14 +213,36 @@ function Sparkline({ points, color, id }) {
   );
 }
 
-function KpiTile({ kpi, index, isDark, onAsk, onChoose, busy }) {
+// Count a figure up from zero when it first appears (replays only; skipped for reduced motion).
+function useCountUp(value, active) {
+  const [shown, setShown] = useState(active ? 0 : value);
+  useEffect(() => {
+    if (!active || typeof value !== 'number' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      setShown(value);
+      return undefined;
+    }
+    let frame;
+    const started = performance.now();
+    const tick = (now) => {
+      const t = Math.min(1, (now - started) / 900);
+      setShown(value * (1 - (1 - t) ** 3));
+      if (t < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [value, active]);
+  return shown;
+}
+
+function KpiTile({ kpi, index, isDark, onAsk, onChoose, busy, reveal = false }) {
   const theme = themeFor(isDark);
+  const counted = useCountUp(kpi.value, reveal && !kpi.pending);
   const color = theme.series[index % theme.series.length];
   const answered = kpi.outcome === 'confident' || kpi.outcome === 'caveat';
   const change = answered && kpi.previous ? (kpi.value - kpi.previous) / Math.abs(kpi.previous) : null;
   const good = change !== null && (change >= 0) !== upIsBad(kpi.label);
   return (
-    <article className="group relative flex min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-slate-800 dark:bg-[#141925]">
+    <article className={`group relative flex min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-slate-800 dark:bg-[#141925] ${reveal && !kpi.pending ? 'report-reveal' : ''}`}>
       <span className="absolute inset-x-0 top-0 h-1" style={{ background: color }} aria-hidden="true" />
       <div className="flex items-start justify-between gap-2">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{kpi.label}</p>
@@ -230,7 +252,7 @@ function KpiTile({ kpi, index, isDark, onAsk, onChoose, busy }) {
         <div className="mt-3 space-y-2"><div className="skel h-7 w-28 rounded" /><div className="skel h-9 w-full rounded" /></div>
       ) : answered && !kpi.no_data ? (
         <>
-          <p className="mt-1 text-[26px] font-semibold leading-tight text-slate-950 dark:text-white">{formatValue(kpi.value, kpi.format)}</p>
+          <p className="mt-1 text-[26px] font-semibold leading-tight text-slate-950 dark:text-white">{formatValue(counted, kpi.format)}</p>
           <p className="mt-0.5 min-h-[18px] text-xs">
             {change === 0 ? (
               <span className="text-slate-500">No change vs {periodLabel(kpi.comparison_label || 'previous')}</span>
@@ -262,7 +284,7 @@ function KpiTile({ kpi, index, isDark, onAsk, onChoose, busy }) {
 
 // --- Panels -----------------------------------------------------------------------------------
 
-function PanelCard({ panel, width = 1, columns = 3, isDark, bucket, selected, onSelect, onAsk, onChoose, onFocus, busy, focused = false }) {
+function PanelCard({ panel, width = 1, columns = 3, isDark, bucket, selected, onSelect, onAsk, onChoose, onFocus, busy, focused = false, reveal = false }) {
   const [view, setView] = useState('chart');
   const [showSql, setShowSql] = useState(false);
   const [showEvidence, setShowEvidence] = useState(false);
@@ -277,7 +299,7 @@ function PanelCard({ panel, width = 1, columns = 3, isDark, bucket, selected, on
   const insight = fact ? fact.text.replace(`${panel.title}: `, '') : '';
   const iconButton = 'rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200';
   return (
-    <article className={`group flex min-w-0 flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] break-inside-avoid dark:border-slate-800 dark:bg-[#141925] ${span}`}>
+    <article id={focused ? undefined : `panel-${panel.id}`} className={`group flex min-w-0 flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] break-inside-avoid dark:border-slate-800 dark:bg-[#141925] ${span} ${reveal && !panel.pending ? 'report-reveal' : ''}`}>
       <header className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <h3 className="text-[13px] font-semibold leading-snug text-slate-900 [text-wrap:balance] dark:text-slate-100" title={panel.question}>{panel.title}</h3>
@@ -342,26 +364,36 @@ function PanelCard({ panel, width = 1, columns = 3, isDark, bucket, selected, on
   );
 }
 
-// Widen the last chart in a row so every row of the grid is full.
-function packWidths(panels, columns = 3) {
-  const widths = {};
-  let row = [];
-  let used = 0;
-  const close = () => {
-    if (row.length && used < columns) widths[row[row.length - 1].id] += columns - used;
-    row = [];
-    used = 0;
-  };
-  panels.forEach((panel) => {
-    const span = Math.min(columns, Math.max(1, Number(panel.span) || 1));
-    if (used + span > columns) close();
-    widths[panel.id] = span;
-    row.push(panel);
-    used += span;
-    if (used === columns) close();
-  });
-  close();
-  return widths;
+// Each chart has a natural width: time and flow charts need room, compact ones do not.
+const WIDE = new Set(['area', 'line', 'streamgraph', 'heatmap', 'sankey', 'stacked_bar', 'waterfall']);
+const naturalSpan = (panel, columns) => (panel.chart === 'table' ? columns : WIDE.has(panel.chart) ? Math.min(2, columns) : 1);
+
+// Fill every row of the grid: keep the agent's order, but pull a later chart forward when it
+// completes the row, so no compact chart is stretched across a whole row.
+function packLayout(panels, columns = 3) {
+  const queue = [...panels];
+  const out = [];
+  while (queue.length) {
+    let used = 0;
+    const row = [];
+    while (queue.length && used < columns) {
+      const room = columns - used;
+      const index = queue.slice(0, 4).findIndex((p) => naturalSpan(p, columns) <= room);
+      if (index < 0) break;
+      const [panel] = queue.splice(index, 1);
+      const span = naturalSpan(panel, columns);
+      row.push({ panel, width: span });
+      used += span;
+    }
+    if (!row.length) {
+      const panel = queue.shift();
+      row.push({ panel, width: columns });
+      used = columns;
+    }
+    if (used < columns) row[row.length - 1].width += columns - used;
+    out.push(...row);
+  }
+  return out;
 }
 
 function TrustRing({ trust, pending }) {
@@ -427,7 +459,7 @@ function AgentCard({ report }) {
   );
 }
 
-export default function ReportCanvas({ report, isDark = false, onAsk, onChoose, busy = false, view = {}, onView, refreshing = false, narrow = false }) {
+export default function ReportCanvas({ report, isDark = false, onAsk, onChoose, busy = false, view = {}, onView, refreshing = false, narrow = false, reveal = false }) {
   const columns = narrow ? 2 : 3;
   const [focus, setFocus] = useState(null);
   const kpis = report.kpis || [];
@@ -437,7 +469,7 @@ export default function ReportCanvas({ report, isDark = false, onAsk, onChoose, 
   const period = report.period;
   const bucket = period?.bucket;
   const pending = [...kpis, ...panels].filter((i) => i.pending).length;
-  const widths = useMemo(() => packWidths(panels, columns), [panels, columns]);
+  const layout = useMemo(() => packLayout(panels, columns), [panels, columns]);
   const trust = report.trust || [...kpis, ...panels].filter((i) => !i.pending).reduce((acc, i) => ({ ...acc, [i.outcome]: (acc[i.outcome] || 0) + 1 }), { confident: 0, caveat: 0, clarify: 0, handoff: 0 });
   const state = view.filter_state || report.filter_state || {};
   const select = (panel) => (value) => {
@@ -472,8 +504,8 @@ export default function ReportCanvas({ report, isDark = false, onAsk, onChoose, 
 
       <div className={`space-y-4 p-4 transition-opacity sm:p-5 ${refreshing ? 'opacity-55' : ''}`}>
         {kpis.length > 0 && (
-          <section className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${narrow ? 'xl:grid-cols-3' : kpis.length >= 5 ? 'xl:grid-cols-5' : kpis.length === 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} ${kpis.length === 6 && !narrow ? 'xl:grid-cols-6' : ''}`} aria-label="Key figures">
-            {kpis.map((kpi, i) => <KpiTile key={kpi.id} kpi={kpi} index={i} isDark={isDark} onAsk={onAsk} onChoose={onChoose} busy={busy} />)}
+          <section className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${narrow ? (kpis.length <= 4 ? 'xl:grid-cols-4' : 'xl:grid-cols-3') : kpis.length >= 5 ? 'xl:grid-cols-5' : kpis.length === 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} ${kpis.length === 6 && !narrow ? 'xl:grid-cols-6' : ''}`} aria-label="Key figures">
+            {kpis.map((kpi, i) => <KpiTile key={kpi.id} kpi={kpi} index={i} isDark={isDark} onAsk={onAsk} onChoose={onChoose} busy={busy} reveal={reveal} />)}
           </section>
         )}
 
@@ -505,8 +537,8 @@ export default function ReportCanvas({ report, isDark = false, onAsk, onChoose, 
         )}
 
         <section className={`grid grid-cols-1 gap-4 ${narrow ? 'lg:grid-cols-2' : 'lg:grid-cols-3'}`} aria-label="Analysis">
-          {panels.map((panel) => (
-            <PanelCard key={panel.id} panel={panel} width={widths[panel.id]} columns={columns} isDark={isDark} bucket={bucket}
+          {layout.map(({ panel, width }) => (
+            <PanelCard key={panel.id} panel={panel} width={width} columns={columns} isDark={isDark} bucket={bucket} reveal={reveal}
               selected={panel.filter_id ? state[panel.filter_id] : null} onSelect={onView ? select(panel) : undefined}
               onAsk={onAsk} onChoose={onChoose} onFocus={(p) => setFocus(p.id)} busy={busy} />
           ))}
