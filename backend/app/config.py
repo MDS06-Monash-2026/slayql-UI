@@ -43,6 +43,8 @@ class Settings(BaseSettings):
     # Models sent no reasoning switch, comma-separated. Some models think for a minute over a long
     # schema prompt when reasoning is switched on; listed models answer at their own default.
     NO_REASONING_MODELS: str = ""
+    # Models whose every request asks for high reasoning effort (comma separated).
+    HIGH_REASONING_MODELS: str = "gpt-6.1-sol"
     DEFAULT_MODEL: str = ""
     
     # Direct Provider Keys (fallback or direct use)
