@@ -761,6 +761,17 @@ async def check_filter_values(tree: exp.Expression, catalog: CatalogSchema, run_
 COUNT_QUESTION = re.compile(
     r"\b(?:how many|number of|count of|berapa\s+(?:ramai|banyak)|bilangan)\s+((?:[\w&-]+\s+){0,3}[\w&-]+)", re.I
 )
+# Qualifiers in front of the subject ("which valid order statuses", "which active customers"):
+# the noun after them is what the question asks about, so they are skipped, not looked up.
+SUBJECT_MODIFIERS = {
+    "valid", "invalid", "active", "inactive", "open", "closed", "new", "old", "top", "bottom", "main", "key",
+    "major", "minor", "current", "recent", "latest", "earliest", "first", "last", "next", "previous", "overdue",
+    "late", "early", "big", "biggest", "large", "largest", "small", "smallest", "high", "higher", "low", "lower",
+    "unique", "distinct", "unpaid", "pending", "recurring", "repeat", "returning", "loyal", "profitable",
+    "unprofitable", "popular", "frequent", "slow", "slowest", "fast", "fastest", "different", "other", "same",
+    "each", "every", "specific", "particular", "individual", "local", "international", "domestic", "online",
+    "offline", "internal", "external", "premium", "standard", "basic", "regular", "loyal", "busiest", "quietest",
+}
 SUBJECT_QUESTION = re.compile(
     r"\b(?:which|what(?:\s+(?:is|are|was|were)\s+(?:our|my|your)(?:\s+(?:current|latest|total|overall|average))?)?)"
     r"\s+([a-z][\w-]*)(?:\s+([a-z][\w-]*))?|\b([a-z][\w-]*)\s+mana\b",
@@ -776,7 +787,10 @@ NOT_SUBJECTS = {"is", "are", "was", "were", "of", "one", "ones", "do", "does", "
                 "drove", "drive", "drives", "grew", "grow", "grows", "fell", "fall", "falls", "rose", "rise", "rises",
                 "led", "lead", "leads", "paid", "pay", "pays", "spent", "spend", "spends", "took", "take", "takes",
                 "won", "win", "wins", "lost", "lose", "loses", "brought", "bring", "brings", "kept", "keep", "keeps",
-                "sent", "send", "sends", "sell", "sells", "buy", "buys", "owe", "owes", "need", "needs", "generate", "generates"}
+                "sent", "send", "sends", "sell", "sells", "buy", "buys", "owe", "owes", "need", "needs", "generate", "generates",
+                "contribute", "contributes", "combine", "combines", "perform", "performs", "represent", "represents",
+                "exceed", "exceeds", "rank", "ranks", "show", "shows", "appear", "appears", "cause", "causes", "use", "uses",
+                "get", "gets", "hold", "holds", "stand", "stands", "earn", "earns", "cost", "costs", "bring"}
 
 
 def _entity_table(words: List[str], catalog: CatalogSchema) -> Optional[Any]:
@@ -883,7 +897,12 @@ def check_answer_subject(question: str, catalog: CatalogSchema, definitions: Opt
         for word in (w.lower() for w in words if w):
             if word in NOT_SUBJECTS or _describes_action(word):
                 break
+            if word in SUBJECT_MODIFIERS:
+                continue
             candidates.append(word)
+            # A plural noun the data knows ends the subject: "which segments contribute" asks about segments.
+            if len(word) > 3 and word.endswith("s") and not word.endswith("ss") and _grounded(word, vocabulary):
+                break
         missing = None
         for word in candidates:
             if len(word) < 4 or word in GENERIC_TERMS:
