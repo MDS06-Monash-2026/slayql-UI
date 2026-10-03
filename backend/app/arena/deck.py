@@ -17,8 +17,8 @@ from backend.app.queries.validator import SqlValidator
 from backend.app.verification import candidate_from_result, verify
 from backend.app.verification.models import result_preview
 
-# The demo data ends in June 2026; relative-date checks use this as "today".
-DEMO_TODAY = date(2026, 9, 24)
+# The demo data ends on 30 September 2026; relative-date checks use this as "today".
+DEMO_TODAY = date(2026, 10, 1)
 
 CARDS: List[Dict[str, Any]] = [
     {
@@ -26,21 +26,21 @@ CARDS: List[Dict[str, Any]] = [
         "question": "What is total revenue from completed orders?",
         "sql": "SELECT SUM(total_amount) AS revenue FROM orders WHERE status = 'completed'",
         "correct": True,
-        "explanation": "Correct: 134 completed orders, each counted once.",
+        "explanation": "Correct: 4,151 completed orders, each counted once.",
     },
     {
         "id": "revenue-fanout",
         "question": "What is total revenue from completed orders?",
         "sql": "SELECT SUM(o.total_amount) AS revenue FROM orders o JOIN order_items oi ON oi.order_id = o.id WHERE o.status = 'completed'",
         "correct": False,
-        "explanation": "Wrong: joining order lines repeats each order once per line, so revenue is about three times too high. The correct figure is 2,159,970.05.",
+        "explanation": "Wrong: joining order lines repeats each order once per line, so revenue is about 3.7 times too high. The correct figure is 33,589,369.18.",
     },
     {
         "id": "revenue-all-statuses",
         "question": "What is our total revenue for the board pack?",
         "sql": "SELECT SUM(total_amount) AS revenue FROM orders",
         "correct": False,
-        "explanation": "Wrong for a board pack: it includes 7 cancelled and 20 refunded orders. Completed orders only give 2,159,970.05.",
+        "explanation": "Wrong for a board pack: it includes 190 cancelled and 195 refunded orders. Completed orders only give 33,589,369.18.",
     },
     {
         "id": "orders-august-between",
@@ -48,14 +48,14 @@ CARDS: List[Dict[str, Any]] = [
         "sql": "SELECT COUNT(*) AS orders FROM orders WHERE order_date BETWEEN '2025-08-01' AND '2025-08-31'",
         "correct": False,
         "correct_sql": "SELECT COUNT(*) FROM orders WHERE order_date >= '2025-08-01' AND order_date < '2025-09-01'",
-        "explanation": "Wrong: order dates include times, so BETWEEN ... '2025-08-31' drops the orders placed during 31 August. The correct count is 14.",
+        "explanation": "Wrong: order dates include times, so BETWEEN ... '2025-08-31' drops the orders placed during 31 August. The correct count is 141.",
     },
     {
         "id": "customers-count",
         "question": "How many customers do we have?",
         "sql": "SELECT COUNT(*) AS customers FROM customers",
         "correct": True,
-        "explanation": "Correct: 60 customers.",
+        "explanation": "Correct: 420 customers.",
     },
     {
         "id": "average-order",
@@ -77,7 +77,7 @@ CARDS: List[Dict[str, Any]] = [
         "sql": "SELECT COUNT(customer_id) AS customers FROM orders",
         "correct": False,
         "verifier_miss": True,
-        "explanation": "Wrong: this counts orders (214), not customers, so a customer with several orders is counted several times. The correct figure is 60. SlayQL's checks missed this one: they look for known traps such as double counting from joins, not every counting mistake.",
+        "explanation": "Wrong: this counts orders (4,597), not customers, so a customer with several orders is counted several times. The correct figure is 361. SlayQL's checks missed this one: they look for known traps such as double counting from joins, not every counting mistake.",
     },
 ]
 
