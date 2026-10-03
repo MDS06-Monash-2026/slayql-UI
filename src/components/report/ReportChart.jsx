@@ -13,6 +13,7 @@ import {
   Pie,
   PieChart,
   ResponsiveContainer,
+  Sankey,
   Scatter,
   ScatterChart,
   Tooltip,
@@ -22,6 +23,7 @@ import {
   ZAxis,
 } from 'recharts';
 import { axisTick, categoryLabel, formatValue, periodLabel, sequentialColor, themeFor, toNumber } from './chartTheme';
+import { fitChart } from './chartFit';
 
 const MAX_SERIES = 5;
 
@@ -410,10 +412,291 @@ function ScatterPlot({ panel, rows, columns, theme, format }) {
   );
 }
 
-const HEIGHTS = { bar_h: null, funnel: 240, donut: 240, heatmap: null };
+// --- Flows, hierarchies, shares, targets, spread ----------------------------------------------------
 
-export default function ReportChart({ panel, isDark = false, height = 260, bucket, selected, onSelect }) {
+// How the mix of a few groups shifts over time: stacked areas around a centre line.
+function StreamChart({ panel, rows, columns, theme, format, bucket }) {
+  const { data, series } = useMemo(() => pivot(rows, columns, panel.x, panel.series, panel.y), [rows, columns, panel]);
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <AreaChart data={data} stackOffset="silhouette" margin={{ top: 8, right: 12, bottom: 4, left: 4 }}>
+        <XAxis dataKey="x" {...axisProps(theme)} tickFormatter={(v) => periodLabel(v, bucket)} minTickGap={24} />
+        <YAxis hide />
+        <Tooltip content={<ChartTooltip format={format} theme={theme} bucket={bucket} />} cursor={{ stroke: theme.axis, strokeWidth: 1 }} />
+        <Legend iconType="rect" iconSize={10} wrapperStyle={{ fontSize: 11, color: theme.textSecondary }} />
+        {series.map((name, i) => (
+          <Area key={name} type="monotone" dataKey={name} stackId="stream" stroke={theme.surface} strokeWidth={1}
+            fill={name === 'Other' ? theme.deemphasis : theme.series[i % theme.series.length]} fillOpacity={0.92} isAnimationActive={false} />
+        ))}
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+}
+
+// Two rings: parents inside, their children outside in the parent's colour.
+function SunburstChart({ panel, rows, columns, theme, format }) {
+  const { parents, children, total } = useMemo(() => {
+    const xi = columns.indexOf(panel.x);
+    const si = columns.indexOf(panel.series);
+    const yi = columns.indexOf(panel.y);
+    const byParent = new Map();
+    rows.forEach((r) => {
+      const value = Math.max(0, toNumber(r[yi]) || 0);
+      const parent = String(r[xi] ?? '(blank)');
+      const entry = byParent.get(parent) || { name: parent, value: 0, kids: new Map() };
+      entry.value += value;
+      entry.kids.set(String(r[si] ?? '(blank)'), (entry.kids.get(String(r[si] ?? '(blank)')) || 0) + value);
+      byParent.set(parent, entry);
+    });
+    const ranked = [...byParent.values()].sort((a, b) => b.value - a.value);
+    const inner = ranked.map((p, i) => ({ name: p.name, value: p.value, fill: i < theme.series.length ? theme.series[i] : theme.deemphasis }));
+    const outer = ranked.flatMap((p, i) => [...p.kids.entries()].sort((a, b) => b[1] - a[1]).map(([name, value], j) => ({
+      name: `${name}`, parent: p.name, value, fill: inner[i].fill, opacity: 0.85 - (j % 3) * 0.2,
+    })));
+    return { parents: inner, children: outer, total: inner.reduce((sum, p) => sum + p.value, 0) || 1 };
+  }, [panel, rows, columns, theme]);
+  const tooltip = ({ active, payload }) => {
+    if (!active || !payload?.length) return null;
+    const p = payload[0].payload;
+    return (
+      <div className="rounded-lg border px-3 py-2 text-xs shadow-lg" style={{ background: theme.surface, borderColor: theme.grid, color: theme.text }}>
+        <p style={{ color: theme.textSecondary }}>{p.parent ? `${p.parent} › ${p.name}` : p.name}</p>
+        <p className="mt-1 font-semibold tabular-nums">{formatValue(p.value, format, { compact: false })} · {Math.round((p.value / total) * 100)}%</p>
+      </div>
+    );
+  };
+  return (
+    <div className="flex h-full items-center gap-3">
+      <div className="h-full min-w-0 flex-1">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Tooltip content={tooltip} />
+            <Pie data={parents} dataKey="value" innerRadius="22%" outerRadius="56%" stroke={theme.surface} strokeWidth={2} isAnimationActive={false}>
+              {parents.map((p) => <Cell key={p.name} fill={p.fill} />)}
+            </Pie>
+            <Pie data={children} dataKey="value" innerRadius="59%" outerRadius="92%" stroke={theme.surface} strokeWidth={1.5} isAnimationActive={false}>
+              {children.map((c) => <Cell key={`${c.parent}-${c.name}`} fill={c.fill} fillOpacity={c.opacity} />)}
+            </Pie>
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+      <ul className="w-[38%] space-y-1.5 text-xs">
+        {parents.slice(0, 6).map((p) => (
+          <li key={p.name} className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: p.fill }} />
+            <span className="min-w-0 flex-1 truncate" style={{ color: theme.textSecondary }} title={p.name}>{p.name}</span>
+            <span className="font-semibold tabular-nums" style={{ color: theme.text }}>{Math.round((p.value / total) * 100)}%</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// Flows from sources (left) to targets (right); band width is the value.
+function SankeyChart({ panel, rows, columns, theme, format }) {
+  const graph = useMemo(() => {
+    const xi = columns.indexOf(panel.x);
+    const si = columns.indexOf(panel.series);
+    const yi = columns.indexOf(panel.y);
+    const nodes = [];
+    const index = new Map();
+    const node = (side, name) => {
+      const key = `${side}:${name}`;
+      if (!index.has(key)) {
+        index.set(key, nodes.length);
+        nodes.push({ name, side });
+      }
+      return index.get(key);
+    };
+    const links = rows
+      .map((r) => ({ source: node('s', String(r[xi] ?? '(blank)')), target: node('t', String(r[si] ?? '(blank)')), value: Math.max(0, toNumber(r[yi]) || 0) }))
+      .filter((l) => l.value > 0);
+    return { nodes, links };
+  }, [panel, rows, columns]);
+  const NodeShape = ({ x, y, width, height, payload }) => {
+    const left = payload.side === 's';
+    const color = left ? theme.series[0] : theme.series[1];
+    return (
+      <g>
+        <rect x={x} y={y} width={width} height={height} rx={2} fill={color} />
+        <text x={left ? x - 6 : x + width + 6} y={y + height / 2} dy="0.35em" textAnchor={left ? 'end' : 'start'} fontSize={11} fill={theme.textSecondary}>
+          {String(payload.name).slice(0, 18)} <tspan fontWeight={600} fill={theme.text}>{formatValue(payload.value, format)}</tspan>
+        </text>
+      </g>
+    );
+  };
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <Sankey data={graph} nodeWidth={10} nodePadding={14} margin={{ top: 8, right: 120, bottom: 8, left: 120 }} iterations={32}
+        node={<NodeShape />} link={{ stroke: theme.series[0], strokeOpacity: 0.22 }}>
+        <Tooltip content={({ active, payload }) => {
+          if (!active || !payload?.length) return null;
+          const item = payload[0].payload?.payload || payload[0].payload;
+          const label = item.source && item.target ? `${item.source.name} → ${item.target.name}` : item.name;
+          return (
+            <div className="rounded-lg border px-3 py-2 text-xs shadow-lg" style={{ background: theme.surface, borderColor: theme.grid, color: theme.text }}>
+              <p style={{ color: theme.textSecondary }}>{label}</p>
+              <p className="mt-1 font-semibold tabular-nums">{formatValue(item.value, format, { compact: false })}</p>
+            </div>
+          );
+        }} />
+      </Sankey>
+    </ResponsiveContainer>
+  );
+}
+
+// A share as 100 squares: one square is one percent (pictogram / waffle).
+function WaffleChart({ data, theme, format }) {
+  const parts = useMemo(() => {
+    const sorted = [...data].filter((d) => d.y > 0).sort((a, b) => b.y - a.y).slice(0, 5);
+    const total = sorted.reduce((sum, d) => sum + d.y, 0) || 1;
+    const exact = sorted.map((d) => (d.y / total) * 100);
+    const squares = exact.map(Math.floor);
+    let left = 100 - squares.reduce((a, b) => a + b, 0);
+    exact.map((v, i) => [v - Math.floor(v), i]).sort((a, b) => b[0] - a[0]).forEach(([, i]) => { if (left > 0) { squares[i] += 1; left -= 1; } });
+    return sorted.map((d, i) => ({ ...d, squares: squares[i], share: exact[i], color: theme.series[i % theme.series.length] }));
+  }, [data, theme]);
+  const cells = parts.flatMap((p) => Array.from({ length: p.squares }, () => p));
+  return (
+    <div className="flex h-full items-center gap-5">
+      <div className="grid aspect-square h-full max-h-48 shrink-0 grid-cols-10 gap-[3px]" role="img" aria-label={parts.map((p) => `${p.x} ${Math.round(p.share)}%`).join(', ')}>
+        {cells.map((p, i) => <span key={i} className="rounded-[3px]" style={{ background: p.color }} title={`${p.x}: ${Math.round(p.share)}%`} />)}
+      </div>
+      <ul className="min-w-[45%] flex-1 space-y-2.5">
+        {parts.map((p) => (
+          <li key={p.x} className="flex items-baseline gap-2 text-xs" title={p.x}>
+            <span className="h-2.5 w-2.5 shrink-0 translate-y-px rounded-sm" style={{ background: p.color }} />
+            <span className="min-w-0 flex-1 truncate" style={{ color: theme.textSecondary }}>{p.x}</span>
+            <span className="text-base font-semibold" style={{ color: theme.text }}>{Math.round(p.share)}%</span>
+            <span className="w-14 text-right tabular-nums" style={{ color: theme.muted }}>{formatValue(p.y, format)}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// Actual against target for each item: a bar, a target tick, and the share reached.
+function BulletChart({ panel, rows, columns, theme, format }) {
+  const items = useMemo(() => {
+    const xi = columns.indexOf(panel.x);
+    const yi = columns.indexOf(panel.y);
+    const ti = columns.indexOf(panel.target);
+    return rows.map((r) => ({ label: String(r[xi] ?? ''), actual: toNumber(r[yi]) || 0, target: toNumber(r[ti]) || 0 })).slice(0, 10);
+  }, [panel, rows, columns]);
+  const peak = Math.max(...items.map((i) => Math.max(i.actual, i.target)), 1) * 1.08;
+  return (
+    <div className="flex h-full flex-col justify-center gap-3">
+      {items.map((item) => {
+        const reached = item.target ? item.actual / item.target : null;
+        return (
+          <div key={item.label} className="grid grid-cols-[minmax(0,28%)_1fr_auto] items-center gap-3 text-xs">
+            <span className="truncate text-right" style={{ color: theme.textSecondary }} title={item.label}>{item.label}</span>
+            <div className="relative h-5 rounded" style={{ background: theme.grid }}>
+              <div className="absolute inset-y-1 left-0 rounded-sm" style={{ width: `${(item.actual / peak) * 100}%`, background: reached !== null && reached < 1 ? theme.series[1] : theme.series[0] }} />
+              {item.target > 0 && <div className="absolute -inset-y-0.5 w-0.5 rounded" style={{ left: `${(item.target / peak) * 100}%`, background: theme.text }} title={`Target ${formatValue(item.target, format)}`} />}
+            </div>
+            <span className="w-28 text-right">
+              <b className="font-semibold tabular-nums" style={{ color: theme.text }}>{formatValue(item.actual, format)}</b>
+              {reached !== null && <span className="ml-1 tabular-nums" style={{ color: theme.muted }}>{Math.round(reached * 100)}%</span>}
+            </span>
+          </div>
+        );
+      })}
+      <p className="text-[11px]" style={{ color: theme.muted }}>Bar: actual · line: target · % of target reached</p>
+    </div>
+  );
+}
+
+function quartiles(values) {
+  const v = [...values].sort((a, b) => a - b);
+  const at = (q) => {
+    const pos = (v.length - 1) * q;
+    const base = Math.floor(pos);
+    return v[base + 1] !== undefined ? v[base] + (pos - base) * (v[base + 1] - v[base]) : v[base];
+  };
+  return { min: v[0], q1: at(0.25), median: at(0.5), q3: at(0.75), max: v[v.length - 1], n: v.length };
+}
+
+// The spread of values per group: box from the 25th to 75th percentile, line at the median.
+function BoxPlot({ panel, rows, columns, theme, format }) {
+  const groups = useMemo(() => {
+    const xi = columns.indexOf(panel.x);
+    const yi = columns.indexOf(panel.y);
+    const map = new Map();
+    rows.forEach((r) => {
+      const value = toNumber(r[yi]);
+      if (value === null) return;
+      const key = String(r[xi] ?? '(blank)');
+      map.set(key, [...(map.get(key) || []), value]);
+    });
+    return [...map.entries()].map(([name, values]) => ({ name, ...quartiles(values) })).sort((a, b) => b.median - a.median).slice(0, 8);
+  }, [panel, rows, columns]);
+  const W = 640;
+  const H = 240;
+  const pad = { l: 52, r: 12, t: 12, b: 36 };
+  const low = Math.min(...groups.map((g) => g.min));
+  const high = Math.max(...groups.map((g) => g.max));
+  const y = (v) => pad.t + (1 - (v - low) / ((high - low) || 1)) * (H - pad.t - pad.b);
+  const step = (W - pad.l - pad.r) / Math.max(groups.length, 1);
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map((t) => low + t * (high - low));
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="h-full w-full" role="img" aria-label={`${panel.title}: spread by ${panel.x}`}>
+      {ticks.map((t) => (
+        <g key={t}>
+          <line x1={pad.l} x2={W - pad.r} y1={y(t)} y2={y(t)} stroke={theme.grid} />
+          <text x={pad.l - 6} y={y(t)} dy="0.35em" textAnchor="end" fontSize={10} fill={theme.muted}>{axisTick(t, format)}</text>
+        </g>
+      ))}
+      {groups.map((g, i) => {
+        const cx = pad.l + step * (i + 0.5);
+        const half = Math.min(28, step * 0.28);
+        return (
+          <g key={g.name}>
+            <title>{`${g.name}: median ${formatValue(g.median, format)}, middle half ${formatValue(g.q1, format)}–${formatValue(g.q3, format)}, ${g.n} records`}</title>
+            <line x1={cx} x2={cx} y1={y(g.max)} y2={y(g.min)} stroke={theme.axis} strokeWidth={1.5} />
+            <line x1={cx - half / 2} x2={cx + half / 2} y1={y(g.max)} y2={y(g.max)} stroke={theme.axis} strokeWidth={1.5} />
+            <line x1={cx - half / 2} x2={cx + half / 2} y1={y(g.min)} y2={y(g.min)} stroke={theme.axis} strokeWidth={1.5} />
+            <rect x={cx - half} y={y(g.q3)} width={half * 2} height={Math.max(2, y(g.q1) - y(g.q3))} rx={3} fill={theme.series[0]} fillOpacity={0.22} stroke={theme.series[0]} strokeWidth={1.5} />
+            <line x1={cx - half} x2={cx + half} y1={y(g.median)} y2={y(g.median)} stroke={theme.series[0]} strokeWidth={2.5} />
+            <text x={cx} y={H - pad.b + 16} textAnchor="middle" fontSize={11} fill={theme.textSecondary}>{g.name.slice(0, 14)}</text>
+            <text x={cx} y={H - pad.b + 29} textAnchor="middle" fontSize={10} fill={theme.muted}>{formatValue(g.median, format)}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+// When a selection leaves one category, the figure itself is the clearest chart.
+function StatValue({ data, theme, format }) {
+  const total = data.reduce((sum, d) => sum + d.y, 0);
+  return (
+    <div className="flex h-full flex-col items-center justify-center text-center">
+      <span className="text-4xl font-semibold tracking-tight" style={{ color: theme.text }}>{formatValue(total, format)}</span>
+      {data.length === 1 && <span className="mt-1 text-sm" style={{ color: theme.textSecondary }}>{data[0].x}</span>}
+    </div>
+  );
+}
+
+function aggregate(points, mode) {
+  const groups = new Map();
+  points.forEach((p) => {
+    const entry = groups.get(p.x) || { raw: p.raw, x: p.x, sum: 0, n: 0 };
+    entry.sum += p.y;
+    entry.n += 1;
+    groups.set(p.x, entry);
+  });
+  return [...groups.values()].map((g) => ({ raw: g.raw, x: g.x, y: mode === 'mean' ? g.sum / g.n : g.sum })).sort((a, b) => b.y - a.y);
+}
+
+const HEIGHTS = { funnel: 240, donut: 240, waffle: 230, sunburst: 260, bullet: null, heatmap: null, bar_h: null, stat: 200 };
+
+export default function ReportChart({ panel: original, isDark = false, height = 260, bucket, selected, onSelect }) {
   const theme = themeFor(isDark);
+  const fit = useMemo(() => fitChart(original), [original]);
+  const panel = fit.chart === original.chart ? original : { ...original, chart: fit.chart };
   const columns = panel.columns || [];
   const rows = panel.rows || [];
   const format = panel.format || 'number';
@@ -425,10 +708,14 @@ export default function ReportChart({ panel, isDark = false, height = 260, bucke
       .map((r) => ({ raw: r[xi], x: r[xi] === null || r[xi] === undefined ? '(blank)' : categoryLabel(r[xi], panel.x), y: toNumber(r[yi]) }))
       .filter((p) => p.y !== null);
     if (['line', 'area', 'waterfall'].includes(panel.chart)) points.sort((a, b) => String(a.x).localeCompare(String(b.x)));
+    // A long-format result drawn as one series (after a fallback) sums its groups; a spread becomes an average.
+    if (['bar', 'bar_h', 'donut', 'waffle', 'treemap', 'stat'].includes(panel.chart) && new Set(points.map((p) => p.x)).size < points.length) {
+      return aggregate(points, original.chart === 'boxplot' ? 'mean' : 'sum');
+    }
     return points;
-  }, [columns, rows, panel.x, panel.y, panel.chart]);
+  }, [columns, rows, panel.x, panel.y, panel.chart, original.chart]);
 
-  if (!rows.length) return <Empty theme={theme}>No rows for this period.</Empty>;
+  if (!rows.length) return <Empty theme={theme}>No records for this period and filters.</Empty>;
   const props = { panel, theme, format, bucket, isDark, rows, columns, data, selected, onSelect: panel.filter_id ? onSelect : undefined };
   let body;
   let chartHeight = HEIGHTS[panel.chart] === undefined ? height : HEIGHTS[panel.chart] || height;
@@ -442,37 +729,62 @@ export default function ReportChart({ panel, isDark = false, height = 260, bucke
     case 'area':
       body = <TrendChart {...props} />;
       break;
+    case 'streamgraph':
+      body = <StreamChart {...props} />;
+      break;
     case 'waterfall':
       body = <WaterfallChart {...props} />;
       break;
     case 'donut':
       body = <DonutChart {...props} />;
       break;
+    case 'waffle':
+      body = <WaffleChart {...props} />;
+      break;
     case 'treemap':
       body = <TreemapChart {...props} />;
+      break;
+    case 'sunburst':
+      body = <SunburstChart {...props} />;
+      break;
+    case 'sankey':
+      body = <SankeyChart {...props} />;
+      chartHeight = Math.max(220, Math.min(380, new Set(rows.map((r) => r[columns.indexOf(panel.x)])).size * 46 + 40));
       break;
     case 'funnel':
       body = <FunnelChart {...props} />;
       chartHeight = Math.max(160, Math.min(320, data.length * 36 + 16));
       break;
     case 'heatmap':
-      if (!panel.series) return <Empty theme={theme}>This heatmap needs a second dimension. Use the table view.</Empty>;
       body = <HeatmapChart {...props} />;
       chartHeight = Math.max(180, Math.min(380, new Set(rows.map((r) => r[columns.indexOf(panel.series)])).size * 28 + 60));
       break;
     case 'scatter':
       body = <ScatterPlot {...props} />;
       break;
+    case 'boxplot':
+      body = <BoxPlot {...props} />;
+      break;
+    case 'bullet':
+      body = <BulletChart {...props} />;
+      chartHeight = Math.max(140, Math.min(380, rows.length * 34 + 40));
+      break;
+    case 'stat':
+      body = <StatValue {...props} />;
+      break;
+    case 'table':
+      return null;
     default:
       body = <CategoryChart {...props} horizontal={panel.chart === 'bar_h'} />;
       if (panel.chart === 'bar_h') chartHeight = Math.max(160, Math.min(420, data.length * 30 + 40));
   }
-  if (!data.length && !['stacked_bar', 'heatmap', 'scatter', 'line'].includes(panel.chart)) {
-    return <Empty theme={theme}>This result has no numeric column to chart. Use the table view.</Empty>;
+  if (!data.length && !['stacked_bar', 'heatmap', 'scatter', 'line', 'streamgraph', 'sunburst', 'sankey', 'boxplot', 'bullet'].includes(panel.chart)) {
+    return <Empty theme={theme}>This result has no numeric column to chart.</Empty>;
   }
   return (
-    <figure className="m-0" style={{ height: chartHeight }} aria-label={`${panel.title}: ${panel.chart} chart`}>
-      {body}
+    <figure className="m-0" aria-label={`${original.title}: ${panel.chart} chart`}>
+      <div style={{ height: chartHeight }}>{body}</div>
+      {fit.note && <figcaption className="mt-1.5 text-[11px]" style={{ color: theme.muted }}>{fit.note}</figcaption>}
     </figure>
   );
 }
