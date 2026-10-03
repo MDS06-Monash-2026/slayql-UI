@@ -424,7 +424,7 @@ const TableNode = memo(function TableNode({ data }) {
               <span
                 className={`shrink-0 font-mono text-[9px] px-1.5 py-0.5 rounded border leading-none ${
                   isDark
-                    ? 'bg-slate-800/90 text-slate-400 border-slate-700/60'
+                    ? 'bg-slate-800/90 text-slate-300 border-slate-700/60'
                     : 'bg-slate-100 text-slate-500 border-slate-200/80'
                 }`}
                 title={column.type}

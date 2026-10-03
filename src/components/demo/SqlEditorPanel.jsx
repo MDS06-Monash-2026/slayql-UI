@@ -185,7 +185,7 @@ export default function SqlEditorPanel({
               type="button"
               onClick={handleRunEdited}
               disabled={isExecuting || !editableSql.trim()}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-xs disabled:opacity-50 transition-all"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold rounded-xl shadow-xs disabled:opacity-50 transition-all"
             >
               {isExecuting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
               <span>Run Custom SQL</span>

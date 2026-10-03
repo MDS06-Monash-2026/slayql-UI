@@ -129,7 +129,22 @@
     linear-gradient(120deg, #eef2ff 0%, #f5f3ff 55%, #f0f9ff 100%);
 }
 .review-question { background: linear-gradient(180deg, rgba(238, 242, 255, 0.85) 0%, rgba(245, 243, 255, 0.4) 60%, transparent 100%); }
-.dark .review-hero, .theme-dark .review-hero { background: linear-gradient(120deg, rgba(79, 70, 229, 0.18) 0%, rgba(124, 58, 237, 0.12) 55%, rgba(14, 165, 233, 0.08) 100%); }
+/* Dark mode has its own page wash: the light one's pale glows read as grey haze on a dark page. */
+html.dark .review-page {
+  background:
+    radial-gradient(45% 35% at 8% 0%, rgba(79, 70, 229, 0.16) 0%, transparent 70%),
+    radial-gradient(35% 30% at 96% 4%, rgba(124, 58, 237, 0.12) 0%, transparent 70%),
+    #0b0e16;
+}
+/* Title bands in dark mode: a raised dark surface lit from the top-left in indigo. */
+.dark .review-hero, .theme-dark .review-hero {
+  background:
+    radial-gradient(60% 160% at 0% 0%, rgba(99, 102, 241, 0.24) 0%, transparent 62%),
+    radial-gradient(40% 120% at 100% 100%, rgba(139, 92, 246, 0.12) 0%, transparent 60%),
+    linear-gradient(180deg, #171c2f 0%, #121622 100%);
+  border-color: rgba(129, 140, 248, 0.22);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 18px 40px -30px rgba(79, 70, 229, 0.7);
+}
 .dark .review-question, .theme-dark .review-question { background: linear-gradient(180deg, rgba(79, 70, 229, 0.14) 0%, transparent 100%); }
 
 /* Sign-in: indeterminate loading bar. */
@@ -1801,10 +1816,6 @@ button:disabled,
   color: #818cf8 !important;
 }
 
-/* Nullable / not-null text */
-.live-demo-shell.theme-dark .text-slate-400 {
-  color: #64748b !important;
-}
 .live-demo-shell.theme-dark .text-slate-600 {
   color: #94a3b8 !important;
 }
@@ -1833,10 +1844,6 @@ button:disabled,
   background-color: #2a303b !important;
 }
 
-/* Stage item text for pending stages */
-.live-demo-shell.theme-dark .text-slate-400 {
-  color: #475569 !important;
-}
 
 /* Passed stage text */
 .live-demo-shell.theme-dark .text-slate-800 {
@@ -1996,10 +2003,6 @@ button:disabled,
   color: #818cf8 !important;
 }
 
-/* Nullable / not-null text */
-.live-demo-shell.theme-dark .text-slate-400 {
-  color: #64748b !important;
-}
 .live-demo-shell.theme-dark .text-slate-600 {
   color: #94a3b8 !important;
 }
@@ -2028,10 +2031,6 @@ button:disabled,
   background-color: #2a303b !important;
 }
 
-/* Stage item text for pending stages */
-.live-demo-shell.theme-dark .text-slate-400 {
-  color: #475569 !important;
-}
 
 /* Passed stage text */
 .live-demo-shell.theme-dark .text-slate-800 {
@@ -2272,3 +2271,12 @@ button:disabled,
   .report-reveal { animation: none; }
   .replay-fill { animation-duration: 1ms; }
 }
+
+/* App text contrast (WCAG AA, 4.5:1 on every app surface). Tailwind's slate-400/500 are too
+   light on white and slate-50; these keep the same hierarchy one step darker. Scoped to the
+   app so the landing page keeps its own palette. */
+:is(.live-demo-shell, .review-page) .text-slate-400 { color: #5a687d; }
+:is(.live-demo-shell, .review-page) .text-slate-500 { color: #4e5c70; }
+:is(.live-demo-shell, .review-page) ::placeholder { color: #6b778a; opacity: 1; }
+html.dark :is(.live-demo-shell, .review-page) :is(.text-slate-400, .text-slate-500, .text-slate-600, .dark\:text-slate-400, .dark\:text-slate-500, .dark\:text-slate-600) { color: #a3adbb; }
+html.dark :is(.live-demo-shell, .review-page) ::placeholder { color: #8b96a6; }

@@ -99,11 +99,11 @@ export default function ProfileView({ setView, session, onSessionUpdate, onLogou
         </button>
         <nav className="p-3 space-y-1">
           <button onClick={() => setView('demo')} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-200/60"><ArrowLeft className="w-4 h-4" />Back to chat</button>
-          <button className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-700"><UserRound className="w-4 h-4" />Profile</button>
+          <button className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-200"><UserRound className="w-4 h-4" />Profile</button>
           <button onClick={() => setView('databases')} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-200/60"><Database className="w-4 h-4" />Data sources</button>
         </nav>
         <div className="mt-auto p-3 border-t border-slate-200 live-demo-profile">
-          <button onClick={() => setSignOutOpen(true)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-red-600 hover:bg-red-50"><LogOut className="w-4 h-4" />Sign out</button>
+          <button onClick={() => setSignOutOpen(true)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-red-700 hover:bg-red-50 dark:text-rose-300 dark:hover:bg-rose-500/10"><LogOut className="w-4 h-4" />Sign out</button>
         </div>
       </aside>
 
@@ -128,7 +128,7 @@ export default function ProfileView({ setView, session, onSessionUpdate, onLogou
             <form onSubmit={handleSave} className="space-y-5">
               <div><h2 className="text-sm font-bold text-slate-900">Personal information</h2><p className="text-xs text-slate-500 mt-1">Used across your workspace and shared database access.</p></div>
               <div className="grid sm:grid-cols-2 gap-4"><label className="text-xs font-bold text-slate-700">Name<input className={`${inputClass} mt-1.5`} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label><label className="text-xs font-bold text-slate-700">Job title<input className={`${inputClass} mt-1.5`} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} /></label></div>
-              <label className="block text-xs font-bold text-slate-700">Organization<input className={`${inputClass} mt-1.5 bg-slate-100 text-slate-500`} value={form.organization_name} readOnly style={{ opacity: 0.7, cursor: "not-allowed" }} title="Set when you first sign in; it decides which team and access roles you belong to." /></label>
+              <label className="block text-xs font-bold text-slate-700">Organization<input className={`${inputClass} mt-1.5 bg-slate-100 text-slate-500`} value={form.organization_name} readOnly style={{ cursor: "not-allowed" }} title="Set when you first sign in; it decides which team and access roles you belong to." /></label>
               <label className="block text-xs font-bold text-slate-700">Bio<textarea rows={4} className={`${inputClass} mt-1.5 resize-none`} value={form.bio} onChange={(e) => setForm({ ...form, bio: e.target.value })} placeholder="Your responsibilities and data interests" /></label>
               <label className="block text-xs font-bold text-slate-700">Timezone<select className={`${inputClass} mt-1.5`} value={form.timezone} onChange={(e) => setForm({ ...form, timezone: e.target.value })}><option>Asia/Kuala_Lumpur</option><option>UTC</option><option>America/New_York</option><option>Europe/London</option><option>Asia/Singapore</option></select></label>
               <div className="flex items-center gap-3"><button disabled={saving} className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold inline-flex items-center gap-2 disabled:opacity-50">{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}Save changes</button>{notice && <span className="text-xs text-slate-500">{notice}</span>}</div>
