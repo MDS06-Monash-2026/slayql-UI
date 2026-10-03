@@ -73,6 +73,8 @@ const VIEW_TO_SLUG = {
   'arena-host': '/arena/host',
 };
 
+const THEMED_VIEWS = new Set(['demo', 'databases', 'reports', 'profile', 'review', 'definitions']);
+
 function getViewFromLocation() {
   const hash = window.location.hash.replace(/^#\/?/, '/');
   const path = window.location.pathname.replace(/\/+$/, '') || '/';
@@ -118,16 +120,14 @@ export default function App() {
     }
   });
 
+  // Dark mode belongs to the signed-in app. The landing, sign-in and arena pages are always light,
+  // so the class is removed whenever one of them is shown.
   useEffect(() => {
     try {
       localStorage.setItem('slayql_theme', theme);
-      if (theme === 'dark') {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
+      document.documentElement.classList.toggle('dark', theme === 'dark' && THEMED_VIEWS.has(view));
     } catch {}
-  }, [theme]);
+  }, [theme, view]);
 
   // Report studio used to live in AI Database Lab: old links open Reports and show its address.
   useEffect(() => {
