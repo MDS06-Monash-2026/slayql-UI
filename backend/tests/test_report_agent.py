@@ -83,7 +83,7 @@ def _plan(bad=False):
         _panel("by-segment", "bar", f"SELECT c.segment, SUM(o.total_amount) AS revenue {JOIN} WHERE {SALES} AND {PERIOD} GROUP BY c.segment", "segment", "revenue", filter_id="segment"),
         _panel("status-mix", "stacked_bar", f"SELECT {{{{bucket:o.order_date}}}} AS period, o.status, COUNT(*) AS orders {JOIN} WHERE {TREND} GROUP BY {{{{bucket:o.order_date}}}}, o.status ORDER BY period", "period", "orders", series="status"),
         _panel("weekday-heat", "heatmap", f"SELECT strftime('%w', o.order_date) AS weekday, c.segment, COUNT(*) AS orders {JOIN} WHERE {TREND} GROUP BY 1, 2", "weekday", "orders", series="segment"),
-        _panel("shipment-funnel", "funnel", "SELECT status, COUNT(*) AS shipments FROM shipments WHERE shipped_at >= {{start}} AND shipped_at < {{end}} GROUP BY status ORDER BY shipments DESC", "status", "shipments"),
+        _panel("segment-flow", "sankey", f"SELECT c.segment AS source, o.status AS target, COUNT(*) AS orders {JOIN} WHERE {TREND} GROUP BY c.segment, o.status", "source", "orders", series="target"),
         _panel("largest-orders", "table", f"SELECT o.id, c.company, o.order_date, o.total_amount {JOIN} WHERE {PERIOD} ORDER BY o.total_amount DESC LIMIT 20", "", ""),
     ]
     if bad:
@@ -264,3 +264,32 @@ async def test_report_history_lists_a_digest_and_deletes_in_bulk(monkeypatch):
         assert (await client.post("/api/v1/saved-reports/delete", json={"ids": ids[:2]}, headers=headers)).json()["deleted"] == 2
         left = {r["id"] for r in (await client.get("/api/v1/connections/sqlite_demo/saved-reports", headers=headers)).json()}
         assert ids[2] in left and not {ids[0], ids[1]} & left
+
+
+def test_calendar_parts_are_answerable_from_dates_but_missing_subjects_are_not():
+    from backend.app.verification import checks
+
+    catalog = CatalogService.get_sqlite_catalog(settings.SQLITE_DEMO_PATH)
+    assert checks.check_answer_subject("Which weekdays have the most support cases?", catalog) == []
+    assert checks.check_answer_subject("Which month had the highest revenue?", catalog) == []
+    assert checks.check_answer_subject("Which products drove sales in the period?", catalog) == []
+    flagged = checks.check_answer_subject("Which salesperson closed the most deals?", catalog)
+    assert flagged and flagged[0].severity == "blocking"
+
+
+def test_chart_rules_reject_charts_that_do_not_fit_their_data():
+    from backend.app.workbench import chart_rules
+
+    def check(chart, columns, rows, **extra):
+        return chart_rules.problem({"chart": chart, "x": columns[0], "y": columns[1], **extra}, columns, rows)
+
+    six = [[f"c{i}", 10 - i] for i in range(6)]
+    assert "at most 5" in check("donut", ["c", "v"], six)
+    assert check("donut", ["c", "v"], [["a", 70], ["b", 20], ["c", 10]]) is None
+    assert "shrink" in check("funnel", ["s", "n"], [["a", 5], ["b", 9], ["c", 1]])
+    assert check("funnel", ["s", "n"], [["a", 9], ["b", 5], ["c", 1]]) is None
+    assert "at least 4 periods" in check("area", ["p", "v"], [["2026-01-01", 1], ["2026-02-01", 2]])
+    assert "at least 15 points" in check("scatter", ["a", "b"], [[1, 2]] * 5, label="name")
+    assert "itself" in check("sankey", ["s", "v", "t"], [["a", 1, "a"], ["a", 2, "b"], ["b", 3, "c"]], series="t")
+    assert "target" in check("bullet", ["r", "v"], [["north", 5]])
+    assert "6 columns" in chart_rules.problem({"chart": "table"}, list("abcdefg"), [[1] * 7])

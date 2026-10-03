@@ -35,31 +35,21 @@ from backend.app.queries.validator import SqlValidator
 from backend.app.verification import candidate_from_result, verify
 from backend.app.verification.checks import DATE_COLUMN, STATUS_COLUMN
 from backend.app.verification.learning import workspace_learning
-from backend.app.workbench import insights, report_periods
+from backend.app.workbench import chart_rules, insights, report_periods
 
 logger = logging.getLogger(__name__)
 
-CHARTS = {"line", "area", "bar", "bar_h", "stacked_bar", "table", "donut", "treemap", "funnel", "heatmap", "scatter", "waterfall"}
+CHARTS = set(chart_rules.LIMITS)
 # Charts whose rows are split by a second column (long format).
-SERIES_CHARTS = {"stacked_bar", "heatmap", "line"}
+SERIES_CHARTS = {"stacked_bar", "heatmap", "line", "streamgraph", "sunburst", "sankey"}
+# Charts that cannot draw without their second column.
+NEEDS_SERIES = {"stacked_bar", "heatmap", "streamgraph", "sunburst", "sankey"}
 FORMATS = {"number", "currency", "percent"}
 MAX_KPIS, MAX_PANELS = 6, 10
 MAX_FILTERS = 3
 
-# What each chart needs from its query. Shared by the planner and the report agent.
-CHART_CONTRACTS = """Chart contracts (x, y, series and label name columns your SQL returns; alias them clearly):
-- line: x = period, y = measure. Optional series (at most 4 groups, long format) to compare a few groups over time.
-- area: x = period, y = one measure. The headline trend.
-- bar: x = category (at most 8), y = measure. Comparing a few groups.
-- bar_h: x = label, y = measure, at most 10 rows ordered by y descending. Rankings (top customers, products).
-- stacked_bar: x = period or category, series = a second dimension (at most 5 values), y = measure, long format.
-- donut: x = category (at most 6), y = measure. Part of a whole only.
-- treemap: x = category (at most 20), y = measure. Share of a total across many categories.
-- funnel: x = stage, y = count, rows in process order (for example an order or case status lifecycle).
-- heatmap: x = column dimension (weekday, hour, period), series = row dimension, y = measure, long format, each at most 12 values.
-- scatter: label = entity name, x = measure A, y = measure B, one row per entity, at most 150 rows. How two measures relate.
-- waterfall: x = period in order, y = measure. The chart shows how each period rose or fell from the one before.
-- table: the records a manager would follow up, at most 20 rows."""
+# What each chart needs from its query, shared by the planner and the report agent.
+CHART_CONTRACTS = chart_rules.GUIDE
 
 PERIOD_RULES = """Periods. The report covers one period (a week Monday to Sunday, or a calendar month). Never hard-code dates and
 never use the current date: write these placeholders, without quotes, and the server fills them for whichever period
@@ -88,13 +78,13 @@ Return only JSON:
 {"title": str, "subtitle": str, "grain": "week|month",
  "kpis": [{"id": str, "label": str, "question": str, "format": "number|currency|percent", "sql": str}],
  "panels": [{"id": str, "title": str, "question": str, "purpose": "trend|ranking|composition|comparison|relationship|flow|detail",
-             "chart": "line|area|bar|bar_h|stacked_bar|donut|treemap|funnel|heatmap|scatter|waterfall|table",
-             "x": str, "y": str, "series": str|null, "label": str|null,
+             "chart": "one of the chart guide's types",
+             "x": str, "y": str, "series": str|null, "label": str|null, "target": str|null,
              "format": "number|currency|percent", "span": 1|2|3, "sql": str}]}
 
 Rules:
-- 4 to 6 KPIs and 8 to 10 panels, each panel a different chart type. Each answers a distinct question a manager
-  would act on. No decoration.
+- 3 to 5 KPIs and 8 to 9 panels, each panel a different chart type that fits its question (see the chart guide).
+  Titles at most 5 words; questions at most 12 words. No decoration.
 - Never compute growth rates in SQL; the report computes changes. Keep every query short and readable.
 - Aggregate a parent table's measure at its own grain: never SUM an orders column after joining order lines or
   shipments; use EXISTS or pre-aggregate the child table instead.
@@ -107,9 +97,9 @@ Rules:
 
 NARRATIVE_RULES = """You write the summary of a management report. You receive numbered facts computed from the data.
 Return only JSON: {"headline": str, "findings": [{"text": str, "fact_ids": [str]}], "next_steps": [str]}.
-- headline: one sentence, the most decision-relevant point.
-- findings: 3 or 4 sentences, each citing the fact ids it restates. Most important first.
-- next_steps: 1 or 2 concrete follow-ups for a manager, without numbers.
+- headline: one sentence of at most 16 words, the most decision-relevant point.
+- findings: at most 3 sentences of at most 18 words, each citing the fact ids it restates. Most important first.
+- next_steps: one concrete follow-up of at most 12 words, without numbers.
 - Use ONLY numbers that appear in the cited facts, written the same way. Never compute new numbers.
 - If a fact says a period may be incomplete, do not describe that period as a decline.
 - Never claim a cause ("driven by", "because of", "due to") unless a fact states it. A segment leading overall
@@ -292,8 +282,10 @@ def normalize_plan(raw: Dict[str, Any]) -> Dict[str, Any]:
     for index, item in enumerate(raw.get("panels") or []):
         if isinstance(item, dict) and str(item.get("sql") or "").strip() and len(panels) < MAX_PANELS:
             chart = item.get("chart") if item.get("chart") in CHARTS else "bar"
-            if chart in {"stacked_bar", "heatmap"} and not item.get("series"):
+            if chart in NEEDS_SERIES and not item.get("series"):
                 chart = "bar"
+            if chart == "bullet" and not item.get("target"):
+                chart = "bar_h"
             if chart == "scatter" and not item.get("label"):
                 chart = "table"
             try:
@@ -309,6 +301,7 @@ def normalize_plan(raw: Dict[str, Any]) -> Dict[str, Any]:
                 "x": str(item.get("x") or ""), "y": str(item.get("y") or ""),
                 "series": str(item["series"]) if item.get("series") and chart in SERIES_CHARTS else None,
                 "label": str(item["label"]) if item.get("label") and chart == "scatter" else None,
+                "target": str(item["target"]) if item.get("target") and chart == "bullet" else None,
                 "filter_id": item.get("filter_id") if item.get("filter_id") in filter_ids else None,
                 "format": item.get("format") if item.get("format") in FORMATS else "number",
                 "span": span,

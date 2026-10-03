@@ -761,7 +761,12 @@ NOT_SUBJECTS = {"is", "are", "was", "were", "of", "one", "ones", "do", "does", "
                 "time", "year", "month", "day", "date", "had", "made", "make", "sold", "bought", "got", "gave",
                 "can", "will", "should", "would", "most", "least", "best", "worst",
                 # Adverbs end the subject: "what customers still owe", "which items never sold".
-                "still", "also", "just", "only", "ever", "never", "already", "currently", "really", "usually", "often"}
+                "still", "also", "just", "only", "ever", "never", "already", "currently", "really", "usually", "often",
+                # Verbs end the subject too: "which products drove sales", "which regions grew".
+                "drove", "drive", "drives", "grew", "grow", "grows", "fell", "fall", "falls", "rose", "rise", "rises",
+                "led", "lead", "leads", "paid", "pay", "pays", "spent", "spend", "spends", "took", "take", "takes",
+                "won", "win", "wins", "lost", "lose", "loses", "brought", "bring", "brings", "kept", "keep", "keeps",
+                "sent", "send", "sends", "sell", "sells", "buy", "buys", "owe", "owes", "need", "needs", "generate", "generates"}
 
 
 def _entity_table(words: List[str], catalog: CatalogSchema) -> Optional[Any]:
@@ -859,6 +864,8 @@ def check_answer_subject(question: str, catalog: CatalogSchema, definitions: Opt
     from backend.app.agent.retrieval import MALAY_TERMS
 
     vocabulary = schema_vocabulary(catalog, definitions)
+    has_dates = any(DATE_COLUMN.search(c.name) or re.search(r"date|time", c.type or "", re.I)
+                    for t in catalog.tables.values() for c in t.columns)
     for match in SUBJECT_QUESTION.finditer(question or ""):
         # "which delivery driver": the subject noun may be the first or second word.
         words = [match.group(1), match.group(2)] if match.group(1) else [match.group(3)]
@@ -872,6 +879,9 @@ def check_answer_subject(question: str, catalog: CatalogSchema, definitions: Opt
             if len(word) < 4 or word in GENERIC_TERMS:
                 continue
             translations = MALAY_TERMS.get(word, [])
+            # "Which weekdays / months / hours": calendar parts come from any date column.
+            if _stem(word) in CALENDAR_LABELS and has_dates:
+                continue
             if not (_grounded(word, vocabulary) or any(_grounded(t, vocabulary) for t in translations)):
                 missing = (word, translations)
                 break
