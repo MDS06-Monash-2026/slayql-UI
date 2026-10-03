@@ -5,6 +5,7 @@ import {
   ArrowUpRight,
   BarChart3,
   Bot,
+  Info,
   CalendarRange,
   Check,
   ChevronDown,
@@ -24,6 +25,7 @@ import {
 import TrustBadge from '../trust/TrustBadge';
 import DataTablePanel from '../demo/DataTablePanel';
 import ReportChart from './ReportChart';
+import { fitChart } from './chartFit';
 import { formatValue, periodLabel, themeFor, upIsBad } from './chartTheme';
 
 const NUMBER_PATTERN = /((?<![\w.\-/])[-+]?\d[\d,]*(?:\.\d+)?(?:[KMB%x]|\s?times)?(?![\w\-/]))/gi;
@@ -36,10 +38,6 @@ const GRAINS = [
 ];
 // Charts whose marks can be clicked to filter the report.
 const CLICKABLE = new Set(['bar', 'bar_h', 'donut', 'treemap']);
-const CHART_NAMES = {
-  line: 'Line', area: 'Area', bar: 'Column', bar_h: 'Ranking', stacked_bar: 'Stacked', donut: 'Donut', treemap: 'Treemap',
-  funnel: 'Funnel', heatmap: 'Heatmap', scatter: 'Scatter', waterfall: 'Waterfall', table: 'Table',
-};
 
 // Numbers in findings are bold so the eye lands on them.
 function Emphasised({ text }) {
@@ -265,44 +263,49 @@ function KpiTile({ kpi, index, isDark, onAsk, onChoose, busy }) {
 // --- Panels -----------------------------------------------------------------------------------
 
 function PanelCard({ panel, width = 1, columns = 3, isDark, bucket, selected, onSelect, onAsk, onChoose, onFocus, busy, focused = false }) {
-  const [view, setView] = useState(panel.chart === 'table' ? 'table' : 'chart');
+  const [view, setView] = useState('chart');
   const [showSql, setShowSql] = useState(false);
   const [showEvidence, setShowEvidence] = useState(false);
+  const fit = useMemo(() => fitChart(panel), [panel]);
+  const tableOnly = panel.chart === 'table' || fit.chart === 'table';
+  const showTable = tableOnly || view === 'table';
   const span = focused ? '' : width >= columns ? (columns === 2 ? 'lg:col-span-2' : 'lg:col-span-3') : width === 2 ? 'lg:col-span-2' : '';
   const answered = panel.outcome === 'confident' || panel.outcome === 'caveat';
-  const facts = (panel.facts || []).filter((f) => f.kind !== 'rows').slice(0, 2);
+  const clickable = Boolean(panel.filter_id && onSelect && CLICKABLE.has(fit.chart));
+  // One computed takeaway under the title, always for the period on screen.
+  const fact = (panel.facts || []).find((f) => !['rows', 'value'].includes(f.kind));
+  const insight = fact ? fact.text.replace(`${panel.title}: `, '') : '';
+  const iconButton = 'rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200';
   return (
     <article className={`group flex min-w-0 flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] break-inside-avoid dark:border-slate-800 dark:bg-[#141925] ${span}`}>
-      <header className="flex items-start justify-between gap-3">
+      <header className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <div className="flex items-start gap-2">
-            <h3 className="line-clamp-2 text-sm font-semibold text-slate-900 dark:text-slate-100">{panel.title}</h3>
-            <span className="shrink-0 rounded-md bg-slate-100 px-1.5 py-px text-[10px] font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">{CHART_NAMES[panel.chart] || panel.chart}</span>
-          </div>
-          <p className="mt-0.5 line-clamp-2 text-xs text-slate-500 dark:text-slate-400">{panel.question}</p>
+          <h3 className="text-[13px] font-semibold leading-snug text-slate-900 [text-wrap:balance] dark:text-slate-100" title={panel.question}>{panel.title}</h3>
+          {answered && insight && (
+            <p className="mt-0.5 line-clamp-1 text-xs text-slate-500 dark:text-slate-400" title={insight}>
+              <Emphasised text={insight.charAt(0).toUpperCase() + insight.slice(1)} />
+            </p>
+          )}
         </div>
         <div className="flex shrink-0 items-center gap-0.5 print:hidden">
+          <div className="flex items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+            {!tableOnly && answered && (
+              <button type="button" onClick={() => setView(view === 'chart' ? 'table' : 'chart')} title={view === 'chart' ? 'Show as table' : 'Show as chart'} aria-label={view === 'chart' ? 'Show as table' : 'Show as chart'} className={iconButton}>
+                {view === 'chart' ? <Table2 className="h-4 w-4" /> : <BarChart3 className="h-4 w-4" />}
+              </button>
+            )}
+            <button type="button" onClick={() => setShowSql(!showSql)} title="Show the query" aria-label="Show the query" className={iconButton}><Code2 className="h-4 w-4" /></button>
+            {onAsk && <button type="button" onClick={() => onAsk(panel)} title="Ask the agent to change this chart" aria-label="Ask the agent to change this chart" className={iconButton}><MessageSquarePlus className="h-4 w-4" /></button>}
+            {onFocus && (
+              <button type="button" onClick={() => onFocus(panel)} title={focused ? 'Close' : 'Focus'} aria-label={focused ? 'Close' : 'Focus'} className={iconButton}>
+                {focused ? <X className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+              </button>
+            )}
+          </div>
+          {clickable && <span className="p-1 text-indigo-500" title="Click the chart to filter the whole report"><Filter className="h-3.5 w-3.5" aria-label="Click to filter" /></span>}
           {!panel.pending && (
-            <button type="button" onClick={() => setShowEvidence(!showEvidence)} className="mr-1" aria-expanded={showEvidence} title="See its checks">
+            <button type="button" onClick={() => setShowEvidence(!showEvidence)} aria-expanded={showEvidence} aria-label="See its checks">
               <TrustBadge outcome={panel.outcome} size="xs" isDark={isDark} approved={Boolean(panel.definitions_used?.length)} compact />
-            </button>
-          )}
-          {panel.chart !== 'table' && answered && (
-            <button type="button" onClick={() => setView(view === 'chart' ? 'table' : 'chart')} title={view === 'chart' ? 'Show as table' : 'Show as chart'}
-              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200">
-              {view === 'chart' ? <Table2 className="h-4 w-4" /> : <BarChart3 className="h-4 w-4" />}
-            </button>
-          )}
-          <button type="button" onClick={() => setShowSql(!showSql)} title="Show the query"
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"><Code2 className="h-4 w-4" /></button>
-          {onAsk && (
-            <button type="button" onClick={() => onAsk(panel)} title="Ask the agent to change this chart"
-              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-800"><MessageSquarePlus className="h-4 w-4" /></button>
-          )}
-          {onFocus && (
-            <button type="button" onClick={() => onFocus(panel)} title={focused ? 'Close' : 'Focus'}
-              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200">
-              {focused ? <X className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
             </button>
           )}
         </div>
@@ -312,34 +315,28 @@ function PanelCard({ panel, width = 1, columns = 3, isDark, bucket, selected, on
       <div className="mt-3 min-h-0 flex-1">
         {panel.pending ? (
           <div className="skel flex h-56 items-center justify-center rounded-xl text-xs text-slate-500">
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Running and checking…
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Checking…
           </div>
         ) : !answered ? (
           <div className="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-600 dark:border-slate-700 dark:text-slate-300">
-            {panel.outcome === 'clarify' ? 'This chart depends on which records count. Choose one:' : 'Not shown: this chart did not pass its checks and is with an analyst.'}
+            {panel.outcome === 'clarify' ? 'Depends on which records count. Choose one:' : 'Held back: it did not pass its checks.'}
             <Options item={panel} onChoose={onChoose} busy={busy} />
             {panel.outcome !== 'clarify' && <div className="mt-2"><Evidence item={panel} /></div>}
           </div>
         ) : !(panel.rows || []).length ? (
-          <div className="flex items-center gap-2 rounded-xl bg-slate-50 p-4 text-sm text-slate-600 dark:bg-slate-900/50 dark:text-slate-300">
+          <div className="flex h-full min-h-24 items-center justify-center gap-2 rounded-xl bg-slate-50 p-4 text-sm text-slate-500 dark:bg-slate-900/50 dark:text-slate-400">
             <Check className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" />
-            {panel.purpose === 'exception' ? 'None this period: nothing matched, which is good news.' : 'No records for this period and filters.'}
+            {panel.purpose === 'exception' ? 'Nothing to follow up.' : 'No records in this period.'}
           </div>
-        ) : view === 'table' ? (
-          <DataTablePanel columns={panel.columns || []} rows={panel.rows || []} isDark={isDark} isTruncated={panel.truncated} />
+        ) : showTable ? (
+          <>
+            <DataTablePanel columns={panel.columns || []} rows={panel.rows || []} isDark={isDark} isTruncated={panel.truncated} />
+            {fit.note && panel.chart !== 'table' && <p className="mt-1.5 text-[11px] text-slate-500">{fit.note}</p>}
+          </>
         ) : (
-          <ReportChart panel={panel} isDark={isDark} bucket={bucket} height={focused ? 460 : 260} selected={selected} onSelect={onSelect} />
+          <ReportChart panel={panel} isDark={isDark} bucket={bucket} height={focused ? 460 : 250} selected={selected} onSelect={clickable ? onSelect : undefined} />
         )}
       </div>
-      {answered && (facts.length > 0 || (panel.filter_id && CLICKABLE.has(panel.chart))) && (
-        <div className="mt-3 space-y-1 border-t border-slate-100 pt-3 text-xs text-slate-600 dark:border-slate-800 dark:text-slate-300">
-          {facts.map((f) => {
-            const text = f.text.replace(`${panel.title}: `, '');
-            return <p key={f.id}><Emphasised text={text.charAt(0).toUpperCase() + text.slice(1)} /></p>;
-          })}
-          {panel.filter_id && CLICKABLE.has(panel.chart) && view === 'chart' && <p className="text-[11px] text-indigo-600 dark:text-indigo-300">Click a {panel.chart === 'donut' ? 'slice' : panel.chart === 'treemap' ? 'tile' : 'bar'} to filter the whole report.</p>}
-        </div>
-      )}
     </article>
   );
 }
@@ -390,12 +387,12 @@ function AgentCard({ report }) {
   const agent = report.agent || {};
   const meta = report.meta || {};
   const steps = agent.steps || [];
-  const planner = meta.planner === 'agent' || meta.planner === 'model' ? `Planned by the AI report agent (${agent.model || meta.model})`
-    : String(meta.planner || '').startsWith('template:') ? 'Ready-made pack, figures written in advance' : 'Planned from the database structure';
+  const planner = meta.planner === 'agent' || meta.planner === 'model' ? `AI agent · ${agent.model || meta.model}`
+    : String(meta.planner || '').startsWith('template:') ? 'Ready-made pack' : 'Built from the structure';
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-[#141925]" aria-label="How this report was built">
-      <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500"><Bot className="h-4 w-4 text-indigo-500" /> How it was built</p>
-      <p className="mt-2 text-sm font-medium text-slate-800 dark:text-slate-100">{planner}</p>
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-[#141925]" aria-label="How this report was built"
+      title={meta.data_sent?.length ? 'Only table and column names, category examples and computed findings went to the AI. No table rows.' : 'No AI was used for this version.'}>
+      <p className="flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-100"><Bot className="h-4 w-4 text-indigo-500" /> {planner}</p>
       <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
         {[
           ['Agent steps', steps.length || '—'],
@@ -411,7 +408,7 @@ function AgentCard({ report }) {
       {steps.length > 0 && (
         <>
           <button type="button" onClick={() => setOpen(!open)} className="mt-3 text-xs font-semibold text-indigo-600 hover:text-indigo-800 print:hidden dark:text-indigo-300">
-            {open ? 'Hide the agent’s steps' : 'See the agent’s steps'}
+            {open ? 'Hide steps' : 'Agent steps'}
           </button>
           {open && (
             <ol className="mt-2 max-h-56 space-y-1 overflow-y-auto text-xs text-slate-600 dark:text-slate-300">
@@ -425,9 +422,6 @@ function AgentCard({ report }) {
           )}
         </>
       )}
-      <p className="mt-3 text-[11px] text-slate-500">
-        {meta.data_sent?.length ? 'Only table and column names, category examples and computed findings were sent to the AI. No table rows.' : 'No AI was used for this version.'}
-      </p>
     </section>
   );
 }
@@ -462,7 +456,12 @@ export default function ReportCanvas({ report, isDark = false, onAsk, onChoose, 
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-indigo-200">{edition}{period?.label ? ` · ${period.label}` : ''}</p>
             <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-[28px]">{report.title}</h1>
             {report.subtitle && <p className="mt-1 max-w-3xl text-sm text-indigo-100/90">{report.subtitle}</p>}
-            {period?.prev_label && <p className="mt-2 text-xs text-indigo-200">Compared with {period.prev_label}</p>}
+            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-indigo-200">
+              {period?.prev_label && <span>Compared with {period.prev_label}</span>}
+              {(report.filters || []).filter((f) => state[f.id]?.length).map((f) => (
+                <span key={f.id} className="rounded-full bg-white/15 px-2 py-0.5 font-medium text-white">{f.label}: {state[f.id].join(', ')}</span>
+              ))}
+            </div>
           </div>
           <TrustRing trust={trust} pending={pending} />
         </div>
@@ -480,30 +479,24 @@ export default function ReportCanvas({ report, isDark = false, onAsk, onChoose, 
         {(narrative || meta.generated_at) && (
           <section className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
             {narrative ? (
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-[#141925]" aria-label="Key highlights">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Key highlights</p>
-                <p className="mt-2 text-[17px] font-medium leading-relaxed text-slate-900 dark:text-slate-50"><Emphasised text={narrative.headline} /></p>
+              <div className="relative rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-[#141925]" aria-label="Key highlights">
+                <span className="absolute right-3 top-3 text-slate-300 dark:text-slate-600" title={narrative.source === 'model'
+                  ? `Written by AI from ${report.facts?.length || 0} computed findings; every number was checked against them.${narrative.removed_sentences ? ` ${narrative.removed_sentences} unsupported sentence(s) removed.` : ''}`
+                  : `Written from ${report.facts?.length || 0} computed findings.`}><Info className="h-4 w-4" aria-label="How this summary was written" /></span>
+                <p className="pr-6 text-base font-semibold leading-snug text-slate-900 [text-wrap:balance] dark:text-slate-50"><Emphasised text={narrative.headline} /></p>
                 {narrative.findings?.length > 0 && (
-                  <ul className="mt-3 space-y-2 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
-                    {narrative.findings.map((f, i) => (
-                      <li key={i} className="flex gap-2.5"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500" /><span><Emphasised text={f.text} /></span></li>
+                  <ul className="mt-2.5 space-y-1.5 text-[13px] leading-relaxed text-slate-600 dark:text-slate-300">
+                    {narrative.findings.slice(0, 3).map((f, i) => (
+                      <li key={i} className="flex gap-2"><span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500" /><span><Emphasised text={f.text} /></span></li>
                     ))}
                   </ul>
                 )}
                 {narrative.next_steps?.length > 0 && (
-                  <div className="mt-4 rounded-xl bg-indigo-50/70 p-3 dark:bg-indigo-500/10">
-                    <p className="text-xs font-semibold text-indigo-900 dark:text-indigo-200">Suggested next steps</p>
-                    <ul className="mt-1 space-y-1 text-sm text-indigo-950/80 dark:text-indigo-100/80">
-                      {narrative.next_steps.map((s, i) => <li key={i}>{s}</li>)}
-                    </ul>
-                  </div>
+                  <p className="mt-3 flex gap-2 text-[13px] text-indigo-900 dark:text-indigo-200">
+                    <span className="shrink-0 rounded-md bg-indigo-50 px-1.5 py-px text-[11px] font-semibold dark:bg-indigo-500/15">Next</span>
+                    <span>{narrative.next_steps[0]}</span>
+                  </p>
                 )}
-                <p className="mt-3 text-[11px] text-slate-500">
-                  {narrative.source === 'model'
-                    ? `Written by AI from ${report.facts?.length || 0} computed findings; every number was checked against them.`
-                    : `Written from ${report.facts?.length || 0} computed findings.`}
-                  {narrative.removed_sentences > 0 && ` ${narrative.removed_sentences} AI sentence${narrative.removed_sentences > 1 ? 's were' : ' was'} removed because the numbers were not in the data.`}
-                </p>
               </div>
             ) : <div />}
             {meta.generated_at && <AgentCard report={report} />}
