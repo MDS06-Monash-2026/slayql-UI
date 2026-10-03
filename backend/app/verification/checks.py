@@ -520,6 +520,10 @@ def _abbreviates(short: str, word: str) -> bool:
     return all(char in remaining for char in short)
 
 
+# Columns about a person: their values (Siti, Hafiz) name people, not concepts the data covers.
+PERSON_COLUMN = re.compile(r"(^|_)(full_?name|first_?name|last_?name|email|e_?mail|phone|mobile)($|_)", re.I)
+
+
 def schema_vocabulary(catalog: CatalogSchema, definitions: Optional[List[Dict[str, Any]]] = None) -> set:
     """Every word that names something in this database: tables, columns, descriptions, sample values."""
     from backend.app.agent.retrieval import tokenize
@@ -530,6 +534,8 @@ def schema_vocabulary(catalog: CatalogSchema, definitions: Optional[List[Dict[st
         words.update(tokenize(table.description or ""))
         for column in table.columns:
             words.update(tokenize(column.name))
+            if PERSON_COLUMN.search(column.name):
+                continue
             for value in column.sample_values or []:
                 if isinstance(value, str) and len(value) <= 80:
                     words.update(tokenize(value))

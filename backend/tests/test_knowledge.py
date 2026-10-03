@@ -99,7 +99,7 @@ async def test_verified_query_answers_its_question_directly():
             json={"question": "how many completed orders are there", "connection_id": "sqlite_demo", "thinking_effort": "medium"},
         )
         payload = _completed(stream.text)
-        assert payload["rows"] == [[134]]
+        assert payload["rows"] == [[4151]]
         assert payload["verification"]["outcome"] == "confident"
         assert payload["verification"]["verified_query"]["approved_by"] == "analyst@example.com"
 

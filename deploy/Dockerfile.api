@@ -15,8 +15,11 @@ RUN pip install --no-cache-dir -r /app/backend/requirements.txt
 # Copy backend application source
 COPY backend /app/backend
 
-# Seed the demo SQLite database
+# Seed the demo SQLite database. It lives outside the backend/data volume so every deploy
+# ships the current demo data (a named volume keeps whatever it held when first created).
+# The demo is read-only, so nothing in it needs to persist between deploys.
 ENV PYTHONPATH=/app
+ENV SQLITE_DEMO_PATH=/app/demo/slayql_demo.sqlite3
 RUN python -m backend.app.db.seed_demo
 
 EXPOSE 8000
