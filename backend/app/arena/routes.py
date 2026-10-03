@@ -112,7 +112,7 @@ def eval_summary() -> Dict[str, Any]:
     """Per-question outcomes from the evaluation, so the game can recompute any threshold."""
     datasets = {}
     for name in ("bird", "trap"):
-        path = RESULTS_DIR / f"{name}.json"
+        path = RESULTS_DIR / f"{_current(name)}.json"
         if not path.exists():
             continue
         report = json.loads(path.read_text(encoding="utf-8"))
@@ -163,8 +163,19 @@ def eval_summary() -> Dict[str, Any]:
     return {"datasets": datasets, "learning": learning, "highlights": research_highlights()}
 
 
+# The trap set was re-run on the enriched demo data (3 October 2026) with the live app's model;
+# the earlier run on the first, smaller demo database stays in trap.json for the record.
+CURRENT = {"trap": "trap-luna", "human-loop-trap": "human-loop-trap-luna"}
+
+
+def _current(name: str) -> str:
+    """The results file a figure is published from: the current run if it exists."""
+    preferred = CURRENT.get(name)
+    return preferred if preferred and (RESULTS_DIR / f"{preferred}.json").exists() else name
+
+
 def _report(name: str) -> Optional[Dict[str, Any]]:
-    path = RESULTS_DIR / f"{name}.json"
+    path = RESULTS_DIR / f"{_current(name)}.json"
     return json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
 
 
@@ -183,7 +194,7 @@ def research_highlights() -> Dict[str, Any]:
     if trap:
         c = configs(trap, "all")
         out["trap"] = {
-            "n": trap["splits"]["all"]["n"], "model": trap["model"], "source": "results/trap.json",
+            "n": trap["splits"]["all"]["n"], "model": trap["model"], "source": f"results/{_current('trap')}.json",
             "before": c["B0"]["silent_error_rate"], "after": c["B3"]["silent_error_rate"],
             "answered": c["B3"]["coverage"], "false_alarm": c["B3"].get("false_alarm_rate") or 0.0,
         }
@@ -223,7 +234,7 @@ def research_highlights() -> Dict[str, Any]:
         report = _report(name)
         if report:
             loops[key] = {
-                "source": f"results/{name}.json", "n": report["n"], "human_model": report["human_model"],
+                "source": f"results/{_current(name)}.json", "n": report["n"], "human_model": report["human_model"],
                 "correct_without": report["summary"]["no_human"]["correct"],
                 "correct_with": report["summary"]["simulated_human"]["correct"],
                 "needed_person": report["summary"]["simulated_human"]["needed_a_person"],
@@ -238,7 +249,7 @@ def research_highlights() -> Dict[str, Any]:
         if report:
             c = configs(report, "all")
             outcomes[key] = {
-                "n": report["splits"]["all"]["n"], "source": f"results/{key}.json",
+                "n": report["splits"]["all"]["n"], "source": f"results/{_current(key)}.json",
                 **{side: {"correct": c[cfg]["correct_answers"], "wrong": c[cfg]["wrong_answers"],
                           "clarified": c[cfg]["clarified"], "handed_off": c[cfg]["handed_off"]}
                    for side, cfg in (("before", "B0"), ("after", "B3"))},
