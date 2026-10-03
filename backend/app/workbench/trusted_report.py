@@ -64,7 +64,10 @@ and slicers the reader picks, including weekly and monthly emails:
 KPIs use the series form (period, value) over {{trend_start}} to {{end}}: the tile shows the reported period, its change
 from the period before and a sparkline. A KPI that is not about time may return one row with a column named value.
 Rankings, shares and detail tables cover {{start}} to {{end}}. Trends, heatmaps over periods and waterfalls cover
-{{trend_start}} to {{end}}."""
+{{trend_start}} to {{end}}.
+Targets, budgets and quotas are yearly amounts unless the column name says otherwise. Compare them with the reported
+period pro rata, so the comparison holds for any week, month or quarter: in SQLite
+target * (julianday({{end}}) - julianday({{start}})) / 365.0 (use the dialect's date difference elsewhere)."""
 ANSWERED = {"confident", "caveat"}
 LABEL_COLUMN = re.compile(r"(^|_)(name|title|label|segment|category|type|region|city|country|carrier|channel|department|status)($|_)", re.I)
 MONEY_COLUMN = re.compile(r"amount|total|revenue|sales|price|value|cost|spend|budget|salary|balance", re.I)

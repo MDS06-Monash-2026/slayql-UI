@@ -182,6 +182,11 @@ def _fallback_table() -> Dict[str, List[str]]:
 FALLBACKS = _fallback_table()
 
 
+# Every request to these models asks for high reasoning effort (the gateway honours the
+# top-level reasoning_effort parameter), with room in the token budget for the reasoning.
+HIGH_REASONING_MODELS = {m.strip() for m in settings.HIGH_REASONING_MODELS.split(",") if m.strip()}
+HIGH_REASONING_EXTRA_TOKENS = 12000
+
 # Evaluation runs set LLM_STRICT_MODEL=1: every result must come from the model under test,
 # so a failed call is retried on the same model instead of falling back to another one.
 STRICT_RETRIES = 6
@@ -589,6 +594,10 @@ class LLMClient:
             "stream": True,
             "stream_options": {"include_usage": True},
         }
+        if execution_model_id in HIGH_REASONING_MODELS:
+            reasoning_effort = "high"
+            payload["reasoning_effort"] = "high"
+            payload["max_tokens"] = max_tokens + HIGH_REASONING_EXTRA_TOKENS
         if execution_model_id not in self._no_reasoning_param:
             # Hybrid reasoning models think only above "minimal" effort, which keeps the
             # fast path fast. Some deployments reject the switch; see the retry below.
@@ -611,10 +620,11 @@ class LLMClient:
                 async with self._client().stream(
                     "POST", f"{self.base_url}/chat/completions", headers=headers, json=payload,
                 ) as response:
-                    if response.status_code in {400, 422} and attempt == 0 and "reasoning" in payload:
+                    if response.status_code in {400, 422} and attempt == 0 and ("reasoning" in payload or "reasoning_effort" in payload):
                         # This deployment does not accept the reasoning switch: remember and retry without it.
                         self._no_reasoning_param.add(execution_model_id)
-                        payload.pop("reasoning")
+                        payload.pop("reasoning", None)
+                        payload.pop("reasoning_effort", None)
                         continue
                     if response.status_code == 402:
                         raise ProviderError("The AI provider account is out of credit.")

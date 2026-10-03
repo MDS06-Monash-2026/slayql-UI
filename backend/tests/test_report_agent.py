@@ -304,3 +304,57 @@ async def test_a_detail_table_hides_an_unfilled_column_instead_of_failing():
     assert checked["hidden_columns"] == ["resolution_time_hours"]
     assert "resolution_time_hours" not in checked["columns"]
     assert not any(f["title"].startswith("Column resolution_time_hours is empty") for f in checked["findings"])
+
+
+@pytest.mark.asyncio
+async def test_time_bands_computed_from_dates_are_grounded():
+    from backend.app.verification import checks
+    import sqlglot
+
+    catalog = CatalogService.get_sqlite_catalog(settings.SQLITE_DEMO_PATH)
+    sql = ("SELECT CAST(strftime('%w', order_date) AS INTEGER) AS weekday, (CAST(strftime('%H', order_date) AS INTEGER) / 2) * 2 AS hour_band, "
+           "COUNT(*) AS orders FROM orders GROUP BY 1, 2")
+    tree = sqlglot.parse_one(sql, read="sqlite")
+    assert checks.check_grounding(tree, "When do customers order by weekday and two-hour band?", catalog) == []
+    relabel = sqlglot.parse_one("SELECT customer_id AS salesperson_band, COUNT(*) FROM orders GROUP BY 1", read="sqlite")
+    assert checks.check_grounding(relabel, "Which salesperson band sells most?", catalog)
+
+
+@pytest.mark.asyncio
+async def test_requests_to_the_deep_model_ask_for_high_reasoning(monkeypatch):
+    from backend.app.providers import llm_client as module
+
+    sent = []
+
+    class Response:
+        status_code = 200
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+        def raise_for_status(self):
+            return None
+
+        async def aiter_lines(self):
+            yield 'data: {"choices": [{"delta": {"content": "ok"}}]}'
+            yield "data: [DONE]"
+
+    class Client:
+        def stream(self, method, url, headers=None, json=None):
+            sent.append(json)
+            return Response()
+
+    monkeypatch.setattr(module.llm_client, "api_key", "test-key")
+    monkeypatch.setattr(module.llm_client, "_client", lambda: Client())
+    for model in ("gpt-6.1-sol", "gpt-5.6-luna"):
+        async for _ in module.llm_client._stream_completion_once(
+            requested_model_id=model, messages=[{"role": "user", "content": "hi"}], session_id=None, max_tokens=900,
+            reasoning_effort="low", fallback_text="", use_requested_model=True,
+        ):
+            pass
+    sol, luna = sent
+    assert sol["reasoning_effort"] == "high" and sol["max_tokens"] == 900 + module.HIGH_REASONING_EXTRA_TOKENS
+    assert "reasoning_effort" not in luna and luna["max_tokens"] == 900
