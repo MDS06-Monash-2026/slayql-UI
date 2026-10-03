@@ -2,16 +2,18 @@
 
 Written 27 September 2026 for the team, to adapt into the final report, poster and slides. All results below were generated with `deepseek/deepseek-v4-flash` through OpenRouter. On 29 September the app moved to a configurable provider: OpenTK in development (`deepseek-v4.1-flash`, `glm-5.3`), or Together AI (`deepseek-ai/DeepSeek-V4-Flash-0731`, `moonshotai/Kimi-K3`). New evaluation runs use a separate cache for each model; say which provider and model produced any number you quote. Every number here comes from a results file named beside it. Re-run the evaluation before quoting a number if the code has changed since this date.
 
+**Trap set re-run, 3 October 2026.** The demo database was enriched (420 customers, 4,597 orders, January 2024 to September 2026) and the trap set was re-run on it with the live app's model, `gpt-5.6-luna` through OpenTK, because `deepseek-v4-flash` is no longer offered. The run used one model only: fallbacks to other models were disabled for evaluation. Trap-set figures below come from `results/trap-luna.json` and `results/human-loop-trap-luna.json`; the earlier run on the first demo database (26.9% → 0%, 73.1% answered) is kept in `results/trap.json`. BIRD and distributor figures are unchanged: they do not use the demo database.
+
 ## 1. The one-paragraph story
 
-We set out to make an AI analyst more accurate on enterprise databases, and found that accuracy was not the bottleneck we could fix. Our schema-linking engine (C-CaSE) answers 45.89% of Spider 2.0-Lite questions correctly, and a correct query is often generated but not chosen. The practical problem for a business is that it cannot tell the right half from the wrong half. So SlayQL checks every answer for the mistakes that distort business figures, compares independently written queries, and decides from a calibrated confidence whether to answer, add a caveat, ask which definition is meant, or hand the question to an analyst. On business questions this cuts wrong answers stated as fact from 26.9% of questions to none, while answering 73% immediately. It also learns from the analyst's review decisions how far it can be trusted on each database.
+We set out to make an AI analyst more accurate on enterprise databases, and found that accuracy was not the bottleneck we could fix. Our schema-linking engine (C-CaSE) answers 45.89% of Spider 2.0-Lite questions correctly, and a correct query is often generated but not chosen. The practical problem for a business is that it cannot tell the right half from the wrong half. So SlayQL checks every answer for the mistakes that distort business figures, compares independently written queries, and decides from a calibrated confidence whether to answer, add a caveat, ask which definition is meant, or hand the question to an analyst. On business questions this cuts wrong answers stated as fact from 28.8% of questions to 1.9% (one question), while answering 75% immediately. It also learns from the analyst's review decisions how far it can be trusted on each database.
 
 ## 2. How the two repositories fit together
 
 | Part | Repository | Question it answers | Headline result |
 | --- | --- | --- | --- |
 | Engine: schema linking and SQL generation | `C-CaSE` | Can an agent find the right tables in a large schema and write the SQL? | 251/547 (45.89%) on Spider 2.0-Lite with deepseek-v4-flash |
-| Product: trust layer, review queue, reports | `slayql-UI` | Can a business tell which answers to trust? | Silent wrong answers 26.9% → 0% on the business trap set |
+| Product: trust layer, review queue, reports | `slayql-UI` | Can a business tell which answers to trust? | Silent wrong answers 28.8% → 1.9% on the business trap set |
 
 The bridge between them is a finding from the engine work.
 
@@ -30,13 +32,13 @@ Say this plainly in the report. It is a stronger contribution than a marginal le
 
 ## 3. The problem, shown on our own data
 
-On the demo database, "What is total revenue from completed orders?" has one right answer, 2,159,970.05. Three SQL queries that all run without error return:
+On the demo database, "What is total revenue from completed orders?" has one right answer, 33,589,369.18. Three SQL queries that all run without error return:
 
 | Query | Result | Why |
 | --- | --- | --- |
-| Sum over completed orders | 2,159,970.05 | Correct |
-| Joined to order lines first | 6,535,519.28 | Each order counted about 3 times (fan-out) |
-| All statuses | 3,241,298.23 | Includes cancelled and refunded orders |
+| Sum over completed orders | 33,589,369.18 | Correct |
+| Joined to order lines first | 124,401,410.44 | Each order counted about 3.7 times (fan-out) |
+| All statuses | 37,171,213.39 | Includes cancelled and refunded orders |
 
 A manager cannot tell these apart. Source: `docs/PROJECT_DIRECTION.md` section 2.2, reproduced by `backend/tests/test_verification.py`.
 
@@ -61,23 +63,27 @@ A logistic confidence score is then compared with the threshold c / (1 + c), whe
 
 ### 5.1 Business trap set
 
-52 questions on the demo company: 40 by the team plus 12 in Bahasa Malaysia or mixed language. Model deepseek-v4-flash; the configurations share the same generated SQL. Source: `backend/eval/results/trap.json`.
+52 questions on the demo company: 40 by the team plus 12 in Bahasa Malaysia or mixed language. Model `gpt-5.6-luna` (OpenTK), run on 3 October 2026 on the enriched demo database; the configurations share the same generated SQL (USD 0.05 to generate). Source: `backend/eval/results/trap-luna.json`.
 
 | Configuration | Answered immediately | Wrong answers stated as fact | Right answers wrongly withheld |
 | --- | --- | --- | --- |
-| B0: plain pipeline | 94.2% | 26.9% | — |
-| B1: deterministic checks | 75.0% | 1.9% | 0% |
-| B3: full trust layer | 73.1% | 0% | 0% |
+| B0: plain pipeline | 100% | 28.8% | — |
+| B1: deterministic checks | 75.0% | 3.8% | 0% |
+| B3: full trust layer | 75.0% | 1.9% | 0% |
 
-On the 30 held-out questions: 33.3% → 0%, with 66.7% answered and no false alarms. All five questions the data cannot answer (three English, two Malay) are handed off.
+On the 30 held-out questions: 36.7% → 0%, with 66.7% answered and no false alarms. All five questions the data cannot answer (three English, two Malay) are handed off, and all eight definition questions are clarified.
 
 By language (all items):
 
 | Language | Questions | Wrong answers stated as fact |
 | --- | --- | --- |
-| English | 36 | 27.8% → 0% |
-| Bahasa Malaysia | 15 | 26.7% → 0% |
+| English | 36 | 25.0% → 0% |
+| Bahasa Malaysia | 15 | 40.0% → 6.7% |
 | Mixed | 1 | 0% → 0% |
+
+**The one wrong answer** is ms-08, "Berapa jumlah nilai pesanan yang selesai dan dihantar menggunakan DHL?" ("total value of orders completed and delivered by DHL"). The model read "selesai dan dihantar" as two order statuses, completed and shipped, and SlayQL answered with confidence instead of asking which statuses count. On the first demo database no DHL order was in "shipped", so both readings gave the same number; on the enriched data they differ. It is a real miss, reported as one.
+
+**Two answer keys were updated, not the results.** The two "last month" items (period-04, ms-12) were written when the data ended on 28 June 2026, so their key hard-coded May 2026. The enriched data runs to 30 September 2026, so every reading of "last month" is September 2026, and the key now says so. These two items therefore no longer test data that ended months ago; that check is still covered by unit tests with a fixed "today" (`backend/tests/test_verification.py`).
 
 The last miss before 29 September, a Malay question about salespeople whose SQL silently dropped the concept, is now caught by the answer-subject check.
 
@@ -167,13 +173,13 @@ Everything is still scored against the answer key. Sources: `results/human-loop-
 
 | Set | No person: correct | With simulated person: correct | Wrong answers shown | Needed a person |
 | --- | --- | --- | --- | --- |
-| Trap set (52) | 73.1% | **98.1%** | 1.9% | 26.9% |
+| Trap set (52) | 73.1% | **98.1%** | 1.9% | 25.0% |
 | Distributor, no definitions (22) | 59.1% | 86.4% | 13.6% | 40.9% |
 | Distributor, starter pack (22) | 81.8% | **95.5%** | 4.5% | **13.6%** |
 
-- **Clarify choices work.** The simulated user was run once for every valid meaning of each ambiguous trap question. For all 15 (question, meaning) pairs it picked the option giving the meaning it intended.
+- **Clarify choices work.** The simulated user was run once for every valid meaning of each ambiguous trap question. For all 16 (question, meaning) pairs it picked the option giving the meaning it intended.
 - **The analyst is not infallible.**
-  - On the trap set, it replaced SlayQL's correct "last month", measured from where the data ends, with the calendar month before today. The data has no orders in that month, so the answer became 0.
+  - On the trap set it was right on all 5 hand-offs in the re-run. In the earlier run on the first demo database it replaced SlayQL's correct "last month", measured from where the data ends, with the calendar month before today, which had no orders.
   - On the distributor set without definitions, it answered all three "sales" questions as invoices minus credit notes. That is a sensible fifth meaning the answer key does not include (it accepts four), so they score as wrong.
 
   Even a capable reviewer adds another meaning of "sales". With the starter pack approved, those questions were answered consistently and a person was needed on 13.6% of questions instead of 40.9%.
@@ -193,7 +199,7 @@ This is worth a paragraph in the report: an evaluation harness that exercises th
 
 ## 7. Limitations to state
 
-1. The trap set is small and team-written; external items are pending.
+1. The trap set is small and team-written; external items are pending. Since the demo data was enriched, its "last month" items no longer test data that ended long ago.
 2. The main BIRD results are without evidence hints, which is harder than the published setting. With hints (section 5.2), accuracy rises to 49%, but calibration at strict settings is noisy.
 3. Consensus adds little on its own (B2): independently written queries share the same business assumptions, so the deterministic checks do most of the work.
 4. The confidence prior tops out at 88% without an approved definition. At a penalty of 9 or more, SlayQL answers nothing until the data source has learned from reviews or has approved definitions.
@@ -206,7 +212,7 @@ This is worth a paragraph in the report: an evaluation harness that exercises th
 1. The Monday meeting: three plausible revenue figures (section 3).
 2. "AI is often wrong, and you can't tell when": 45.89% on Spider 2.0-Lite; right answers generated but not chosen.
 3. What SlayQL does: four outcomes, with one live example.
-4. Results on business questions: 26.9% → 0%.
+4. Results on business questions: 28.8% → 1.9% (one question).
 5. Honest results on BIRD: the dial between coverage and risk.
 6. It learns from your analyst: 33.9% → 1.6% after 40 reviews, 0% after 80.
 7. Report Studio: a checked management report in about 30 seconds.
