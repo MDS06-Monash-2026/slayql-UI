@@ -254,7 +254,7 @@ export default function DatabaseCenterView({ setView, session, theme: propTheme,
   };
 
   return (
-    <div className={`live-demo-shell theme-${theme} h-screen bg-[#f8fafc] dark:bg-[#0b0e16] text-slate-900 dark:text-slate-100 flex flex-col overflow-hidden transition-colors`}>
+    <div className={`live-demo-shell theme-${theme} h-[100dvh] bg-[#f8fafc] dark:bg-[#0b0e16] text-slate-900 dark:text-slate-100 flex flex-col overflow-clip transition-colors`}>
       {/* Top navbar: way back, brand, the five tools, add a source */}
       <header className="shrink-0 z-30 border-b border-slate-200/80 bg-white/90 backdrop-blur-md transition-colors dark:border-slate-800 dark:bg-[#0f131d]/90">
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2.5 sm:px-6 lg:h-16 lg:flex-nowrap lg:py-0">
@@ -312,7 +312,7 @@ export default function DatabaseCenterView({ setView, session, theme: propTheme,
         </div>
       </header>
 
-      <main className="review-page min-w-0 flex-1 overflow-y-auto dark:bg-[#0b0e16]">
+      <main className="review-page relative min-w-0 flex-1 overflow-y-auto dark:bg-[#0b0e16]">
           {loading && !selected && (
             <div className="flex h-80 items-center justify-center">
               <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />

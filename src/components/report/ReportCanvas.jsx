@@ -332,6 +332,7 @@ function PanelCard({ panel, width = 1, columns = 3, isDark, bucket, selected, on
           <>
             <DataTablePanel columns={panel.columns || []} rows={panel.rows || []} isDark={isDark} isTruncated={panel.truncated} />
             {fit.note && panel.chart !== 'table' && <p className="mt-1.5 text-[11px] text-slate-500">{fit.note}</p>}
+            {panel.hidden_columns?.length > 0 && <p className="mt-1.5 text-[11px] text-slate-500">Hidden because empty in this period: {panel.hidden_columns.join(', ')}.</p>}
           </>
         ) : (
           <ReportChart panel={panel} isDark={isDark} bucket={bucket} height={focused ? 460 : 250} selected={selected} onSelect={clickable ? onSelect : undefined} />
@@ -448,7 +449,7 @@ export default function ReportCanvas({ report, isDark = false, onAsk, onChoose, 
   const edition = { week: 'Weekly report', month: 'Monthly report', quarter: 'Quarterly report', year: 'Yearly report', all: 'All-time report', custom: 'Custom period' }[period?.grain] || 'Report';
 
   return (
-    <div className="report-print-root overflow-hidden rounded-3xl border border-slate-200 bg-[#f4f6fb] dark:border-slate-800 dark:bg-[#0b0e16]">
+    <div className="report-print-root relative overflow-hidden rounded-3xl border border-slate-200 bg-[#f4f6fb] dark:border-slate-800 dark:bg-[#0b0e16]">
       <header className="relative overflow-hidden bg-gradient-to-br from-[#1e1b4b] via-[#312e81] to-[#4338ca] px-5 py-5 text-white sm:px-6">
         <div className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-[radial-gradient(circle,rgba(167,139,250,0.45),transparent_70%)]" aria-hidden="true" />
         <div className="relative flex flex-wrap items-end justify-between gap-4">

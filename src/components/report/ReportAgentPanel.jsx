@@ -1,4 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
+
+// Keep a growing list scrolled to its end by moving only its own box. scrollIntoView would also
+// scroll every ancestor, including the page shell, which shifts the whole page and leaves a gap.
+function stickToEnd(node) {
+  const box = node?.closest('[data-scroll-box]');
+  if (box) box.scrollTop = box.scrollHeight;
+}
 import {
   ArrowUp,
   BookOpen,
@@ -60,7 +67,7 @@ export function StageRail({ stage }) {
 // The agent's steps as they stream in: tables read, columns profiled, queries tested, plans checked.
 export function AgentTimeline({ steps, running, compact = false }) {
   const end = useRef(null);
-  useEffect(() => { end.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, [steps.length]);
+  useEffect(() => { stickToEnd(end.current); }, [steps.length]);
   return (
     <ol className={`relative space-y-0 ${compact ? 'text-xs' : 'text-[13px]'}`}>
       {steps.map((step, i) => {
@@ -101,8 +108,8 @@ const FOLLOW_UPS = [
 export function ReportCopilot({ messages, steps, running, draft, setDraft, onSend, onPickQuestions, onClose, model }) {
   const end = useRef(null);
   const input = useRef(null);
-  useEffect(() => { end.current?.scrollIntoView({ block: 'end', behavior: 'smooth' }); }, [messages.length, steps.length, running]);
-  useEffect(() => { input.current?.focus(); }, [draft === '']);
+  useEffect(() => { stickToEnd(end.current); }, [messages.length, steps.length, running]);
+  useEffect(() => { input.current?.focus({ preventScroll: true }); }, [draft === '']);
   const send = () => { if (draft.trim() && !running) onSend(draft.trim()); };
   return (
     <aside className="flex h-[calc(100dvh-170px)] min-h-[520px] flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_24px_60px_-40px_rgba(49,46,129,0.5)] lg:sticky lg:top-4 dark:border-slate-800 dark:bg-[#121622]" aria-label="Report agent">
@@ -114,7 +121,7 @@ export function ReportCopilot({ messages, steps, running, draft, setDraft, onSen
         </div>
         <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-800 dark:hover:bg-slate-800 dark:hover:text-white" aria-label="Close the agent"><X className="h-4 w-4" /></button>
       </header>
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
+      <div data-scroll-box className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain scroll-smooth px-4 py-4">
         {messages.length === 0 && !running && (
           <div className="rounded-2xl bg-gradient-to-br from-indigo-50 to-violet-50 p-4 text-sm text-slate-700 dark:from-indigo-500/10 dark:to-violet-500/10 dark:text-slate-200">
             Ask for a change in plain words, or a question about the figures. The agent reads your data, rewrites what is needed and checks it before it reaches the dashboard.
