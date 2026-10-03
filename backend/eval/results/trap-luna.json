@@ -1,0 +1,5639 @@
+{
+  "dataset": "trap",
+  "model": "gpt-5.6-luna",
+  "k": 3,
+  "with_evidence": false,
+  "definitions": "none",
+  "data_profile": false,
+  "prompt_version": "v2",
+  "penalty": 4.0,
+  "threshold": 0.8,
+  "calibration": "default prior (not yet calibrated)",
+  "commit": "264ac7f",
+  "evaluated_at": "2026-10-03T09:12:22.903497+00:00",
+  "total_generation_cost_usd": 0.0529,
+  "splits": {
+    "test": {
+      "n": 30,
+      "configs": {
+        "B0": {
+          "n": 30,
+          "answered": 30,
+          "correct_answers": 19,
+          "wrong_answers": 11,
+          "clarified": 0,
+          "handed_off": 0,
+          "coverage": 1.0,
+          "selective_risk": 0.3667,
+          "silent_error_rate": 0.3667,
+          "execution_accuracy": 0.95,
+          "reliability_score_c1": 0.2667,
+          "reliability_score_c4": -0.8333,
+          "reliability_score_c9": -2.6667
+        },
+        "B1": {
+          "n": 30,
+          "answered": 20,
+          "correct_answers": 19,
+          "wrong_answers": 1,
+          "clarified": 8,
+          "handed_off": 2,
+          "coverage": 0.6667,
+          "selective_risk": 0.05,
+          "silent_error_rate": 0.0333,
+          "execution_accuracy": 0.95,
+          "reliability_score_c1": 0.9333,
+          "reliability_score_c4": 0.8333,
+          "reliability_score_c9": 0.6667,
+          "catch_rate": 0.9091,
+          "false_alarm_rate": 0.0
+        },
+        "B2": {
+          "n": 30,
+          "answered": 29,
+          "correct_answers": 20,
+          "wrong_answers": 9,
+          "clarified": 1,
+          "handed_off": 0,
+          "coverage": 0.9667,
+          "selective_risk": 0.3103,
+          "silent_error_rate": 0.3,
+          "execution_accuracy": 1.0,
+          "reliability_score_c1": 0.4,
+          "reliability_score_c4": -0.5,
+          "reliability_score_c9": -2.0,
+          "catch_rate": 0.1818,
+          "false_alarm_rate": 0.0
+        },
+        "B3": {
+          "n": 30,
+          "answered": 20,
+          "correct_answers": 20,
+          "wrong_answers": 0,
+          "clarified": 8,
+          "handed_off": 2,
+          "coverage": 0.6667,
+          "selective_risk": 0.0,
+          "silent_error_rate": 0.0,
+          "execution_accuracy": 1.0,
+          "reliability_score_c1": 1.0,
+          "reliability_score_c4": 1.0,
+          "reliability_score_c9": 1.0,
+          "catch_rate": 1.0,
+          "false_alarm_rate": 0.0
+        },
+        "B3_c1": {
+          "n": 30,
+          "answered": 20,
+          "correct_answers": 20,
+          "wrong_answers": 0,
+          "clarified": 8,
+          "handed_off": 2,
+          "coverage": 0.6667,
+          "selective_risk": 0.0,
+          "silent_error_rate": 0.0,
+          "execution_accuracy": 1.0,
+          "reliability_score_c1": 1.0,
+          "reliability_score_c4": 1.0,
+          "reliability_score_c9": 1.0,
+          "catch_rate": 1.0,
+          "false_alarm_rate": 0.0
+        },
+        "B3_c4": {
+          "n": 30,
+          "answered": 20,
+          "correct_answers": 20,
+          "wrong_answers": 0,
+          "clarified": 8,
+          "handed_off": 2,
+          "coverage": 0.6667,
+          "selective_risk": 0.0,
+          "silent_error_rate": 0.0,
+          "execution_accuracy": 1.0,
+          "reliability_score_c1": 1.0,
+          "reliability_score_c4": 1.0,
+          "reliability_score_c9": 1.0,
+          "catch_rate": 1.0,
+          "false_alarm_rate": 0.0
+        },
+        "B3_c9": {
+          "n": 30,
+          "answered": 0,
+          "correct_answers": 0,
+          "wrong_answers": 0,
+          "clarified": 8,
+          "handed_off": 22,
+          "coverage": 0.0,
+          "selective_risk": 0.0,
+          "silent_error_rate": 0.0,
+          "execution_accuracy": 0.0,
+          "reliability_score_c1": 0.3333,
+          "reliability_score_c4": 0.3333,
+          "reliability_score_c9": 0.3333,
+          "catch_rate": 1.0,
+          "false_alarm_rate": 1.0
+        }
+      },
+      "by_trap": {
+        "definition": {
+          "B0": {
+            "n": 8,
+            "answered": 8,
+            "correct_answers": 0,
+            "wrong_answers": 8,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 1.0,
+            "silent_error_rate": 1.0,
+            "execution_accuracy": null,
+            "reliability_score_c1": -1.0,
+            "reliability_score_c4": -4.0,
+            "reliability_score_c9": -9.0
+          },
+          "B1": {
+            "n": 8,
+            "answered": 0,
+            "correct_answers": 0,
+            "wrong_answers": 0,
+            "clarified": 8,
+            "handed_off": 0,
+            "coverage": 0.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": null,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": 1.0,
+            "false_alarm_rate": null
+          },
+          "B2": {
+            "n": 8,
+            "answered": 8,
+            "correct_answers": 0,
+            "wrong_answers": 8,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 1.0,
+            "silent_error_rate": 1.0,
+            "execution_accuracy": null,
+            "reliability_score_c1": -1.0,
+            "reliability_score_c4": -4.0,
+            "reliability_score_c9": -9.0,
+            "catch_rate": 0.0,
+            "false_alarm_rate": null
+          },
+          "B3": {
+            "n": 8,
+            "answered": 0,
+            "correct_answers": 0,
+            "wrong_answers": 0,
+            "clarified": 8,
+            "handed_off": 0,
+            "coverage": 0.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": null,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": 1.0,
+            "false_alarm_rate": null
+          }
+        },
+        "fanout": {
+          "B0": {
+            "n": 5,
+            "answered": 5,
+            "correct_answers": 5,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0
+          },
+          "B1": {
+            "n": 5,
+            "answered": 5,
+            "correct_answers": 5,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": null,
+            "false_alarm_rate": 0.0
+          },
+          "B2": {
+            "n": 5,
+            "answered": 5,
+            "correct_answers": 5,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": null,
+            "false_alarm_rate": 0.0
+          },
+          "B3": {
+            "n": 5,
+            "answered": 5,
+            "correct_answers": 5,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": null,
+            "false_alarm_rate": 0.0
+          }
+        },
+        "infeasible": {
+          "B0": {
+            "n": 2,
+            "answered": 2,
+            "correct_answers": 0,
+            "wrong_answers": 2,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 1.0,
+            "silent_error_rate": 1.0,
+            "execution_accuracy": null,
+            "reliability_score_c1": -1.0,
+            "reliability_score_c4": -4.0,
+            "reliability_score_c9": -9.0
+          },
+          "B1": {
+            "n": 2,
+            "answered": 0,
+            "correct_answers": 0,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 2,
+            "coverage": 0.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": null,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": 1.0,
+            "false_alarm_rate": null
+          },
+          "B2": {
+            "n": 2,
+            "answered": 1,
+            "correct_answers": 0,
+            "wrong_answers": 1,
+            "clarified": 1,
+            "handed_off": 0,
+            "coverage": 0.5,
+            "selective_risk": 1.0,
+            "silent_error_rate": 0.5,
+            "execution_accuracy": null,
+            "reliability_score_c1": 0.0,
+            "reliability_score_c4": -1.5,
+            "reliability_score_c9": -4.0,
+            "catch_rate": 0.5,
+            "false_alarm_rate": null
+          },
+          "B3": {
+            "n": 2,
+            "answered": 0,
+            "correct_answers": 0,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 2,
+            "coverage": 0.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": null,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": 1.0,
+            "false_alarm_rate": null
+          }
+        },
+        "none": {
+          "B0": {
+            "n": 10,
+            "answered": 10,
+            "correct_answers": 9,
+            "wrong_answers": 1,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.1,
+            "silent_error_rate": 0.1,
+            "execution_accuracy": 0.9,
+            "reliability_score_c1": 0.8,
+            "reliability_score_c4": 0.5,
+            "reliability_score_c9": 0.0
+          },
+          "B1": {
+            "n": 10,
+            "answered": 10,
+            "correct_answers": 9,
+            "wrong_answers": 1,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.1,
+            "silent_error_rate": 0.1,
+            "execution_accuracy": 0.9,
+            "reliability_score_c1": 0.8,
+            "reliability_score_c4": 0.5,
+            "reliability_score_c9": 0.0,
+            "catch_rate": 0.0,
+            "false_alarm_rate": 0.0
+          },
+          "B2": {
+            "n": 10,
+            "answered": 10,
+            "correct_answers": 10,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": 1.0,
+            "false_alarm_rate": 0.0
+          },
+          "B3": {
+            "n": 10,
+            "answered": 10,
+            "correct_answers": 10,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": 1.0,
+            "false_alarm_rate": 0.0
+          }
+        },
+        "period": {
+          "B0": {
+            "n": 5,
+            "answered": 5,
+            "correct_answers": 5,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0
+          },
+          "B1": {
+            "n": 5,
+            "answered": 5,
+            "correct_answers": 5,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": null,
+            "false_alarm_rate": 0.0
+          },
+          "B2": {
+            "n": 5,
+            "answered": 5,
+            "correct_answers": 5,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": null,
+            "false_alarm_rate": 0.0
+          },
+          "B3": {
+            "n": 5,
+            "answered": 5,
+            "correct_answers": 5,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": null,
+            "false_alarm_rate": 0.0
+          }
+        }
+      },
+      "by_language": {
+        "en": {
+          "B0": {
+            "n": 19,
+            "answered": 19,
+            "correct_answers": 12,
+            "wrong_answers": 7,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.3684,
+            "silent_error_rate": 0.3684,
+            "execution_accuracy": 0.9231,
+            "reliability_score_c1": 0.2632,
+            "reliability_score_c4": -0.8421,
+            "reliability_score_c9": -2.6842
+          },
+          "B1": {
+            "n": 19,
+            "answered": 13,
+            "correct_answers": 12,
+            "wrong_answers": 1,
+            "clarified": 5,
+            "handed_off": 1,
+            "coverage": 0.6842,
+            "selective_risk": 0.0769,
+            "silent_error_rate": 0.0526,
+            "execution_accuracy": 0.9231,
+            "reliability_score_c1": 0.8947,
+            "reliability_score_c4": 0.7368,
+            "reliability_score_c9": 0.4737,
+            "catch_rate": 0.8571,
+            "false_alarm_rate": 0.0
+          },
+          "B2": {
+            "n": 19,
+            "answered": 18,
+            "correct_answers": 13,
+            "wrong_answers": 5,
+            "clarified": 1,
+            "handed_off": 0,
+            "coverage": 0.9474,
+            "selective_risk": 0.2778,
+            "silent_error_rate": 0.2632,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 0.4737,
+            "reliability_score_c4": -0.3158,
+            "reliability_score_c9": -1.6316,
+            "catch_rate": 0.2857,
+            "false_alarm_rate": 0.0
+          },
+          "B3": {
+            "n": 19,
+            "answered": 13,
+            "correct_answers": 13,
+            "wrong_answers": 0,
+            "clarified": 5,
+            "handed_off": 1,
+            "coverage": 0.6842,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": 1.0,
+            "false_alarm_rate": 0.0
+          }
+        },
+        "mixed": {
+          "B0": {
+            "n": 1,
+            "answered": 1,
+            "correct_answers": 1,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0
+          },
+          "B1": {
+            "n": 1,
+            "answered": 1,
+            "correct_answers": 1,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": null,
+            "false_alarm_rate": 0.0
+          },
+          "B2": {
+            "n": 1,
+            "answered": 1,
+            "correct_answers": 1,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": null,
+            "false_alarm_rate": 0.0
+          },
+          "B3": {
+            "n": 1,
+            "answered": 1,
+            "correct_answers": 1,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": null,
+            "false_alarm_rate": 0.0
+          }
+        },
+        "ms": {
+          "B0": {
+            "n": 10,
+            "answered": 10,
+            "correct_answers": 6,
+            "wrong_answers": 4,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.4,
+            "silent_error_rate": 0.4,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 0.2,
+            "reliability_score_c4": -1.0,
+            "reliability_score_c9": -3.0
+          },
+          "B1": {
+            "n": 10,
+            "answered": 6,
+            "correct_answers": 6,
+            "wrong_answers": 0,
+            "clarified": 3,
+            "handed_off": 1,
+            "coverage": 0.6,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": 1.0,
+            "false_alarm_rate": 0.0
+          },
+          "B2": {
+            "n": 10,
+            "answered": 10,
+            "correct_answers": 6,
+            "wrong_answers": 4,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.4,
+            "silent_error_rate": 0.4,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 0.2,
+            "reliability_score_c4": -1.0,
+            "reliability_score_c9": -3.0,
+            "catch_rate": 0.0,
+            "false_alarm_rate": 0.0
+          },
+          "B3": {
+            "n": 10,
+            "answered": 6,
+            "correct_answers": 6,
+            "wrong_answers": 0,
+            "clarified": 3,
+            "handed_off": 1,
+            "coverage": 0.6,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": 1.0,
+            "false_alarm_rate": 0.0
+          }
+        }
+      },
+      "by_author": {
+        "team": {
+          "B0": {
+            "n": 30,
+            "answered": 30,
+            "correct_answers": 19,
+            "wrong_answers": 11,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.3667,
+            "silent_error_rate": 0.3667,
+            "execution_accuracy": 0.95,
+            "reliability_score_c1": 0.2667,
+            "reliability_score_c4": -0.8333,
+            "reliability_score_c9": -2.6667
+          },
+          "B1": {
+            "n": 30,
+            "answered": 20,
+            "correct_answers": 19,
+            "wrong_answers": 1,
+            "clarified": 8,
+            "handed_off": 2,
+            "coverage": 0.6667,
+            "selective_risk": 0.05,
+            "silent_error_rate": 0.0333,
+            "execution_accuracy": 0.95,
+            "reliability_score_c1": 0.9333,
+            "reliability_score_c4": 0.8333,
+            "reliability_score_c9": 0.6667,
+            "catch_rate": 0.9091,
+            "false_alarm_rate": 0.0
+          },
+          "B2": {
+            "n": 30,
+            "answered": 29,
+            "correct_answers": 20,
+            "wrong_answers": 9,
+            "clarified": 1,
+            "handed_off": 0,
+            "coverage": 0.9667,
+            "selective_risk": 0.3103,
+            "silent_error_rate": 0.3,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 0.4,
+            "reliability_score_c4": -0.5,
+            "reliability_score_c9": -2.0,
+            "catch_rate": 0.1818,
+            "false_alarm_rate": 0.0
+          },
+          "B3": {
+            "n": 30,
+            "answered": 20,
+            "correct_answers": 20,
+            "wrong_answers": 0,
+            "clarified": 8,
+            "handed_off": 2,
+            "coverage": 0.6667,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": 1.0,
+            "false_alarm_rate": 0.0
+          }
+        }
+      },
+      "risk_coverage_B3": {
+        "curve": [
+          {
+            "coverage": 0.05,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.1,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.15,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.2,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.25,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.3,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.35,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.4,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.45,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.5,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.55,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.6,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.65,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.7,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.75,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.8,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.85,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.9,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.95,
+            "risk": 0.0,
+            "threshold": 0.8176
+          },
+          {
+            "coverage": 1.0,
+            "risk": 0.0,
+            "threshold": 0.8023
+          }
+        ],
+        "aurc": 0.0
+      },
+      "calibration_B3": {
+        "ece": 0.1263,
+        "reliability_diagram": [
+          {
+            "bin": 8,
+            "n": 20,
+            "confidence": 0.8737,
+            "accuracy": 1.0
+          }
+        ]
+      }
+    },
+    "all": {
+      "n": 52,
+      "configs": {
+        "B0": {
+          "n": 52,
+          "answered": 52,
+          "correct_answers": 37,
+          "wrong_answers": 15,
+          "clarified": 0,
+          "handed_off": 0,
+          "coverage": 1.0,
+          "selective_risk": 0.2885,
+          "silent_error_rate": 0.2885,
+          "execution_accuracy": 0.9487,
+          "reliability_score_c1": 0.4231,
+          "reliability_score_c4": -0.4423,
+          "reliability_score_c9": -1.8846
+        },
+        "B1": {
+          "n": 52,
+          "answered": 39,
+          "correct_answers": 37,
+          "wrong_answers": 2,
+          "clarified": 8,
+          "handed_off": 5,
+          "coverage": 0.75,
+          "selective_risk": 0.0513,
+          "silent_error_rate": 0.0385,
+          "execution_accuracy": 0.9487,
+          "reliability_score_c1": 0.9231,
+          "reliability_score_c4": 0.8077,
+          "reliability_score_c9": 0.6154,
+          "catch_rate": 0.8667,
+          "false_alarm_rate": 0.0
+        },
+        "B2": {
+          "n": 52,
+          "answered": 49,
+          "correct_answers": 38,
+          "wrong_answers": 11,
+          "clarified": 3,
+          "handed_off": 0,
+          "coverage": 0.9423,
+          "selective_risk": 0.2245,
+          "silent_error_rate": 0.2115,
+          "execution_accuracy": 0.9744,
+          "reliability_score_c1": 0.5769,
+          "reliability_score_c4": -0.0577,
+          "reliability_score_c9": -1.1154,
+          "catch_rate": 0.2667,
+          "false_alarm_rate": 0.0
+        },
+        "B3": {
+          "n": 52,
+          "answered": 39,
+          "correct_answers": 38,
+          "wrong_answers": 1,
+          "clarified": 8,
+          "handed_off": 5,
+          "coverage": 0.75,
+          "selective_risk": 0.0256,
+          "silent_error_rate": 0.0192,
+          "execution_accuracy": 0.9744,
+          "reliability_score_c1": 0.9615,
+          "reliability_score_c4": 0.9038,
+          "reliability_score_c9": 0.8077,
+          "catch_rate": 0.9333,
+          "false_alarm_rate": 0.0
+        },
+        "B3_c1": {
+          "n": 52,
+          "answered": 39,
+          "correct_answers": 38,
+          "wrong_answers": 1,
+          "clarified": 8,
+          "handed_off": 5,
+          "coverage": 0.75,
+          "selective_risk": 0.0256,
+          "silent_error_rate": 0.0192,
+          "execution_accuracy": 0.9744,
+          "reliability_score_c1": 0.9615,
+          "reliability_score_c4": 0.9038,
+          "reliability_score_c9": 0.8077,
+          "catch_rate": 0.9333,
+          "false_alarm_rate": 0.0
+        },
+        "B3_c4": {
+          "n": 52,
+          "answered": 39,
+          "correct_answers": 38,
+          "wrong_answers": 1,
+          "clarified": 8,
+          "handed_off": 5,
+          "coverage": 0.75,
+          "selective_risk": 0.0256,
+          "silent_error_rate": 0.0192,
+          "execution_accuracy": 0.9744,
+          "reliability_score_c1": 0.9615,
+          "reliability_score_c4": 0.9038,
+          "reliability_score_c9": 0.8077,
+          "catch_rate": 0.9333,
+          "false_alarm_rate": 0.0
+        },
+        "B3_c9": {
+          "n": 52,
+          "answered": 0,
+          "correct_answers": 0,
+          "wrong_answers": 0,
+          "clarified": 8,
+          "handed_off": 44,
+          "coverage": 0.0,
+          "selective_risk": 0.0,
+          "silent_error_rate": 0.0,
+          "execution_accuracy": 0.0,
+          "reliability_score_c1": 0.25,
+          "reliability_score_c4": 0.25,
+          "reliability_score_c9": 0.25,
+          "catch_rate": 1.0,
+          "false_alarm_rate": 1.0
+        }
+      },
+      "by_trap": {
+        "definition": {
+          "B0": {
+            "n": 8,
+            "answered": 8,
+            "correct_answers": 0,
+            "wrong_answers": 8,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 1.0,
+            "silent_error_rate": 1.0,
+            "execution_accuracy": null,
+            "reliability_score_c1": -1.0,
+            "reliability_score_c4": -4.0,
+            "reliability_score_c9": -9.0
+          },
+          "B1": {
+            "n": 8,
+            "answered": 0,
+            "correct_answers": 0,
+            "wrong_answers": 0,
+            "clarified": 8,
+            "handed_off": 0,
+            "coverage": 0.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": null,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": 1.0,
+            "false_alarm_rate": null
+          },
+          "B2": {
+            "n": 8,
+            "answered": 8,
+            "correct_answers": 0,
+            "wrong_answers": 8,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 1.0,
+            "silent_error_rate": 1.0,
+            "execution_accuracy": null,
+            "reliability_score_c1": -1.0,
+            "reliability_score_c4": -4.0,
+            "reliability_score_c9": -9.0,
+            "catch_rate": 0.0,
+            "false_alarm_rate": null
+          },
+          "B3": {
+            "n": 8,
+            "answered": 0,
+            "correct_answers": 0,
+            "wrong_answers": 0,
+            "clarified": 8,
+            "handed_off": 0,
+            "coverage": 0.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": null,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": 1.0,
+            "false_alarm_rate": null
+          }
+        },
+        "fanout": {
+          "B0": {
+            "n": 11,
+            "answered": 11,
+            "correct_answers": 10,
+            "wrong_answers": 1,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0909,
+            "silent_error_rate": 0.0909,
+            "execution_accuracy": 0.9091,
+            "reliability_score_c1": 0.8182,
+            "reliability_score_c4": 0.5455,
+            "reliability_score_c9": 0.0909
+          },
+          "B1": {
+            "n": 11,
+            "answered": 11,
+            "correct_answers": 10,
+            "wrong_answers": 1,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0909,
+            "silent_error_rate": 0.0909,
+            "execution_accuracy": 0.9091,
+            "reliability_score_c1": 0.8182,
+            "reliability_score_c4": 0.5455,
+            "reliability_score_c9": 0.0909,
+            "catch_rate": 0.0,
+            "false_alarm_rate": 0.0
+          },
+          "B2": {
+            "n": 11,
+            "answered": 11,
+            "correct_answers": 10,
+            "wrong_answers": 1,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0909,
+            "silent_error_rate": 0.0909,
+            "execution_accuracy": 0.9091,
+            "reliability_score_c1": 0.8182,
+            "reliability_score_c4": 0.5455,
+            "reliability_score_c9": 0.0909,
+            "catch_rate": 0.0,
+            "false_alarm_rate": 0.0
+          },
+          "B3": {
+            "n": 11,
+            "answered": 11,
+            "correct_answers": 10,
+            "wrong_answers": 1,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0909,
+            "silent_error_rate": 0.0909,
+            "execution_accuracy": 0.9091,
+            "reliability_score_c1": 0.8182,
+            "reliability_score_c4": 0.5455,
+            "reliability_score_c9": 0.0909,
+            "catch_rate": 0.0,
+            "false_alarm_rate": 0.0
+          }
+        },
+        "infeasible": {
+          "B0": {
+            "n": 5,
+            "answered": 5,
+            "correct_answers": 0,
+            "wrong_answers": 5,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 1.0,
+            "silent_error_rate": 1.0,
+            "execution_accuracy": null,
+            "reliability_score_c1": -1.0,
+            "reliability_score_c4": -4.0,
+            "reliability_score_c9": -9.0
+          },
+          "B1": {
+            "n": 5,
+            "answered": 0,
+            "correct_answers": 0,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 5,
+            "coverage": 0.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": null,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": 1.0,
+            "false_alarm_rate": null
+          },
+          "B2": {
+            "n": 5,
+            "answered": 2,
+            "correct_answers": 0,
+            "wrong_answers": 2,
+            "clarified": 3,
+            "handed_off": 0,
+            "coverage": 0.4,
+            "selective_risk": 1.0,
+            "silent_error_rate": 0.4,
+            "execution_accuracy": null,
+            "reliability_score_c1": 0.2,
+            "reliability_score_c4": -1.0,
+            "reliability_score_c9": -3.0,
+            "catch_rate": 0.6,
+            "false_alarm_rate": null
+          },
+          "B3": {
+            "n": 5,
+            "answered": 0,
+            "correct_answers": 0,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 5,
+            "coverage": 0.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": null,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": 1.0,
+            "false_alarm_rate": null
+          }
+        },
+        "none": {
+          "B0": {
+            "n": 20,
+            "answered": 20,
+            "correct_answers": 19,
+            "wrong_answers": 1,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.05,
+            "silent_error_rate": 0.05,
+            "execution_accuracy": 0.95,
+            "reliability_score_c1": 0.9,
+            "reliability_score_c4": 0.75,
+            "reliability_score_c9": 0.5
+          },
+          "B1": {
+            "n": 20,
+            "answered": 20,
+            "correct_answers": 19,
+            "wrong_answers": 1,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.05,
+            "silent_error_rate": 0.05,
+            "execution_accuracy": 0.95,
+            "reliability_score_c1": 0.9,
+            "reliability_score_c4": 0.75,
+            "reliability_score_c9": 0.5,
+            "catch_rate": 0.0,
+            "false_alarm_rate": 0.0
+          },
+          "B2": {
+            "n": 20,
+            "answered": 20,
+            "correct_answers": 20,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": 1.0,
+            "false_alarm_rate": 0.0
+          },
+          "B3": {
+            "n": 20,
+            "answered": 20,
+            "correct_answers": 20,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": 1.0,
+            "false_alarm_rate": 0.0
+          }
+        },
+        "period": {
+          "B0": {
+            "n": 8,
+            "answered": 8,
+            "correct_answers": 8,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0
+          },
+          "B1": {
+            "n": 8,
+            "answered": 8,
+            "correct_answers": 8,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": null,
+            "false_alarm_rate": 0.0
+          },
+          "B2": {
+            "n": 8,
+            "answered": 8,
+            "correct_answers": 8,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": null,
+            "false_alarm_rate": 0.0
+          },
+          "B3": {
+            "n": 8,
+            "answered": 8,
+            "correct_answers": 8,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": null,
+            "false_alarm_rate": 0.0
+          }
+        }
+      },
+      "by_language": {
+        "en": {
+          "B0": {
+            "n": 36,
+            "answered": 36,
+            "correct_answers": 27,
+            "wrong_answers": 9,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.25,
+            "silent_error_rate": 0.25,
+            "execution_accuracy": 0.9643,
+            "reliability_score_c1": 0.5,
+            "reliability_score_c4": -0.25,
+            "reliability_score_c9": -1.5
+          },
+          "B1": {
+            "n": 36,
+            "answered": 28,
+            "correct_answers": 27,
+            "wrong_answers": 1,
+            "clarified": 5,
+            "handed_off": 3,
+            "coverage": 0.7778,
+            "selective_risk": 0.0357,
+            "silent_error_rate": 0.0278,
+            "execution_accuracy": 0.9643,
+            "reliability_score_c1": 0.9444,
+            "reliability_score_c4": 0.8611,
+            "reliability_score_c9": 0.7222,
+            "catch_rate": 0.8889,
+            "false_alarm_rate": 0.0
+          },
+          "B2": {
+            "n": 36,
+            "answered": 34,
+            "correct_answers": 28,
+            "wrong_answers": 6,
+            "clarified": 2,
+            "handed_off": 0,
+            "coverage": 0.9444,
+            "selective_risk": 0.1765,
+            "silent_error_rate": 0.1667,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 0.6667,
+            "reliability_score_c4": 0.1667,
+            "reliability_score_c9": -0.6667,
+            "catch_rate": 0.3333,
+            "false_alarm_rate": 0.0
+          },
+          "B3": {
+            "n": 36,
+            "answered": 28,
+            "correct_answers": 28,
+            "wrong_answers": 0,
+            "clarified": 5,
+            "handed_off": 3,
+            "coverage": 0.7778,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": 1.0,
+            "false_alarm_rate": 0.0
+          }
+        },
+        "mixed": {
+          "B0": {
+            "n": 1,
+            "answered": 1,
+            "correct_answers": 1,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0
+          },
+          "B1": {
+            "n": 1,
+            "answered": 1,
+            "correct_answers": 1,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": null,
+            "false_alarm_rate": 0.0
+          },
+          "B2": {
+            "n": 1,
+            "answered": 1,
+            "correct_answers": 1,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": null,
+            "false_alarm_rate": 0.0
+          },
+          "B3": {
+            "n": 1,
+            "answered": 1,
+            "correct_answers": 1,
+            "wrong_answers": 0,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.0,
+            "silent_error_rate": 0.0,
+            "execution_accuracy": 1.0,
+            "reliability_score_c1": 1.0,
+            "reliability_score_c4": 1.0,
+            "reliability_score_c9": 1.0,
+            "catch_rate": null,
+            "false_alarm_rate": 0.0
+          }
+        },
+        "ms": {
+          "B0": {
+            "n": 15,
+            "answered": 15,
+            "correct_answers": 9,
+            "wrong_answers": 6,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.4,
+            "silent_error_rate": 0.4,
+            "execution_accuracy": 0.9,
+            "reliability_score_c1": 0.2,
+            "reliability_score_c4": -1.0,
+            "reliability_score_c9": -3.0
+          },
+          "B1": {
+            "n": 15,
+            "answered": 10,
+            "correct_answers": 9,
+            "wrong_answers": 1,
+            "clarified": 3,
+            "handed_off": 2,
+            "coverage": 0.6667,
+            "selective_risk": 0.1,
+            "silent_error_rate": 0.0667,
+            "execution_accuracy": 0.9,
+            "reliability_score_c1": 0.8667,
+            "reliability_score_c4": 0.6667,
+            "reliability_score_c9": 0.3333,
+            "catch_rate": 0.8333,
+            "false_alarm_rate": 0.0
+          },
+          "B2": {
+            "n": 15,
+            "answered": 14,
+            "correct_answers": 9,
+            "wrong_answers": 5,
+            "clarified": 1,
+            "handed_off": 0,
+            "coverage": 0.9333,
+            "selective_risk": 0.3571,
+            "silent_error_rate": 0.3333,
+            "execution_accuracy": 0.9,
+            "reliability_score_c1": 0.3333,
+            "reliability_score_c4": -0.6667,
+            "reliability_score_c9": -2.3333,
+            "catch_rate": 0.1667,
+            "false_alarm_rate": 0.0
+          },
+          "B3": {
+            "n": 15,
+            "answered": 10,
+            "correct_answers": 9,
+            "wrong_answers": 1,
+            "clarified": 3,
+            "handed_off": 2,
+            "coverage": 0.6667,
+            "selective_risk": 0.1,
+            "silent_error_rate": 0.0667,
+            "execution_accuracy": 0.9,
+            "reliability_score_c1": 0.8667,
+            "reliability_score_c4": 0.6667,
+            "reliability_score_c9": 0.3333,
+            "catch_rate": 0.8333,
+            "false_alarm_rate": 0.0
+          }
+        }
+      },
+      "by_author": {
+        "team": {
+          "B0": {
+            "n": 52,
+            "answered": 52,
+            "correct_answers": 37,
+            "wrong_answers": 15,
+            "clarified": 0,
+            "handed_off": 0,
+            "coverage": 1.0,
+            "selective_risk": 0.2885,
+            "silent_error_rate": 0.2885,
+            "execution_accuracy": 0.9487,
+            "reliability_score_c1": 0.4231,
+            "reliability_score_c4": -0.4423,
+            "reliability_score_c9": -1.8846
+          },
+          "B1": {
+            "n": 52,
+            "answered": 39,
+            "correct_answers": 37,
+            "wrong_answers": 2,
+            "clarified": 8,
+            "handed_off": 5,
+            "coverage": 0.75,
+            "selective_risk": 0.0513,
+            "silent_error_rate": 0.0385,
+            "execution_accuracy": 0.9487,
+            "reliability_score_c1": 0.9231,
+            "reliability_score_c4": 0.8077,
+            "reliability_score_c9": 0.6154,
+            "catch_rate": 0.8667,
+            "false_alarm_rate": 0.0
+          },
+          "B2": {
+            "n": 52,
+            "answered": 49,
+            "correct_answers": 38,
+            "wrong_answers": 11,
+            "clarified": 3,
+            "handed_off": 0,
+            "coverage": 0.9423,
+            "selective_risk": 0.2245,
+            "silent_error_rate": 0.2115,
+            "execution_accuracy": 0.9744,
+            "reliability_score_c1": 0.5769,
+            "reliability_score_c4": -0.0577,
+            "reliability_score_c9": -1.1154,
+            "catch_rate": 0.2667,
+            "false_alarm_rate": 0.0
+          },
+          "B3": {
+            "n": 52,
+            "answered": 39,
+            "correct_answers": 38,
+            "wrong_answers": 1,
+            "clarified": 8,
+            "handed_off": 5,
+            "coverage": 0.75,
+            "selective_risk": 0.0256,
+            "silent_error_rate": 0.0192,
+            "execution_accuracy": 0.9744,
+            "reliability_score_c1": 0.9615,
+            "reliability_score_c4": 0.9038,
+            "reliability_score_c9": 0.8077,
+            "catch_rate": 0.9333,
+            "false_alarm_rate": 0.0
+          }
+        }
+      },
+      "risk_coverage_B3": {
+        "curve": [
+          {
+            "coverage": 0.0256,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.0513,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.0769,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.1026,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.1282,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.1538,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.1795,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.2051,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.2308,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.2564,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.2821,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.3077,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.3333,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.359,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.3846,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.4103,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.4359,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.4615,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.4872,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.5128,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.5385,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.5641,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.5897,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.6154,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.641,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.6667,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.6923,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.7179,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.7436,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.7692,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.7949,
+            "risk": 0.0,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.8205,
+            "risk": 0.0312,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.8462,
+            "risk": 0.0303,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.8718,
+            "risk": 0.0294,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.8974,
+            "risk": 0.0286,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.9231,
+            "risk": 0.0278,
+            "threshold": 0.8808
+          },
+          {
+            "coverage": 0.9487,
+            "risk": 0.027,
+            "threshold": 0.8176
+          },
+          {
+            "coverage": 0.9744,
+            "risk": 0.0263,
+            "threshold": 0.8023
+          },
+          {
+            "coverage": 1.0,
+            "risk": 0.0256,
+            "threshold": 0.8023
+          }
+        ],
+        "aurc": 0.0058
+      },
+      "calibration_B3": {
+        "ece": 0.0992,
+        "reliability_diagram": [
+          {
+            "bin": 8,
+            "n": 39,
+            "confidence": 0.8752,
+            "accuracy": 0.9744
+          }
+        ]
+      }
+    }
+  },
+  "items": [
+    {
+      "dataset": "trap",
+      "id": "plain-01",
+      "question": "How many customers do we have?",
+      "expected": "answer",
+      "trap": "none",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "fit",
+      "cost_usd": 0.0007335999999999999,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS customer_count\nFROM customers;",
+        "preview": "420"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS customer_count\nFROM customers;",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT COUNT(*) AS customer_count\nFROM customers;"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS customer_count\nFROM customers;",
+        "preview": "420",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "plain-02",
+      "question": "How many orders were placed in 2025?",
+      "expected": "answer",
+      "trap": "none",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "fit",
+      "cost_usd": 0.0008764,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS order_count\nFROM orders\nWHERE order_date >= '2025-01-01'\n  AND order_date < '2026-01-01';",
+        "preview": "1,744"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS order_count\nFROM orders\nWHERE order_date >= '2025-01-01'\n  AND order_date < '2026-01-01';",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT COUNT(*) AS order_count\nFROM orders\nWHERE order_date >= '2025-01-01'\n  AND order_date < '2026-01-01';"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS order_count\nFROM orders\nWHERE order_date >= '2025-01-01'\n  AND order_date < '2026-01-01';",
+        "preview": "1,744",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "plain-03",
+      "question": "Which product has the highest unit price?",
+      "expected": "answer",
+      "trap": "none",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.0007354,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT name, unit_price\nFROM products\nORDER BY unit_price DESC\nLIMIT 1;",
+        "preview": "Loyalty Engine, 1,742.85"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT name, unit_price\nFROM products\nORDER BY unit_price DESC\nLIMIT 1;",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT name, unit_price\nFROM products\nORDER BY unit_price DESC\nLIMIT 1;"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT name, unit_price\nFROM products\nORDER BY unit_price DESC\nLIMIT 1;",
+        "preview": "Loyalty Engine, 1,742.85",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "plain-04",
+      "question": "How many customers are in each segment?",
+      "expected": "answer",
+      "trap": "none",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.0008308,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT\n    segment,\n    COUNT(*) AS customer_count\nFROM customers\nGROUP BY segment\nORDER BY segment;",
+        "preview": "Consumer, 85; Enterprise, 72; Mid-Market, 129 (+1 more rows)"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT\n    segment,\n    COUNT(*) AS customer_count\nFROM customers\nGROUP BY segment\nORDER BY segment;",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT\n    segment,\n    COUNT(*) AS customer_count\nFROM customers\nGROUP BY segment\nORDER BY segment;"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT\n    segment,\n    COUNT(*) AS customer_count\nFROM customers\nGROUP BY segment\nORDER BY segment;",
+        "preview": "Consumer, 85; Enterprise, 72; Mid-Market, 129 (+1 more rows)",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "plain-05",
+      "question": "What is the average resolution time in hours for resolved support cases?",
+      "expected": "answer",
+      "trap": "none",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "fit",
+      "cost_usd": 0.0005583999999999999,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT AVG(resolution_time_hours) AS average_resolution_time_hours\nFROM support_cases\nWHERE status = 'resolved';",
+        "preview": "26.88"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT AVG(resolution_time_hours) AS average_resolution_time_hours\nFROM support_cases\nWHERE status = 'resolved';",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT AVG(resolution_time_hours) AS average_resolution_time_hours\nFROM support_cases\nWHERE status = 'resolved';"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT AVG(resolution_time_hours) AS average_resolution_time_hours\nFROM support_cases\nWHERE status = 'resolved';",
+        "preview": "26.88",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "plain-06",
+      "question": "How many open support cases have urgent priority?",
+      "expected": "answer",
+      "trap": "none",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.000451,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS open_urgent_support_cases\nFROM support_cases\nWHERE status = 'open'\n  AND priority = 'urgent';",
+        "preview": "0"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS open_urgent_support_cases\nFROM support_cases\nWHERE status = 'open'\n  AND priority = 'urgent';",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT COUNT(*) AS open_urgent_support_cases\nFROM support_cases\nWHERE status = 'open'\n  AND priority = 'urgent';"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS open_urgent_support_cases\nFROM support_cases\nWHERE status = 'open'\n  AND priority = 'urgent';",
+        "preview": "0",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "plain-07",
+      "question": "Which carrier handled the most shipments?",
+      "expected": "answer",
+      "trap": "none",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.0007324,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT carrier, COUNT(*) AS shipment_count\nFROM shipments\nGROUP BY carrier\nORDER BY shipment_count DESC\nLIMIT 1;",
+        "preview": "DHL, 1,691"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT carrier, COUNT(*) AS shipment_count\nFROM shipments\nGROUP BY carrier\nORDER BY shipment_count DESC\nLIMIT 1;",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT carrier, COUNT(*) AS shipment_count\nFROM shipments\nGROUP BY carrier\nORDER BY shipment_count DESC\nLIMIT 1;"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT carrier, COUNT(*) AS shipment_count\nFROM shipments\nGROUP BY carrier\nORDER BY shipment_count DESC\nLIMIT 1;",
+        "preview": "DHL, 1,691",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "plain-08",
+      "question": "What is the combined annual budget of all teams?",
+      "expected": "answer",
+      "trap": "none",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.0006736,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT SUM(annual_budget) AS combined_annual_budget\nFROM teams;",
+        "preview": "37,351,754.74"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT SUM(annual_budget) AS combined_annual_budget\nFROM teams;",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT SUM(annual_budget) AS combined_annual_budget\nFROM teams;"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT SUM(annual_budget) AS combined_annual_budget\nFROM teams;",
+        "preview": "37,351,754.74",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "plain-09",
+      "question": "How many employees are active?",
+      "expected": "answer",
+      "trap": "none",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.0005578,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS active_employee_count\nFROM employees\nWHERE status = 'active';",
+        "preview": "181"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS active_employee_count\nFROM employees\nWHERE status = 'active';",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT COUNT(*) AS active_employee_count\nFROM employees\nWHERE status = 'active';"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS active_employee_count\nFROM employees\nWHERE status = 'active';",
+        "preview": "181",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "plain-10",
+      "question": "List the names of warehouses with utilization above 80 percent.",
+      "expected": "answer",
+      "trap": "none",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "fit",
+      "cost_usd": 0.0006058,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT name\nFROM warehouses\nWHERE utilization_percent > 80\nLIMIT 200;",
+        "preview": "Fulfillment Hub 09; Fulfillment Hub 11"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT name\nFROM warehouses\nWHERE utilization_percent > 80\nLIMIT 200;",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT name\nFROM warehouses\nWHERE utilization_percent > 80\nLIMIT 200;"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT name\nFROM warehouses\nWHERE utilization_percent > 80\nLIMIT 200;",
+        "preview": "Fulfillment Hub 09; Fulfillment Hub 11",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "plain-11",
+      "question": "How many products are in the Security & Compliance category?",
+      "expected": "answer",
+      "trap": "none",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "fit",
+      "cost_usd": 0.000814,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS product_count\nFROM products p\nJOIN categories c ON p.category_id = c.id\nWHERE c.name = 'Security & Compliance';",
+        "preview": "8"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS product_count\nFROM products p\nJOIN categories c ON p.category_id = c.id\nWHERE c.name = 'Security & Compliance';",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT COUNT(*) AS product_count\nFROM products p\nJOIN categories c ON p.category_id = c.id\nWHERE c.name = 'Security & Compliance';"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS product_count\nFROM products p\nJOIN categories c ON p.category_id = c.id\nWHERE c.name = 'Security & Compliance';",
+        "preview": "8",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "plain-12",
+      "question": "What is the average total of completed orders?",
+      "expected": "answer",
+      "trap": "none",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.0006808000000000001,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT AVG(total_amount) AS average_total\nFROM orders\nWHERE status = 'completed';",
+        "preview": "8,091.87"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT AVG(total_amount) AS average_total\nFROM orders\nWHERE status = 'completed';",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT AVG(total_amount) AS average_total\nFROM orders\nWHERE status = 'completed';"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT AVG(total_amount) AS average_total\nFROM orders\nWHERE status = 'completed';",
+        "preview": "8,091.87",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "plain-13",
+      "question": "How many units of each product were sold in completed orders?",
+      "expected": "answer",
+      "trap": "none",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.0014572,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": false,
+        "sql": "SELECT\n    p.id AS product_id,\n    p.name AS product_name,\n    COALESCE(SUM(oi.quantity), 0) AS units_sold\nFROM products AS p\nLEFT JOIN order_items AS oi\n    ON oi.product_id = p.id\nLEFT JOIN orders AS o\n    ON o.id = oi.order_id\n   AND o.status = 'completed'\nGROUP BY p.id, p.name\nORDER BY p.id;",
+        "preview": "1, Compute Instance S, 1,238; 2, Compute Instance M, 1,276; 3, Compute Instance L, 1,068 (+53 more rows)"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": false,
+        "sql": "SELECT\n    p.id AS product_id,\n    p.name AS product_name,\n    COALESCE(SUM(oi.quantity), 0) AS units_sold\nFROM products AS p\nLEFT JOIN order_items AS oi\n    ON oi.product_id = p.id\nLEFT JOIN orders AS o\n    ON o.id = oi.order_id\n   AND o.status = 'completed'\nGROUP BY p.id, p.name\nORDER BY p.id;",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 0.667,
+        "sql": "SELECT\n    p.id AS product_id,\n    p.name AS product_name,\n    SUM(oi.quantity) AS units_sold\nFROM products AS p\nJOIN order_items AS oi\n    ON oi.product_id = p.id\nJOIN orders AS o\n    ON o.id = oi.order_id\nWHERE o.status = 'completed'\nGROUP BY p.id, p.name\nORDER BY p.id;"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT\n    p.id AS product_id,\n    p.name AS product_name,\n    SUM(oi.quantity) AS units_sold\nFROM products AS p\nJOIN order_items AS oi\n    ON oi.product_id = p.id\nJOIN orders AS o\n    ON o.id = oi.order_id\nWHERE o.status = 'completed'\nGROUP BY p.id, p.name\nORDER BY p.id;",
+        "preview": "1, Compute Instance S, 1,119; 2, Compute Instance M, 1,139; 3, Compute Instance L, 998 (+53 more rows)",
+        "p": 0.8023,
+        "features": {
+          "agreement": 0.667,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "plain-14",
+      "question": "What is the total shipping cost of shipments for completed orders?",
+      "expected": "answer",
+      "trap": "none",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "fit",
+      "cost_usd": 0.0009058,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(s.shipping_cost), 0) AS total_shipping_cost\nFROM shipments AS s\nJOIN orders AS o ON o.id = s.order_id\nWHERE o.status = 'completed';",
+        "preview": "149,385.59"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(s.shipping_cost), 0) AS total_shipping_cost\nFROM shipments AS s\nJOIN orders AS o ON o.id = s.order_id\nWHERE o.status = 'completed';",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT COALESCE(SUM(s.shipping_cost), 0) AS total_shipping_cost\nFROM shipments AS s\nJOIN orders AS o ON o.id = s.order_id\nWHERE o.status = 'completed';"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(s.shipping_cost), 0) AS total_shipping_cost\nFROM shipments AS s\nJOIN orders AS o ON o.id = s.order_id\nWHERE o.status = 'completed';",
+        "preview": "149,385.59",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "plain-15",
+      "question": "What is the total value of completed orders for each customer segment?",
+      "expected": "answer",
+      "trap": "none",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "fit",
+      "cost_usd": 0.0012652,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT\n    c.segment,\n    SUM(o.total_amount) AS total_completed_order_value\nFROM orders AS o\nJOIN customers AS c\n    ON o.customer_id = c.id\nWHERE o.status = 'completed'\nGROUP BY c.segment\nORDER BY total_completed_order_value DESC;",
+        "preview": "Enterprise, 20,716,197.47; Mid-Market, 7,911,528.06; SMB, 3,973,122.85 (+1 more rows)"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT\n    c.segment,\n    SUM(o.total_amount) AS total_completed_order_value\nFROM orders AS o\nJOIN customers AS c\n    ON o.customer_id = c.id\nWHERE o.status = 'completed'\nGROUP BY c.segment\nORDER BY total_completed_order_value DESC;",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT\n    c.segment,\n    SUM(o.total_amount) AS total_completed_order_value\nFROM orders AS o\nJOIN customers AS c\n    ON o.customer_id = c.id\nWHERE o.status = 'completed'\nGROUP BY c.segment\nORDER BY total_completed_order_value DESC;"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT\n    c.segment,\n    SUM(o.total_amount) AS total_completed_order_value\nFROM orders AS o\nJOIN customers AS c\n    ON o.customer_id = c.id\nWHERE o.status = 'completed'\nGROUP BY c.segment\nORDER BY total_completed_order_value DESC;",
+        "preview": "Enterprise, 20,716,197.47; Mid-Market, 7,911,528.06; SMB, 3,973,122.85 (+1 more rows)",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "fanout-01",
+      "question": "What is total revenue from completed orders?",
+      "expected": "answer",
+      "trap": "fanout",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "fit",
+      "cost_usd": 0.0007984,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_revenue\nFROM orders\nWHERE status = 'completed';",
+        "preview": "33,589,369.18"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_revenue\nFROM orders\nWHERE status = 'completed';",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_revenue\nFROM orders\nWHERE status = 'completed';"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_revenue\nFROM orders\nWHERE status = 'completed';",
+        "preview": "33,589,369.18",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "fanout-02",
+      "question": "What is the total value of completed orders that include at least one Developer Tools product?",
+      "expected": "answer",
+      "trap": "fanout",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.0010684,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(o.total_amount), 0) AS total_value\nFROM orders AS o\nWHERE o.status = 'completed'\n  AND EXISTS (\n    SELECT 1\n    FROM order_items AS oi\n    JOIN products AS p ON p.id = oi.product_id\n    JOIN categories AS c ON c.id = p.category_id\n    WHERE oi.order_id = o.id\n      AND c.name = 'Developer Tools'\n  );",
+        "preview": "7,713,446.86"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(o.total_amount), 0) AS total_value\nFROM orders AS o\nWHERE o.status = 'completed'\n  AND EXISTS (\n    SELECT 1\n    FROM order_items AS oi\n    JOIN products AS p ON p.id = oi.product_id\n    JOIN categories AS c ON c.id = p.category_id\n    WHERE oi.order_id = o.id\n      AND c.name = 'Developer Tools'\n  );",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT COALESCE(SUM(o.total_amount), 0) AS total_value\nFROM orders AS o\nWHERE o.status = 'completed'\n  AND EXISTS (\n    SELECT 1\n    FROM order_items AS oi\n    JOIN products AS p ON p.id = oi.product_id\n    JOIN categories AS c ON c.id = p.category_id\n    WHERE oi.order_id = o.id\n      AND c.name = 'Developer Tools'\n  );"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(o.total_amount), 0) AS total_value\nFROM orders AS o\nWHERE o.status = 'completed'\n  AND EXISTS (\n    SELECT 1\n    FROM order_items AS oi\n    JOIN products AS p ON p.id = oi.product_id\n    JOIN categories AS c ON c.id = p.category_id\n    WHERE oi.order_id = o.id\n      AND c.name = 'Developer Tools'\n  );",
+        "preview": "7,713,446.86",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "fanout-03",
+      "question": "What is the total value of completed orders from Enterprise customers that have been shipped at least once?",
+      "expected": "answer",
+      "trap": "fanout",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "fit",
+      "cost_usd": 0.0012460000000000001,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(o.total_amount), 0) AS total_value\nFROM orders AS o\nJOIN customers AS c\n  ON c.id = o.customer_id\nWHERE o.status = 'completed'\n  AND c.segment = 'Enterprise'\n  AND EXISTS (\n    SELECT 1\n    FROM shipments AS s\n    WHERE s.order_id = o.id\n  );",
+        "preview": "20,716,197.47"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(o.total_amount), 0) AS total_value\nFROM orders AS o\nJOIN customers AS c\n  ON c.id = o.customer_id\nWHERE o.status = 'completed'\n  AND c.segment = 'Enterprise'\n  AND EXISTS (\n    SELECT 1\n    FROM shipments AS s\n    WHERE s.order_id = o.id\n  );",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 0.667,
+        "sql": "SELECT COALESCE(SUM(o.total_amount), 0) AS total_value\nFROM orders AS o\nJOIN customers AS c\n  ON c.id = o.customer_id\nWHERE o.status = 'completed'\n  AND c.segment = 'Enterprise'\n  AND EXISTS (\n    SELECT 1\n    FROM shipments AS s\n    WHERE s.order_id = o.id\n  );"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(o.total_amount), 0) AS total_value\nFROM orders AS o\nJOIN customers AS c\n  ON c.id = o.customer_id\nWHERE o.status = 'completed'\n  AND c.segment = 'Enterprise'\n  AND EXISTS (\n    SELECT 1\n    FROM shipments AS s\n    WHERE s.order_id = o.id\n  );",
+        "preview": "20,716,197.47",
+        "p": 0.8023,
+        "features": {
+          "agreement": 0.667,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "fanout-04",
+      "question": "What is the average total of completed orders that contain more than one line item?",
+      "expected": "answer",
+      "trap": "fanout",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.0010035999999999999,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT AVG(o.total_amount) AS average_total\nFROM orders AS o\nWHERE o.status = 'completed'\n  AND o.id IN (\n    SELECT oi.order_id\n    FROM order_items AS oi\n    GROUP BY oi.order_id\n    HAVING COUNT(*) > 1\n  );",
+        "preview": "10,133.49"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT AVG(o.total_amount) AS average_total\nFROM orders AS o\nWHERE o.status = 'completed'\n  AND o.id IN (\n    SELECT oi.order_id\n    FROM order_items AS oi\n    GROUP BY oi.order_id\n    HAVING COUNT(*) > 1\n  );",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT AVG(o.total_amount) AS average_total\nFROM orders AS o\nWHERE o.status = 'completed'\n  AND o.id IN (\n    SELECT oi.order_id\n    FROM order_items AS oi\n    GROUP BY oi.order_id\n    HAVING COUNT(*) > 1\n  );"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT AVG(o.total_amount) AS average_total\nFROM orders AS o\nWHERE o.status = 'completed'\n  AND o.id IN (\n    SELECT oi.order_id\n    FROM order_items AS oi\n    GROUP BY oi.order_id\n    HAVING COUNT(*) > 1\n  );",
+        "preview": "10,133.49",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "fanout-05",
+      "question": "What is the total value of completed orders shipped with DHL?",
+      "expected": "answer",
+      "trap": "fanout",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "fit",
+      "cost_usd": 0.0010228,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(o.total_amount), 0) AS total_value\nFROM orders AS o\nWHERE o.status = 'completed'\n  AND EXISTS (\n    SELECT 1\n    FROM shipments AS s\n    WHERE s.order_id = o.id\n      AND s.carrier = 'DHL'\n  );",
+        "preview": "13,395,549.59"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(o.total_amount), 0) AS total_value\nFROM orders AS o\nWHERE o.status = 'completed'\n  AND EXISTS (\n    SELECT 1\n    FROM shipments AS s\n    WHERE s.order_id = o.id\n      AND s.carrier = 'DHL'\n  );",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT COALESCE(SUM(o.total_amount), 0) AS total_value\nFROM orders AS o\nWHERE o.status = 'completed'\n  AND EXISTS (\n    SELECT 1\n    FROM shipments AS s\n    WHERE s.order_id = o.id\n      AND s.carrier = 'DHL'\n  );"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(o.total_amount), 0) AS total_value\nFROM orders AS o\nWHERE o.status = 'completed'\n  AND EXISTS (\n    SELECT 1\n    FROM shipments AS s\n    WHERE s.order_id = o.id\n      AND s.carrier = 'DHL'\n  );",
+        "preview": "13,395,549.59",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "fanout-06",
+      "question": "What is the total discount given on completed orders that include an AI & Machine Learning product?",
+      "expected": "answer",
+      "trap": "fanout",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "fit",
+      "cost_usd": 0.0012022,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(o.discount_amount), 0) AS total_discount\nFROM orders AS o\nWHERE o.status = 'completed'\n  AND EXISTS (\n    SELECT 1\n    FROM order_items AS oi\n    JOIN products AS p ON p.id = oi.product_id\n    JOIN categories AS c ON c.id = p.category_id\n    WHERE oi.order_id = o.id\n      AND c.name = 'AI & Machine Learning'\n  );",
+        "preview": "810,817.12"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(o.discount_amount), 0) AS total_discount\nFROM orders AS o\nWHERE o.status = 'completed'\n  AND EXISTS (\n    SELECT 1\n    FROM order_items AS oi\n    JOIN products AS p ON p.id = oi.product_id\n    JOIN categories AS c ON c.id = p.category_id\n    WHERE oi.order_id = o.id\n      AND c.name = 'AI & Machine Learning'\n  );",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT COALESCE(SUM(o.discount_amount), 0) AS total_discount\nFROM orders AS o\nWHERE o.status = 'completed'\n  AND EXISTS (\n    SELECT 1\n    FROM order_items AS oi\n    JOIN products AS p ON p.id = oi.product_id\n    JOIN categories AS c ON c.id = p.category_id\n    WHERE oi.order_id = o.id\n      AND c.name = 'AI & Machine Learning'\n  );"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(o.discount_amount), 0) AS total_discount\nFROM orders AS o\nWHERE o.status = 'completed'\n  AND EXISTS (\n    SELECT 1\n    FROM order_items AS oi\n    JOIN products AS p ON p.id = oi.product_id\n    JOIN categories AS c ON c.id = p.category_id\n    WHERE oi.order_id = o.id\n      AND c.name = 'AI & Machine Learning'\n  );",
+        "preview": "810,817.12",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "fanout-07",
+      "question": "For each customer segment, what is the total value of completed orders that have at least one shipment with an exception?",
+      "expected": "answer",
+      "trap": "fanout",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "fit",
+      "cost_usd": 0.001282,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT\n    c.segment,\n    SUM(o.total_amount) AS total_completed_order_value\nFROM customers AS c\nJOIN orders AS o\n    ON o.customer_id = c.id\nWHERE o.status = 'completed'\n  AND EXISTS (\n      SELECT 1\n      FROM shipments AS s\n      WHERE s.order_id = o.id\n        AND s.status = 'exception'\n  )\nGROUP BY c.segment\nORDER BY c.segment;",
+        "preview": "Consumer, 31,444.62; Enterprise, 780,262.36; Mid-Market, 320,005.32 (+1 more rows)"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT\n    c.segment,\n    SUM(o.total_amount) AS total_completed_order_value\nFROM customers AS c\nJOIN orders AS o\n    ON o.customer_id = c.id\nWHERE o.status = 'completed'\n  AND EXISTS (\n      SELECT 1\n      FROM shipments AS s\n      WHERE s.order_id = o.id\n        AND s.status = 'exception'\n  )\nGROUP BY c.segment\nORDER BY c.segment;",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT\n    c.segment,\n    SUM(o.total_amount) AS total_completed_order_value\nFROM customers AS c\nJOIN orders AS o\n    ON o.customer_id = c.id\nWHERE o.status = 'completed'\n  AND EXISTS (\n      SELECT 1\n      FROM shipments AS s\n      WHERE s.order_id = o.id\n        AND s.status = 'exception'\n  )\nGROUP BY c.segment\nORDER BY c.segment;"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT\n    c.segment,\n    SUM(o.total_amount) AS total_completed_order_value\nFROM customers AS c\nJOIN orders AS o\n    ON o.customer_id = c.id\nWHERE o.status = 'completed'\n  AND EXISTS (\n      SELECT 1\n      FROM shipments AS s\n      WHERE s.order_id = o.id\n        AND s.status = 'exception'\n  )\nGROUP BY c.segment\nORDER BY c.segment;",
+        "preview": "Consumer, 31,444.62; Enterprise, 780,262.36; Mid-Market, 320,005.32 (+1 more rows)",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "fanout-08",
+      "question": "What is the total tax collected on completed orders that were delivered?",
+      "expected": "answer",
+      "trap": "fanout",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.001036,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(o.tax_amount), 0) AS total_tax_collected\nFROM orders AS o\nWHERE o.status = 'completed'\n  AND EXISTS (\n    SELECT 1\n    FROM shipments AS s\n    WHERE s.order_id = o.id\n      AND s.status = 'delivered'\n  );",
+        "preview": "2,425,726.76"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(o.tax_amount), 0) AS total_tax_collected\nFROM orders AS o\nWHERE o.status = 'completed'\n  AND EXISTS (\n    SELECT 1\n    FROM shipments AS s\n    WHERE s.order_id = o.id\n      AND s.status = 'delivered'\n  );",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT COALESCE(SUM(o.tax_amount), 0) AS total_tax_collected\nFROM orders AS o\nWHERE o.status = 'completed'\n  AND EXISTS (\n    SELECT 1\n    FROM shipments AS s\n    WHERE s.order_id = o.id\n      AND s.status = 'delivered'\n  );"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(o.tax_amount), 0) AS total_tax_collected\nFROM orders AS o\nWHERE o.status = 'completed'\n  AND EXISTS (\n    SELECT 1\n    FROM shipments AS s\n    WHERE s.order_id = o.id\n      AND s.status = 'delivered'\n  );",
+        "preview": "2,425,726.76",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "definition-01",
+      "question": "What is our total revenue?",
+      "expected": "clarify",
+      "trap": "definition",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.0008602,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": false,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_revenue\nFROM orders;",
+        "preview": "37,171,213.39"
+      },
+      "B1": {
+        "outcome": "clarify",
+        "correct": false,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_revenue\nFROM orders;",
+        "repaired": false,
+        "findings": [
+          "Includes refunded, cancelled orders"
+        ]
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": false,
+        "agreement": 1.0,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_revenue\nFROM orders;"
+      },
+      "B3": {
+        "outcome": "clarify",
+        "correct": false,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_revenue\nFROM orders;",
+        "preview": "37,171,213.39",
+        "p": 0.69,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 1.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 2,
+        "findings": [
+          {
+            "check": "definition",
+            "severity": "ambiguity",
+            "title": "Includes refunded, cancelled orders",
+            "detail": "orders.status is not filtered, so every row counts (completed 4,151, refunded 195, cancelled 190, shipped 34, processing 27). Whether these count depends on the company's definition."
+          }
+        ],
+        "clarify_options": [
+          {
+            "label": "As calculated (all records)",
+            "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_revenue\nFROM orders;",
+            "preview": "37,171,213.39"
+          },
+          {
+            "label": "Exclude refunded, cancelled orders",
+            "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_revenue FROM orders WHERE NOT \"orders\".\"status\" IN ('refunded', 'cancelled')",
+            "preview": "34,237,224.40"
+          }
+        ],
+        "selected_correct": false,
+        "reading_match": true,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "clarify",
+        "correct": false
+      },
+      "B3_c4": {
+        "outcome": "clarify",
+        "correct": false
+      },
+      "B3_c9": {
+        "outcome": "clarify",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "definition-02",
+      "question": "What were our total sales in 2025?",
+      "expected": "clarify",
+      "trap": "definition",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.0010882,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": false,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_sales\nFROM orders\nWHERE order_date >= '2025-01-01'\n  AND order_date < '2026-01-01';",
+        "preview": "13,571,823.68"
+      },
+      "B1": {
+        "outcome": "clarify",
+        "correct": false,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_sales\nFROM orders\nWHERE order_date >= '2025-01-01'\n  AND order_date < '2026-01-01';",
+        "repaired": false,
+        "findings": [
+          "Includes refunded, cancelled orders"
+        ]
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": false,
+        "agreement": 1.0,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_sales\nFROM orders\nWHERE order_date >= '2025-01-01'\n  AND order_date < '2026-01-01';"
+      },
+      "B3": {
+        "outcome": "clarify",
+        "correct": false,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_sales\nFROM orders\nWHERE order_date >= '2025-01-01'\n  AND order_date < '2026-01-01';",
+        "preview": "13,571,823.68",
+        "p": 0.69,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 1.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 2,
+        "findings": [
+          {
+            "check": "definition",
+            "severity": "ambiguity",
+            "title": "Includes refunded, cancelled orders",
+            "detail": "orders.status is not filtered, so every row counts (completed 4,151, refunded 195, cancelled 190, shipped 34, processing 27). Whether these count depends on the company's definition."
+          }
+        ],
+        "clarify_options": [
+          {
+            "label": "As calculated (all records)",
+            "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_sales\nFROM orders\nWHERE order_date >= '2025-01-01'\n  AND order_date < '2026-01-01';",
+            "preview": "13,571,823.68"
+          },
+          {
+            "label": "Exclude refunded, cancelled orders",
+            "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_sales FROM orders WHERE (order_date >= '2025-01-01' AND order_date < '2026-01-01') AND NOT \"orders\".\"status\" IN ('refunded', 'cancelled')",
+            "preview": "12,298,830.62"
+          }
+        ],
+        "selected_correct": false,
+        "reading_match": true,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "clarify",
+        "correct": false
+      },
+      "B3_c4": {
+        "outcome": "clarify",
+        "correct": false
+      },
+      "B3_c9": {
+        "outcome": "clarify",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "definition-03",
+      "question": "What is total revenue for each customer segment?",
+      "expected": "clarify",
+      "trap": "definition",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.0011272,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": false,
+        "sql": "SELECT\n    c.segment,\n    SUM(o.total_amount) AS total_revenue\nFROM customers AS c\nJOIN orders AS o\n    ON o.customer_id = c.id\nGROUP BY c.segment\nORDER BY total_revenue DESC;",
+        "preview": "Enterprise, 23,074,996.34; Mid-Market, 8,643,956.30; SMB, 4,372,001.32 (+1 more rows)"
+      },
+      "B1": {
+        "outcome": "clarify",
+        "correct": false,
+        "sql": "SELECT\n    c.segment,\n    SUM(o.total_amount) AS total_revenue\nFROM customers AS c\nJOIN orders AS o\n    ON o.customer_id = c.id\nGROUP BY c.segment\nORDER BY total_revenue DESC;",
+        "repaired": false,
+        "findings": [
+          "Includes refunded, cancelled orders"
+        ]
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": false,
+        "agreement": 1.0,
+        "sql": "SELECT\n    c.segment,\n    SUM(o.total_amount) AS total_revenue\nFROM customers AS c\nJOIN orders AS o\n    ON o.customer_id = c.id\nGROUP BY c.segment\nORDER BY total_revenue DESC;"
+      },
+      "B3": {
+        "outcome": "clarify",
+        "correct": false,
+        "sql": "SELECT\n    c.segment,\n    SUM(o.total_amount) AS total_revenue\nFROM customers AS c\nJOIN orders AS o\n    ON o.customer_id = c.id\nGROUP BY c.segment\nORDER BY total_revenue DESC;",
+        "preview": "Enterprise, 23,074,996.34; Mid-Market, 8,643,956.30; SMB, 4,372,001.32 (+1 more rows)",
+        "p": 0.6225,
+        "features": {
+          "agreement": 0.0,
+          "single_candidate": 1.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 1.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 2,
+        "findings": [
+          {
+            "check": "definition",
+            "severity": "ambiguity",
+            "title": "Includes refunded, cancelled orders",
+            "detail": "orders.status is not filtered, so every row counts (completed 4,151, refunded 195, cancelled 190, shipped 34, processing 27). Whether these count depends on the company's definition."
+          }
+        ],
+        "clarify_options": [
+          {
+            "label": "As calculated (all records)",
+            "sql": "SELECT\n    c.segment,\n    SUM(o.total_amount) AS total_revenue\nFROM customers AS c\nJOIN orders AS o\n    ON o.customer_id = c.id\nGROUP BY c.segment\nORDER BY total_revenue DESC;",
+            "preview": "Enterprise, 23,074,996.34; Mid-Market, 8,643,956.30; SMB, 4,372,001.32 (+1 more rows)"
+          },
+          {
+            "label": "Exclude refunded, cancelled orders",
+            "sql": "SELECT c.segment, SUM(o.total_amount) AS total_revenue FROM customers AS c JOIN orders AS o ON o.customer_id = c.id WHERE NOT \"o\".\"status\" IN ('refunded', 'cancelled') GROUP BY c.segment ORDER BY total_revenue DESC",
+            "preview": "Enterprise, 21,238,730.87; Mid-Market, 7,976,819.70; SMB, 4,028,229.27 (+1 more rows)"
+          }
+        ],
+        "selected_correct": false,
+        "reading_match": true,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "clarify",
+        "correct": false
+      },
+      "B3_c4": {
+        "outcome": "clarify",
+        "correct": false
+      },
+      "B3_c9": {
+        "outcome": "clarify",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "definition-04",
+      "question": "How much revenue did we make in the first quarter of 2026?",
+      "expected": "clarify",
+      "trap": "definition",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.0010822,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": false,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS revenue\nFROM orders\nWHERE order_date >= '2026-01-01'\n  AND order_date < '2026-04-01';",
+        "preview": "4,492,236.67"
+      },
+      "B1": {
+        "outcome": "clarify",
+        "correct": false,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS revenue\nFROM orders\nWHERE order_date >= '2026-01-01'\n  AND order_date < '2026-04-01';",
+        "repaired": false,
+        "findings": [
+          "Includes refunded, cancelled orders"
+        ]
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": false,
+        "agreement": 1.0,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS revenue\nFROM orders\nWHERE order_date >= '2026-01-01'\n  AND order_date < '2026-04-01';"
+      },
+      "B3": {
+        "outcome": "clarify",
+        "correct": false,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS revenue\nFROM orders\nWHERE order_date >= '2026-01-01'\n  AND order_date < '2026-04-01';",
+        "preview": "4,492,236.67",
+        "p": 0.69,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 1.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 2,
+        "findings": [
+          {
+            "check": "definition",
+            "severity": "ambiguity",
+            "title": "Includes refunded, cancelled orders",
+            "detail": "orders.status is not filtered, so every row counts (completed 4,151, refunded 195, cancelled 190, shipped 34, processing 27). Whether these count depends on the company's definition."
+          }
+        ],
+        "clarify_options": [
+          {
+            "label": "As calculated (all records)",
+            "sql": "SELECT COALESCE(SUM(total_amount), 0) AS revenue\nFROM orders\nWHERE order_date >= '2026-01-01'\n  AND order_date < '2026-04-01';",
+            "preview": "4,492,236.67"
+          },
+          {
+            "label": "Exclude refunded, cancelled orders",
+            "sql": "SELECT COALESCE(SUM(total_amount), 0) AS revenue FROM orders WHERE (order_date >= '2026-01-01' AND order_date < '2026-04-01') AND NOT \"orders\".\"status\" IN ('refunded', 'cancelled')",
+            "preview": "4,098,378.61"
+          }
+        ],
+        "selected_correct": false,
+        "reading_match": true,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "clarify",
+        "correct": false
+      },
+      "B3_c4": {
+        "outcome": "clarify",
+        "correct": false
+      },
+      "B3_c9": {
+        "outcome": "clarify",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "definition-05",
+      "question": "What were total sales for Enterprise customers?",
+      "expected": "clarify",
+      "trap": "definition",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.0010336,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": false,
+        "sql": "SELECT\n    COALESCE(SUM(o.total_amount), 0) AS total_sales\nFROM orders AS o\nJOIN customers AS c\n    ON o.customer_id = c.id\nWHERE c.segment = 'Enterprise';",
+        "preview": "23,074,996.34"
+      },
+      "B1": {
+        "outcome": "clarify",
+        "correct": false,
+        "sql": "SELECT\n    COALESCE(SUM(o.total_amount), 0) AS total_sales\nFROM orders AS o\nJOIN customers AS c\n    ON o.customer_id = c.id\nWHERE c.segment = 'Enterprise';",
+        "repaired": false,
+        "findings": [
+          "Includes refunded, cancelled orders"
+        ]
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": false,
+        "agreement": 1.0,
+        "sql": "SELECT\n    COALESCE(SUM(o.total_amount), 0) AS total_sales\nFROM orders AS o\nJOIN customers AS c\n    ON o.customer_id = c.id\nWHERE c.segment = 'Enterprise';"
+      },
+      "B3": {
+        "outcome": "clarify",
+        "correct": false,
+        "sql": "SELECT\n    COALESCE(SUM(o.total_amount), 0) AS total_sales\nFROM orders AS o\nJOIN customers AS c\n    ON o.customer_id = c.id\nWHERE c.segment = 'Enterprise';",
+        "preview": "23,074,996.34",
+        "p": 0.69,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 1.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 2,
+        "findings": [
+          {
+            "check": "definition",
+            "severity": "ambiguity",
+            "title": "Includes refunded, cancelled orders",
+            "detail": "orders.status is not filtered, so every row counts (completed 4,151, refunded 195, cancelled 190, shipped 34, processing 27). Whether these count depends on the company's definition."
+          }
+        ],
+        "clarify_options": [
+          {
+            "label": "As calculated (all records)",
+            "sql": "SELECT\n    COALESCE(SUM(o.total_amount), 0) AS total_sales\nFROM orders AS o\nJOIN customers AS c\n    ON o.customer_id = c.id\nWHERE c.segment = 'Enterprise';",
+            "preview": "23,074,996.34"
+          },
+          {
+            "label": "Exclude refunded, cancelled orders",
+            "sql": "SELECT COALESCE(SUM(o.total_amount), 0) AS total_sales FROM orders AS o JOIN customers AS c ON o.customer_id = c.id WHERE c.segment = 'Enterprise' AND NOT \"o\".\"status\" IN ('refunded', 'cancelled')",
+            "preview": "21,238,730.87"
+          }
+        ],
+        "selected_correct": false,
+        "reading_match": true,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "clarify",
+        "correct": false
+      },
+      "B3_c4": {
+        "outcome": "clarify",
+        "correct": false
+      },
+      "B3_c9": {
+        "outcome": "clarify",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "period-01",
+      "question": "How many orders were placed in January 2026?",
+      "expected": "answer",
+      "trap": "period",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "fit",
+      "cost_usd": 0.0008986,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS order_count\nFROM orders\nWHERE order_date >= '2026-01-01'\n  AND order_date < '2026-02-01';",
+        "preview": "142"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS order_count\nFROM orders\nWHERE order_date >= '2026-01-01'\n  AND order_date < '2026-02-01';",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT COUNT(*) AS order_count\nFROM orders\nWHERE order_date >= '2026-01-01'\n  AND order_date < '2026-02-01';"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS order_count\nFROM orders\nWHERE order_date >= '2026-01-01'\n  AND order_date < '2026-02-01';",
+        "preview": "142",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "period-02",
+      "question": "How many orders were placed on 11 April 2026?",
+      "expected": "answer",
+      "trap": "period",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.000973,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS order_count\nFROM orders\nWHERE date(order_date) = '2026-04-11';",
+        "preview": "3"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS order_count\nFROM orders\nWHERE date(order_date) = '2026-04-11';",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT COUNT(*) AS order_count\nFROM orders\nWHERE date(order_date) = '2026-04-11';"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS order_count\nFROM orders\nWHERE date(order_date) = '2026-04-11';",
+        "preview": "3",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "period-03",
+      "question": "What was the total value of completed orders in March 2026?",
+      "expected": "answer",
+      "trap": "period",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.0010234,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_value\nFROM orders\nWHERE status = 'completed'\n  AND order_date >= '2026-03-01'\n  AND order_date < '2026-04-01';",
+        "preview": "1,581,181.54"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_value\nFROM orders\nWHERE status = 'completed'\n  AND order_date >= '2026-03-01'\n  AND order_date < '2026-04-01';",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_value\nFROM orders\nWHERE status = 'completed'\n  AND order_date >= '2026-03-01'\n  AND order_date < '2026-04-01';"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_value\nFROM orders\nWHERE status = 'completed'\n  AND order_date >= '2026-03-01'\n  AND order_date < '2026-04-01';",
+        "preview": "1,581,181.54",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "period-04",
+      "question": "What was the total value of completed orders last month?",
+      "expected": "answer",
+      "trap": "period",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "fit",
+      "cost_usd": 0.0010966,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_completed_order_value\nFROM orders\nWHERE status = 'completed'\n  AND order_date >= date('now', 'start of month', '-1 month')\n  AND order_date < date('now', 'start of month');",
+        "preview": "1,342,509.08"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_completed_order_value\nFROM orders\nWHERE status = 'completed'\n  AND order_date >= date('now', 'start of month', '-1 month')\n  AND order_date < date('now', 'start of month');",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_completed_order_value\nFROM orders\nWHERE status = 'completed'\n  AND order_date >= date('now', 'start of month', '-1 month')\n  AND order_date < date('now', 'start of month');"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_completed_order_value\nFROM orders\nWHERE status = 'completed'\n  AND order_date >= date('now', 'start of month', '-1 month')\n  AND order_date < date('now', 'start of month');",
+        "preview": "1,342,509.08",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "period-05",
+      "question": "How many support cases were opened in the last 30 days of data?",
+      "expected": "answer",
+      "trap": "period",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "fit",
+      "cost_usd": 0.0012478,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS support_cases_opened_last_30_days\nFROM support_cases\nWHERE created_at >= datetime(\n    (SELECT MAX(created_at) FROM support_cases),\n    '-30 days'\n);",
+        "preview": "43"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS support_cases_opened_last_30_days\nFROM support_cases\nWHERE created_at >= datetime(\n    (SELECT MAX(created_at) FROM support_cases),\n    '-30 days'\n);",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT COUNT(*) AS support_cases_opened_last_30_days\nFROM support_cases\nWHERE created_at >= datetime(\n    (SELECT MAX(created_at) FROM support_cases),\n    '-30 days'\n);"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS support_cases_opened_last_30_days\nFROM support_cases\nWHERE created_at >= datetime(\n    (SELECT MAX(created_at) FROM support_cases),\n    '-30 days'\n);",
+        "preview": "43",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "infeasible-01",
+      "question": "What is our customer satisfaction score?",
+      "expected": "handoff",
+      "trap": "infeasible",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "fit",
+      "cost_usd": 0.0016876,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": false,
+        "sql": "SELECT 'Customer satisfaction score is not available in the database schema.' AS message;",
+        "preview": "Customer satisfaction score is not available in the database schema."
+      },
+      "B1": {
+        "outcome": "handoff",
+        "correct": false,
+        "sql": "SELECT 'Customer satisfaction score is not available in the database schema.' AS message;",
+        "repaired": false,
+        "findings": [
+          "The query does not read any data"
+        ]
+      },
+      "B2": {
+        "outcome": "clarify",
+        "correct": false,
+        "agreement": 0.333
+      },
+      "B3": {
+        "outcome": "handoff",
+        "correct": false,
+        "sql": "SELECT 'Customer satisfaction score is not available in the database schema.' AS message;",
+        "preview": "Customer satisfaction score is not available in the database schema.",
+        "p": 0.0997,
+        "features": {
+          "agreement": 0.333,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 1.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": true,
+        "options": 0,
+        "findings": [
+          {
+            "check": "coverage",
+            "severity": "blocking",
+            "title": "The query does not read any data",
+            "detail": "It returns fixed text or numbers instead of reading the database, usually because the data cannot answer the question."
+          }
+        ],
+        "clarify_options": [],
+        "selected_correct": false,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "handoff",
+        "correct": false
+      },
+      "B3_c4": {
+        "outcome": "handoff",
+        "correct": false
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "infeasible-02",
+      "question": "How much did we spend on marketing campaigns last quarter?",
+      "expected": "handoff",
+      "trap": "infeasible",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.0020104,
+      "calls": 4,
+      "B0": {
+        "outcome": "answer",
+        "correct": false,
+        "sql": "SELECT\n  CAST(NULL AS REAL) AS marketing_campaign_spend,\n  'Marketing campaign spending is not available in the verified schema.' AS note\nWHERE 0;",
+        "preview": "no rows"
+      },
+      "B1": {
+        "outcome": "handoff",
+        "correct": false,
+        "sql": "SELECT\n  NULL AS marketing_campaign_spend,\n  'Marketing campaign spending is not tracked in the available database schema.' AS note;",
+        "repaired": true,
+        "findings": [
+          "Column marketing_campaign_spend is empty",
+          "The query does not read any data",
+          "The data has nothing about \"campaign\""
+        ]
+      },
+      "B2": {
+        "outcome": "clarify",
+        "correct": false,
+        "agreement": 0.333
+      },
+      "B3": {
+        "outcome": "handoff",
+        "correct": false,
+        "sql": "SELECT\n  NULL AS marketing_campaign_spend,\n  'Marketing campaign spending is not tracked in the available database schema.' AS note;",
+        "preview": "NULL, Marketing campaign spending is not tracked in the available database schema.",
+        "p": 0.0356,
+        "features": {
+          "agreement": 0.333,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 1.0,
+          "ambiguity": 0.0,
+          "warnings": 1.0,
+          "repairs": 1.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": true,
+        "options": 0,
+        "findings": [
+          {
+            "check": "sanity",
+            "severity": "warning",
+            "title": "Column marketing_campaign_spend is empty",
+            "detail": "Every value of marketing_campaign_spend is NULL."
+          },
+          {
+            "check": "coverage",
+            "severity": "blocking",
+            "title": "The query does not read any data",
+            "detail": "It returns fixed text or numbers instead of reading the database, usually because the data cannot answer the question."
+          },
+          {
+            "check": "coverage",
+            "severity": "blocking",
+            "title": "The data has nothing about \"campaign\"",
+            "detail": "No table, column or value in this database mentions \"campaign\". The query labels other data with that name (NULL AS marketing_campaign_spend), so the figure would answer a different question."
+          }
+        ],
+        "clarify_options": [],
+        "selected_correct": false,
+        "reading_match": false,
+        "warning": true
+      },
+      "B3_c1": {
+        "outcome": "handoff",
+        "correct": false
+      },
+      "B3_c4": {
+        "outcome": "handoff",
+        "correct": false
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "infeasible-03",
+      "question": "Which salesperson closed the most deals?",
+      "expected": "handoff",
+      "trap": "infeasible",
+      "language": "en",
+      "author": "team",
+      "difficulty": "",
+      "split": "fit",
+      "cost_usd": 0.0012448000000000001,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": false,
+        "sql": "SELECT 'Salesperson and deal data are not available in the verified schema.' AS message;",
+        "preview": "Salesperson and deal data are not available in the verified schema."
+      },
+      "B1": {
+        "outcome": "handoff",
+        "correct": false,
+        "sql": "SELECT 'Salesperson and deal data are not available in the verified schema.' AS message;",
+        "repaired": false,
+        "findings": [
+          "The query does not read any data"
+        ]
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": false,
+        "agreement": 0.667,
+        "sql": "SELECT 'Salesperson and deal data are not available in the verified schema.' AS message;"
+      },
+      "B3": {
+        "outcome": "handoff",
+        "correct": false,
+        "sql": "SELECT 'Salesperson and deal data are not available in the verified schema.' AS message;",
+        "preview": "Salesperson and deal data are not available in the verified schema.",
+        "p": 0.1681,
+        "features": {
+          "agreement": 0.667,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 1.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": true,
+        "options": 0,
+        "findings": [
+          {
+            "check": "coverage",
+            "severity": "blocking",
+            "title": "The query does not read any data",
+            "detail": "It returns fixed text or numbers instead of reading the database, usually because the data cannot answer the question."
+          }
+        ],
+        "clarify_options": [],
+        "selected_correct": false,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "handoff",
+        "correct": false
+      },
+      "B3_c4": {
+        "outcome": "handoff",
+        "correct": false
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "ms-01",
+      "question": "Berapa ramai pelanggan yang kita ada?",
+      "expected": "answer",
+      "trap": "none",
+      "language": "ms",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.0007413999999999999,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS jumlah_pelanggan\nFROM customers;",
+        "preview": "420"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS jumlah_pelanggan\nFROM customers;",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT COUNT(*) AS jumlah_pelanggan\nFROM customers;"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS jumlah_pelanggan\nFROM customers;",
+        "preview": "420",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "ms-02",
+      "question": "Berapa jumlah hasil daripada pesanan yang telah selesai?",
+      "expected": "answer",
+      "trap": "fanout",
+      "language": "ms",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.0008194000000000001,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT SUM(total_amount) AS total_revenue\nFROM orders\nWHERE status = 'completed';",
+        "preview": "33,589,369.18"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT SUM(total_amount) AS total_revenue\nFROM orders\nWHERE status = 'completed';",
+        "repaired": false,
+        "findings": [
+          "Assumes which records count as \"hasil\""
+        ]
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT SUM(total_amount) AS total_revenue\nFROM orders\nWHERE status = 'completed';"
+      },
+      "B3": {
+        "outcome": "caveat",
+        "correct": true,
+        "sql": "SELECT SUM(total_amount) AS total_revenue\nFROM orders\nWHERE status = 'completed';",
+        "preview": "33,589,369.18",
+        "p": 0.8176,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 1.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [
+          {
+            "check": "definition",
+            "severity": "warning",
+            "title": "Assumes which records count as \"hasil\"",
+            "detail": "There is no approved definition of \"hasil\", so this answer uses its own filter on orders.status. Approve a definition so every answer uses the same one."
+          }
+        ],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": true
+      },
+      "B3_c1": {
+        "outcome": "caveat",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "caveat",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "ms-03",
+      "question": "Gudang mana yang penggunaannya melebihi 80 peratus?",
+      "expected": "answer",
+      "trap": "none",
+      "language": "ms",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.000766,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT\n  id,\n  name,\n  utilization_percent\nFROM warehouses\nWHERE utilization_percent > 80\nORDER BY utilization_percent DESC\nLIMIT 200;",
+        "preview": "11, Fulfillment Hub 11, 85.90; 9, Fulfillment Hub 09, 85.80"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT\n  id,\n  name,\n  utilization_percent\nFROM warehouses\nWHERE utilization_percent > 80\nORDER BY utilization_percent DESC\nLIMIT 200;",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT\n  id,\n  name,\n  utilization_percent\nFROM warehouses\nWHERE utilization_percent > 80\nORDER BY utilization_percent DESC\nLIMIT 200;"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT\n  id,\n  name,\n  utilization_percent\nFROM warehouses\nWHERE utilization_percent > 80\nORDER BY utilization_percent DESC\nLIMIT 200;",
+        "preview": "11, Fulfillment Hub 11, 85.90; 9, Fulfillment Hub 09, 85.80",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "ms-04",
+      "question": "Berapa jumlah jualan kita?",
+      "expected": "clarify",
+      "trap": "definition",
+      "language": "ms",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.001033,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": false,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_sales\nFROM orders;",
+        "preview": "37,171,213.39"
+      },
+      "B1": {
+        "outcome": "clarify",
+        "correct": false,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_sales\nFROM orders;",
+        "repaired": false,
+        "findings": [
+          "Includes refunded, cancelled orders"
+        ]
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": false,
+        "agreement": 1.0,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_sales\nFROM orders;"
+      },
+      "B3": {
+        "outcome": "clarify",
+        "correct": false,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_sales\nFROM orders;",
+        "preview": "37,171,213.39",
+        "p": 0.69,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 1.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 2,
+        "findings": [
+          {
+            "check": "definition",
+            "severity": "ambiguity",
+            "title": "Includes refunded, cancelled orders",
+            "detail": "orders.status is not filtered, so every row counts (completed 4,151, refunded 195, cancelled 190, shipped 34, processing 27). Whether these count depends on the company's definition."
+          }
+        ],
+        "clarify_options": [
+          {
+            "label": "As calculated (all records)",
+            "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_sales\nFROM orders;",
+            "preview": "37,171,213.39"
+          },
+          {
+            "label": "Exclude refunded, cancelled orders",
+            "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_sales FROM orders WHERE NOT \"orders\".\"status\" IN ('refunded', 'cancelled')",
+            "preview": "34,237,224.40"
+          }
+        ],
+        "selected_correct": false,
+        "reading_match": true,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "clarify",
+        "correct": false
+      },
+      "B3_c4": {
+        "outcome": "clarify",
+        "correct": false
+      },
+      "B3_c9": {
+        "outcome": "clarify",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "ms-05",
+      "question": "Berapa banyak pesanan yang dibuat pada tahun 2025?",
+      "expected": "answer",
+      "trap": "none",
+      "language": "ms",
+      "author": "team",
+      "difficulty": "",
+      "split": "fit",
+      "cost_usd": 0.0009297999999999999,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS jumlah_pesanan\nFROM orders\nWHERE order_date >= '2025-01-01'\n  AND order_date < '2026-01-01';",
+        "preview": "1,744"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS jumlah_pesanan\nFROM orders\nWHERE order_date >= '2025-01-01'\n  AND order_date < '2026-01-01';",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT COUNT(*) AS jumlah_pesanan\nFROM orders\nWHERE order_date >= '2025-01-01'\n  AND order_date < '2026-01-01';"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS jumlah_pesanan\nFROM orders\nWHERE order_date >= '2025-01-01'\n  AND order_date < '2026-01-01';",
+        "preview": "1,744",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "ms-06",
+      "question": "Produk mana yang mempunyai harga seunit paling tinggi?",
+      "expected": "answer",
+      "trap": "none",
+      "language": "ms",
+      "author": "team",
+      "difficulty": "",
+      "split": "fit",
+      "cost_usd": 0.0007954,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT id, name, sku, unit_price\nFROM products\nWHERE unit_price = (SELECT MAX(unit_price) FROM products)\nORDER BY id;",
+        "preview": "55, Loyalty Engine, SKU-07-07, 1,742.85"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT id, name, sku, unit_price\nFROM products\nWHERE unit_price = (SELECT MAX(unit_price) FROM products)\nORDER BY id;",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT id, name, sku, unit_price\nFROM products\nWHERE unit_price = (SELECT MAX(unit_price) FROM products)\nORDER BY id;"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT id, name, sku, unit_price\nFROM products\nWHERE unit_price = (SELECT MAX(unit_price) FROM products)\nORDER BY id;",
+        "preview": "55, Loyalty Engine, SKU-07-07, 1,742.85",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "ms-07",
+      "question": "Berapa ramai pekerja yang masih aktif?",
+      "expected": "answer",
+      "trap": "none",
+      "language": "ms",
+      "author": "team",
+      "difficulty": "",
+      "split": "fit",
+      "cost_usd": 0.000736,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS active_employee_count\nFROM employees\nWHERE status = 'active';",
+        "preview": "181"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS active_employee_count\nFROM employees\nWHERE status = 'active';",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT COUNT(*) AS active_employee_count\nFROM employees\nWHERE status = 'active';"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS active_employee_count\nFROM employees\nWHERE status = 'active';",
+        "preview": "181",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "ms-08",
+      "question": "Berapa jumlah nilai pesanan yang selesai dan dihantar menggunakan DHL?",
+      "expected": "answer",
+      "trap": "fanout",
+      "language": "ms",
+      "author": "team",
+      "difficulty": "",
+      "split": "fit",
+      "cost_usd": 0.0011212000000000001,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": false,
+        "sql": "SELECT COALESCE(SUM(o.total_amount), 0) AS jumlah_nilai_pesanan\nFROM orders AS o\nWHERE o.status IN ('completed', 'shipped')\n  AND EXISTS (\n    SELECT 1\n    FROM shipments AS s\n    WHERE s.order_id = o.id\n      AND s.carrier = 'DHL'\n  );",
+        "preview": "13,535,134.23"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": false,
+        "sql": "SELECT COALESCE(SUM(o.total_amount), 0) AS jumlah_nilai_pesanan\nFROM orders AS o\nWHERE o.status IN ('completed', 'shipped')\n  AND EXISTS (\n    SELECT 1\n    FROM shipments AS s\n    WHERE s.order_id = o.id\n      AND s.carrier = 'DHL'\n  );",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": false,
+        "agreement": 1.0,
+        "sql": "SELECT COALESCE(SUM(o.total_amount), 0) AS jumlah_nilai_pesanan\nFROM orders AS o\nWHERE o.status IN ('completed', 'shipped')\n  AND EXISTS (\n    SELECT 1\n    FROM shipments AS s\n    WHERE s.order_id = o.id\n      AND s.carrier = 'DHL'\n  );"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": false,
+        "sql": "SELECT COALESCE(SUM(o.total_amount), 0) AS jumlah_nilai_pesanan\nFROM orders AS o\nWHERE o.status IN ('completed', 'shipped')\n  AND EXISTS (\n    SELECT 1\n    FROM shipments AS s\n    WHERE s.order_id = o.id\n      AND s.carrier = 'DHL'\n  );",
+        "preview": "13,535,134.23",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": false,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": false
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": false
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "ms-09",
+      "question": "Berapa jumlah cukai daripada pesanan selesai yang sudah sampai kepada pelanggan?",
+      "expected": "answer",
+      "trap": "fanout",
+      "language": "ms",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.0010396,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT SUM(o.tax_amount) AS jumlah_cukai\nFROM orders AS o\nWHERE o.status = 'completed'\n  AND EXISTS (\n    SELECT 1\n    FROM shipments AS s\n    WHERE s.order_id = o.id\n      AND s.status = 'delivered'\n  );",
+        "preview": "2,425,726.76"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT SUM(o.tax_amount) AS jumlah_cukai\nFROM orders AS o\nWHERE o.status = 'completed'\n  AND EXISTS (\n    SELECT 1\n    FROM shipments AS s\n    WHERE s.order_id = o.id\n      AND s.status = 'delivered'\n  );",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT SUM(o.tax_amount) AS jumlah_cukai\nFROM orders AS o\nWHERE o.status = 'completed'\n  AND EXISTS (\n    SELECT 1\n    FROM shipments AS s\n    WHERE s.order_id = o.id\n      AND s.status = 'delivered'\n  );"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT SUM(o.tax_amount) AS jumlah_cukai\nFROM orders AS o\nWHERE o.status = 'completed'\n  AND EXISTS (\n    SELECT 1\n    FROM shipments AS s\n    WHERE s.order_id = o.id\n      AND s.status = 'delivered'\n  );",
+        "preview": "2,425,726.76",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "ms-10",
+      "question": "Berapa jumlah jualan kita pada tahun 2025?",
+      "expected": "clarify",
+      "trap": "definition",
+      "language": "ms",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.0010612,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": false,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS jumlah_jualan_2025\nFROM orders\nWHERE order_date >= '2025-01-01'\n  AND order_date < '2026-01-01';",
+        "preview": "13,571,823.68"
+      },
+      "B1": {
+        "outcome": "clarify",
+        "correct": false,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS jumlah_jualan_2025\nFROM orders\nWHERE order_date >= '2025-01-01'\n  AND order_date < '2026-01-01';",
+        "repaired": false,
+        "findings": [
+          "Includes refunded, cancelled orders"
+        ]
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": false,
+        "agreement": 1.0,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS jumlah_jualan_2025\nFROM orders\nWHERE order_date >= '2025-01-01'\n  AND order_date < '2026-01-01';"
+      },
+      "B3": {
+        "outcome": "clarify",
+        "correct": false,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS jumlah_jualan_2025\nFROM orders\nWHERE order_date >= '2025-01-01'\n  AND order_date < '2026-01-01';",
+        "preview": "13,571,823.68",
+        "p": 0.69,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 1.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 2,
+        "findings": [
+          {
+            "check": "definition",
+            "severity": "ambiguity",
+            "title": "Includes refunded, cancelled orders",
+            "detail": "orders.status is not filtered, so every row counts (completed 4,151, refunded 195, cancelled 190, shipped 34, processing 27). Whether these count depends on the company's definition."
+          }
+        ],
+        "clarify_options": [
+          {
+            "label": "As calculated (all records)",
+            "sql": "SELECT COALESCE(SUM(total_amount), 0) AS jumlah_jualan_2025\nFROM orders\nWHERE order_date >= '2025-01-01'\n  AND order_date < '2026-01-01';",
+            "preview": "13,571,823.68"
+          },
+          {
+            "label": "Exclude refunded, cancelled orders",
+            "sql": "SELECT COALESCE(SUM(total_amount), 0) AS jumlah_jualan_2025 FROM orders WHERE (order_date >= '2025-01-01' AND order_date < '2026-01-01') AND NOT \"orders\".\"status\" IN ('refunded', 'cancelled')",
+            "preview": "12,298,830.62"
+          }
+        ],
+        "selected_correct": false,
+        "reading_match": true,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "clarify",
+        "correct": false
+      },
+      "B3_c4": {
+        "outcome": "clarify",
+        "correct": false
+      },
+      "B3_c9": {
+        "outcome": "clarify",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "ms-11",
+      "question": "Berapa hasil bagi setiap segmen pelanggan?",
+      "expected": "clarify",
+      "trap": "definition",
+      "language": "ms",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.00158,
+      "calls": 4,
+      "B0": {
+        "outcome": "answer",
+        "correct": false,
+        "sql": "SELECT\n    c.segment,\n    COALESCE(SUM(o.total_amount), 0) AS total_revenue\nFROM customers AS c\nLEFT JOIN orders AS o\n    ON o.customer_id = c.id\nGROUP BY c.segment\nORDER BY total_revenue DESC;",
+        "preview": "Enterprise, 23,074,996.34; Mid-Market, 8,643,956.30; SMB, 4,372,001.32 (+1 more rows)"
+      },
+      "B1": {
+        "outcome": "clarify",
+        "correct": false,
+        "sql": "SELECT\n    c.segment AS segmen_pelanggan,\n    SUM(o.total_amount) AS total_hasil\nFROM orders AS o\nJOIN customers AS c\n    ON c.id = o.customer_id\nGROUP BY c.segment\nORDER BY total_hasil DESC\nLIMIT 200;",
+        "repaired": true,
+        "findings": [
+          "Includes refunded, cancelled orders"
+        ]
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": false,
+        "agreement": 1.0,
+        "sql": "SELECT\n    c.segment,\n    COALESCE(SUM(o.total_amount), 0) AS total_revenue\nFROM customers AS c\nLEFT JOIN orders AS o\n    ON o.customer_id = c.id\nGROUP BY c.segment\nORDER BY total_revenue DESC;"
+      },
+      "B3": {
+        "outcome": "clarify",
+        "correct": false,
+        "sql": "SELECT\n    c.segment AS segmen_pelanggan,\n    SUM(o.total_amount) AS total_hasil\nFROM orders AS o\nJOIN customers AS c\n    ON c.id = o.customer_id\nGROUP BY c.segment\nORDER BY total_hasil DESC\nLIMIT 200;",
+        "preview": "Enterprise, 23,074,996.34; Mid-Market, 8,643,956.30; SMB, 4,372,001.32 (+1 more rows)",
+        "p": 0.5498,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 1.0,
+          "warnings": 0.0,
+          "repairs": 1.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 2,
+        "findings": [
+          {
+            "check": "definition",
+            "severity": "ambiguity",
+            "title": "Includes refunded, cancelled orders",
+            "detail": "orders.status is not filtered, so every row counts (completed 4,151, refunded 195, cancelled 190, shipped 34, processing 27). Whether these count depends on the company's definition."
+          }
+        ],
+        "clarify_options": [
+          {
+            "label": "As calculated (all records)",
+            "sql": "SELECT\n    c.segment AS segmen_pelanggan,\n    SUM(o.total_amount) AS total_hasil\nFROM orders AS o\nJOIN customers AS c\n    ON c.id = o.customer_id\nGROUP BY c.segment\nORDER BY total_hasil DESC\nLIMIT 200;",
+            "preview": "Enterprise, 23,074,996.34; Mid-Market, 8,643,956.30; SMB, 4,372,001.32 (+1 more rows)"
+          },
+          {
+            "label": "Exclude refunded, cancelled orders",
+            "sql": "SELECT c.segment AS segmen_pelanggan, SUM(o.total_amount) AS total_hasil FROM orders AS o JOIN customers AS c ON c.id = o.customer_id WHERE NOT \"o\".\"status\" IN ('refunded', 'cancelled') GROUP BY c.segment ORDER BY total_hasil DESC LIMIT 200",
+            "preview": "Enterprise, 21,238,730.87; Mid-Market, 7,976,819.70; SMB, 4,028,229.27 (+1 more rows)"
+          }
+        ],
+        "selected_correct": false,
+        "reading_match": true,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "clarify",
+        "correct": false
+      },
+      "B3_c4": {
+        "outcome": "clarify",
+        "correct": false
+      },
+      "B3_c9": {
+        "outcome": "clarify",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "ms-12",
+      "question": "Berapa jumlah nilai pesanan yang selesai pada bulan lepas?",
+      "expected": "answer",
+      "trap": "period",
+      "language": "ms",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.0008776,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_nilai_pesanan\nFROM orders\nWHERE status = 'completed'\n  AND order_date >= datetime('now', 'start of month', '-1 month')\n  AND order_date < datetime('now', 'start of month');",
+        "preview": "1,342,509.08"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_nilai_pesanan\nFROM orders\nWHERE status = 'completed'\n  AND order_date >= datetime('now', 'start of month', '-1 month')\n  AND order_date < datetime('now', 'start of month');",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_nilai_pesanan\nFROM orders\nWHERE status = 'completed'\n  AND order_date >= datetime('now', 'start of month', '-1 month')\n  AND order_date < datetime('now', 'start of month');"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_nilai_pesanan\nFROM orders\nWHERE status = 'completed'\n  AND order_date >= datetime('now', 'start of month', '-1 month')\n  AND order_date < datetime('now', 'start of month');",
+        "preview": "1,342,509.08",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "ms-13",
+      "question": "Berapa banyak pesanan yang dibuat pada bulan Januari 2026?",
+      "expected": "answer",
+      "trap": "period",
+      "language": "ms",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.0008914,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS jumlah_pesanan\nFROM orders\nWHERE order_date >= '2026-01-01'\n  AND order_date < '2026-02-01';",
+        "preview": "142"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS jumlah_pesanan\nFROM orders\nWHERE order_date >= '2026-01-01'\n  AND order_date < '2026-02-01';",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT COUNT(*) AS jumlah_pesanan\nFROM orders\nWHERE order_date >= '2026-01-01'\n  AND order_date < '2026-02-01';"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT COUNT(*) AS jumlah_pesanan\nFROM orders\nWHERE order_date >= '2026-01-01'\n  AND order_date < '2026-02-01';",
+        "preview": "142",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "ms-14",
+      "question": "Berapakah skor kepuasan pelanggan kita?",
+      "expected": "handoff",
+      "trap": "infeasible",
+      "language": "ms",
+      "author": "team",
+      "difficulty": "",
+      "split": "fit",
+      "cost_usd": 0.002648,
+      "calls": 4,
+      "B0": {
+        "outcome": "answer",
+        "correct": false,
+        "sql": "SELECT\n  CASE\n    WHEN COUNT(*) = 0 THEN NULL\n    ELSE ROUND(\n      100.0 * SUM(CASE WHEN LOWER(status) = 'resolved' THEN 1 ELSE 0 END) / COUNT(*),\n      2\n    )\n  END AS customer_satisfaction_proxy_percent\nFROM support_cases;",
+        "preview": "48.92"
+      },
+      "B1": {
+        "outcome": "handoff",
+        "correct": false,
+        "sql": "SELECT 'Data skor kepuasan pelanggan tidak tersedia dalam skema database.' AS hasil;",
+        "repaired": true,
+        "findings": [
+          "The query does not read any data"
+        ]
+      },
+      "B2": {
+        "outcome": "clarify",
+        "correct": false,
+        "agreement": 0.333
+      },
+      "B3": {
+        "outcome": "handoff",
+        "correct": false,
+        "sql": "SELECT 'Data skor kepuasan pelanggan tidak tersedia dalam skema database.' AS hasil;",
+        "preview": "Data skor kepuasan pelanggan tidak tersedia dalam skema database.",
+        "p": 0.0573,
+        "features": {
+          "agreement": 0.333,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 1.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 1.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": true,
+        "options": 0,
+        "findings": [
+          {
+            "check": "coverage",
+            "severity": "blocking",
+            "title": "The query does not read any data",
+            "detail": "It returns fixed text or numbers instead of reading the database, usually because the data cannot answer the question."
+          }
+        ],
+        "clarify_options": [],
+        "selected_correct": false,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "handoff",
+        "correct": false
+      },
+      "B3_c4": {
+        "outcome": "handoff",
+        "correct": false
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "ms-15",
+      "question": "Jurujual mana yang menutup paling banyak urus niaga?",
+      "expected": "handoff",
+      "trap": "infeasible",
+      "language": "ms",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.0009322,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": false,
+        "sql": "SELECT 'Maklumat jurujual tidak tersedia dalam skema pangkalan data.' AS mesej;",
+        "preview": "Maklumat jurujual tidak tersedia dalam skema pangkalan data."
+      },
+      "B1": {
+        "outcome": "handoff",
+        "correct": false,
+        "sql": "SELECT 'Maklumat jurujual tidak tersedia dalam skema pangkalan data.' AS mesej;",
+        "repaired": false,
+        "findings": [
+          "The query does not read any data"
+        ]
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": false,
+        "agreement": 1.0,
+        "sql": "SELECT 'Maklumat jurujual tidak tersedia dalam skema pangkalan data.' AS mesej;"
+      },
+      "B3": {
+        "outcome": "handoff",
+        "correct": false,
+        "sql": "SELECT 'Maklumat jurujual tidak tersedia dalam skema pangkalan data.' AS mesej;",
+        "preview": "Maklumat jurujual tidak tersedia dalam skema pangkalan data.",
+        "p": 0.2689,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 1.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": true,
+        "options": 0,
+        "findings": [
+          {
+            "check": "coverage",
+            "severity": "blocking",
+            "title": "The query does not read any data",
+            "detail": "It returns fixed text or numbers instead of reading the database, usually because the data cannot answer the question."
+          }
+        ],
+        "clarify_options": [],
+        "selected_correct": false,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "handoff",
+        "correct": false
+      },
+      "B3_c4": {
+        "outcome": "handoff",
+        "correct": false
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    },
+    {
+      "dataset": "trap",
+      "id": "mixed-01",
+      "question": "Berapa total revenue untuk completed orders bulan Mac 2026?",
+      "expected": "answer",
+      "trap": "period",
+      "language": "mixed",
+      "author": "team",
+      "difficulty": "",
+      "split": "test",
+      "cost_usd": 0.0010456,
+      "calls": 3,
+      "B0": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_revenue\nFROM orders\nWHERE status = 'completed'\n  AND order_date >= '2026-03-01'\n  AND order_date < '2026-04-01';",
+        "preview": "1,581,181.54"
+      },
+      "B1": {
+        "outcome": "answer",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_revenue\nFROM orders\nWHERE status = 'completed'\n  AND order_date >= '2026-03-01'\n  AND order_date < '2026-04-01';",
+        "repaired": false,
+        "findings": []
+      },
+      "B2": {
+        "outcome": "answer",
+        "correct": true,
+        "agreement": 1.0,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_revenue\nFROM orders\nWHERE status = 'completed'\n  AND order_date >= '2026-03-01'\n  AND order_date < '2026-04-01';"
+      },
+      "B3": {
+        "outcome": "confident",
+        "correct": true,
+        "sql": "SELECT COALESCE(SUM(total_amount), 0) AS total_revenue\nFROM orders\nWHERE status = 'completed'\n  AND order_date >= '2026-03-01'\n  AND order_date < '2026-04-01';",
+        "preview": "1,581,181.54",
+        "p": 0.8808,
+        "features": {
+          "agreement": 1.0,
+          "single_candidate": 0.0,
+          "unresolved_blocking": 0.0,
+          "ambiguity": 0.0,
+          "warnings": 0.0,
+          "repairs": 0.0,
+          "empty_result": 0.0,
+          "semantic_invalid": 0.0,
+          "approved_definition": 0.0
+        },
+        "blocking": false,
+        "options": 0,
+        "findings": [],
+        "clarify_options": [],
+        "selected_correct": true,
+        "reading_match": false,
+        "warning": false
+      },
+      "B3_c1": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c4": {
+        "outcome": "confident",
+        "correct": true
+      },
+      "B3_c9": {
+        "outcome": "handoff",
+        "correct": false
+      }
+    }
+  ]
+}

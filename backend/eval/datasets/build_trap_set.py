@@ -59,7 +59,8 @@ ITEMS = [
     ("period-02", "en", "period", "answer", "How many orders were placed on 11 April 2026?", "SELECT COUNT(*) FROM orders WHERE order_date >= '2026-04-11' AND order_date < '2026-04-12'"),
     ("period-03", "en", "period", "answer", "What was the total value of completed orders in March 2026?", "SELECT SUM(total_amount) FROM orders WHERE status = 'completed' AND order_date >= '2026-03-01' AND order_date < '2026-04-01'"),
     # The data ends in June 2026, so "last month" means May 2026 in the data.
-    ("period-04", "en", "period", "answer", "What was the total value of completed orders last month?", "SELECT SUM(total_amount) FROM orders WHERE status = 'completed' AND order_date >= '2026-05-01' AND order_date < '2026-06-01'"),
+    # "Last month": the demo data runs to 30 September 2026, so every reading of last month is September 2026.
+    ("period-04", "en", "period", "answer", "What was the total value of completed orders last month?", "SELECT SUM(total_amount) FROM orders WHERE status = 'completed' AND order_date >= '2026-09-01' AND order_date < '2026-10-01'"),
     ("period-05", "en", "period", "answer", "How many support cases were opened in the last 30 days of data?", "SELECT COUNT(*) FROM support_cases WHERE created_at > datetime((SELECT MAX(created_at) FROM support_cases), '-30 days')"),
     # --- Impossible questions: the data cannot answer them, so SlayQL should hand off.
     ("infeasible-01", "en", "infeasible", "handoff", "What is our customer satisfaction score?", ""),
@@ -78,7 +79,7 @@ ITEMS = [
     ("ms-10", "ms", "definition", "clarify", "Berapa jumlah jualan kita pada tahun 2025?", "SELECT SUM(total_amount) FROM orders WHERE order_date >= '2025-01-01' AND order_date < '2026-01-01'"),
     ("ms-11", "ms", "definition", "clarify", "Berapa hasil bagi setiap segmen pelanggan?", "SELECT c.segment, SUM(o.total_amount) FROM orders o JOIN customers c ON c.id = o.customer_id GROUP BY c.segment"),
     # The data ends in June 2026, so "bulan lepas" (last month) means May 2026 in the data.
-    ("ms-12", "ms", "period", "answer", "Berapa jumlah nilai pesanan yang selesai pada bulan lepas?", "SELECT SUM(total_amount) FROM orders WHERE status = 'completed' AND order_date >= '2026-05-01' AND order_date < '2026-06-01'"),
+    ("ms-12", "ms", "period", "answer", "Berapa jumlah nilai pesanan yang selesai pada bulan lepas?", "SELECT SUM(total_amount) FROM orders WHERE status = 'completed' AND order_date >= '2026-09-01' AND order_date < '2026-10-01'"),
     ("ms-13", "ms", "period", "answer", "Berapa banyak pesanan yang dibuat pada bulan Januari 2026?", "SELECT COUNT(*) FROM orders WHERE order_date >= '2026-01-01' AND order_date < '2026-02-01'"),
     ("ms-14", "ms", "infeasible", "handoff", "Berapakah skor kepuasan pelanggan kita?", ""),
     ("ms-15", "ms", "infeasible", "handoff", "Jurujual mana yang menutup paling banyak urus niaga?", ""),
