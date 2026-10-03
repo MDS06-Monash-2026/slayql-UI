@@ -6,7 +6,7 @@ Prepared 24 September 2026 for the SlayQL FYP team. This document replaces the p
 
 Measured results, their sources and the report storyline are in [`REPORT_NARRATIVE.md`](REPORT_NARRATIVE.md); the current build state is in [`HANDOFF.md`](HANDOFF.md). In short:
 
-- **Business trap set** (52 questions): wrong answers stated as fact fall from 26.9% of questions to none, with 73% answered immediately and no false alarms.
+- **Business trap set** (52 questions, re-run 3 October 2026 on the enriched demo data with `gpt-5.6-luna`): wrong answers stated as fact fall from 28.8% of questions to 1.9% (one Bahasa Malaysia question), with 75% answered immediately and no false alarms.
 - **BIRD Mini-Dev** (233 held-out questions): at c = 1, from 59.7% to 15.9%, with 42% answered. At the default c = 4, SlayQL answers none, because the model is right on only about 28%.
 - **Review-queue learning:** after 40 analyst reviews, confident wrong answers at c = 4 fall from 33.9% to 1.6%, and to 0% after 80.
 - **Malaysian distributor set:** on 22 AutoCount-style questions, wrong answers stated as fact fall from 45.5% to 0%.
@@ -49,12 +49,14 @@ Each query below runs without error, passes SlayQL's current read-only validatio
 
 | Question: "What is total revenue from completed orders?" | Result | Rows summed | Error |
 | --- | --- | --- | --- |
-| Correct: `SUM(orders.total_amount)` at order grain | 2,159,970.05 | 134 orders | — |
-| Joined to `order_items` before summing | 6,535,519.28 | 337 rows | 3.0× inflated (fan-out) |
-| Joined to `shipments` before summing | 3,403,406.30 | 217 rows | 1.6× inflated (93 orders have several shipments) |
-| All statuses, including 7 cancelled and 20 refunded orders | 3,241,298.23 | 214 orders | 1.5× inflated (definition) |
+| Correct: `SUM(orders.total_amount)` at order grain | 33,589,369.18 | 4,151 orders | — |
+| Joined to `order_items` before summing | 124,401,410.44 | 10,669 rows | 3.7× inflated (fan-out) |
+| Joined to `shipments` before summing | 41,889,713.16 | 4,548 rows | 1.25× inflated (397 orders have several shipments) |
+| All statuses, including 190 cancelled and 195 refunded orders | 37,171,213.39 | 4,597 orders | 1.11× inflated (definition) |
 
-The data also ends on 28 June 2026. A question about "last month" asked in September 2026 therefore returns an empty or misleading result unless someone checks data coverage.
+The data ends on 30 September 2026. A question about "last month" asked in December 2026 therefore returns an empty or misleading result unless someone checks data coverage.
+
+The demo database was enriched on 3 October 2026 (420 customers, 56 products and 4,597 orders from January 2024 to September 2026, with growth, seasonality and regional targets). The figures above are measured on that version; earlier drafts quoted the smaller first version (60 customers, 214 orders).
 
 The current pipeline checks safety, schema references and dialect (`backend/app/queries/validator.py`). At medium effort and above it also asks an LLM whether the SQL matches the request (`pipeline.py` lines 1486–1547). Nothing checks join grain, business definitions or data coverage. Only one candidate query is produced, and the final answer carries no confidence.
 
@@ -95,7 +97,7 @@ In a pitch: "Managers ask in a chat. Behind it, every answer is checked, uncerta
 | --- | --- | --- |
 | Confident | Candidates agree, no blocking finding, and calibrated probability is above the threshold | The number, "checks passed", and expandable evidence |
 | Caveat | Confident, but a non-blocking finding exists, such as truncated rows, NULLs excluded, or a period partly outside data coverage | The number with an amber sentence stating the limitation |
-| Clarify | Candidates disagree on a definition, or a business term has no approved definition | Concrete options with their numbers, for example "Completed orders only: 2,159,970.05" and "All orders including cancelled and refunded: 3,241,298.23". The chosen option can be saved as a draft definition. |
+| Clarify | Candidates disagree on a definition, or a business term has no approved definition | Concrete options with their numbers, for example "Completed orders only: 33,589,369.18" and "All orders including cancelled and refunded: 37,171,213.39". The chosen option can be saved as a draft definition. |
 | Hand-off | Probability is below the threshold, or a blocking finding survives repair | No number presented as fact. The question enters the review queue with its SQL, checks and candidate results, and the user is told it went to an analyst. |
 
 Any outcome can also carry an **Approved definition** marker when an analyst-approved definition or verified query was used.
@@ -315,8 +317,8 @@ A distributor's sales manager prepares for the weekly meeting and asks: *"Berapa
 
 | Tool | What the manager receives | What happens next |
 | --- | --- | --- |
-| Plain AI query tool | One confident number. Depending on how the SQL was written, it could be 2,159,970.05, 3,241,298.23 or 6,535,519.28. | The manager cannot tell which is right. A figure three times too high could set next quarter's targets, commission or stock orders. |
-| SlayQL | Either 2,159,970.05 with "checks passed" and the calculation shown, or a question: "Completed orders only (2,159,970.05), or all orders including cancelled and refunded (3,241,298.23)?" | The manager picks the intended meaning. Finance approves it once as the company's definition of revenue, and every later answer uses it. |
+| Plain AI query tool | One confident number. Depending on how the SQL was written, it could be 33,589,369.18, 37,171,213.39 or 124,401,410.44. | The manager cannot tell which is right. A figure nearly four times too high could set next quarter's targets, commission or stock orders. |
+| SlayQL | Either 33,589,369.18 with "checks passed" and the calculation shown, or a question: "Completed orders only (33,589,369.18), or all orders including cancelled and refunded (37,171,213.39)?" | The manager picks the intended meaning. Finance approves it once as the company's definition of revenue, and every later answer uses it. |
 
 The same risks appear in the questions the market research brief proposes for a distributor's weekly pack:
 
@@ -486,8 +488,8 @@ Calculator formulas, shown on screen next to the result. Weeks per month are tak
 
 | When | What can be said |
 | --- | --- |
-| Today | The errors are real and large on realistic data: up to three times the correct revenue in the demo database. AI-generated SQL is often wrong on realistic tasks: an o1-preview agent solved 21.3% of Spider 2.0 tasks, and our own engine solved 45.89% of 547 Spider 2.0-Lite instances. |
-| Now (measured 27 September 2026, `docs/REPORT_NARRATIVE.md`) | Business trap set: wrong answers stated as fact 26.9% → 0% of questions, 73% answered immediately, no false alarms. BIRD at c = 1: 59.7% → 15.9%, 42% answered. Learning: 34.8% → 1.6% after 40 analyst reviews. Always state that the trap set is team-written and small. |
+| Today | The errors are real and large on realistic data: up to 3.7 times the correct revenue in the demo database. AI-generated SQL is often wrong on realistic tasks: an o1-preview agent solved 21.3% of Spider 2.0 tasks, and our own engine solved 45.89% of 547 Spider 2.0-Lite instances. |
+| Now (measured 27 September 2026; trap set re-run 3 October 2026, `docs/REPORT_NARRATIVE.md`) | Business trap set: wrong answers stated as fact 28.8% → 1.9% of questions, 75% answered immediately, no false alarms. BIRD at c = 1: 59.7% → 15.9%, 42% answered. Learning: 34.8% → 1.6% after 40 analyst reviews. Always state that the trap set is team-written and small. |
 | After a pilot with a real company | Capacity released, errors avoided, adoption and willingness to pay. Until then, no ROI, savings or payback figures. |
 
 **Pitch lines by audience:**
@@ -641,14 +643,14 @@ The values below are illustrative, except the demo-database numbers, which were 
         "check": "grain",
         "severity": "blocking",
         "resolved_by_repair": true,
-        "detail": "orders joined to order_items gives 337 rows for 134 orders; SUM(orders.total_amount) was 3.0x the order-level total.",
+        "detail": "orders joined to order_items gives 10,669 rows for 4,151 orders; SUM(orders.total_amount) was 3.7x the order-level total.",
         "probe_sql": "SELECT COUNT(*), COUNT(DISTINCT o.id) FROM orders o JOIN order_items oi ON oi.order_id = o.id WHERE o.status = 'completed'"
       }
     ],
-    "consensus": {"candidates": 3, "clusters": [{"size": 2, "preview": "2,159,970.05"}, {"size": 1, "preview": "3,241,298.23"}]},
+    "consensus": {"candidates": 3, "clusters": [{"size": 2, "preview": "33,589,369.18"}, {"size": 1, "preview": "37,171,213.39"}]},
     "clarify_options": [
-      {"label": "Completed orders only", "preview": "2,159,970.05", "candidate_id": "cand_a"},
-      {"label": "All orders, including cancelled and refunded", "preview": "3,241,298.23", "candidate_id": "cand_c"}
+      {"label": "Completed orders only", "preview": "33,589,369.18", "candidate_id": "cand_a"},
+      {"label": "All orders, including cancelled and refunded", "preview": "37,171,213.39", "candidate_id": "cand_c"}
     ],
     "definitions_used": []
   }

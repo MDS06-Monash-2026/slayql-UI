@@ -6,7 +6,7 @@ The team wrote the business trap set, so it may favour SlayQL's checks. To test 
 
 > Thank you for helping. Imagine you manage the company in this database and want figures for a meeting. Please write about 10 questions you would genuinely ask, in English or Bahasa Malaysia, and include some that are tricky or ambiguous. For each one, give the correct answer as SQL, or explain the answer and we will write the SQL with you.
 >
-> The database is an online software company's sales data: customers, orders, order lines, products and categories, payments, shipments, support cases, warehouses, suppliers, employees and teams. Orders have a status (completed, shipped, processing, refunded, cancelled), and orders run from 2 March 2025 to 28 June 2026.
+> The database is an online software company's sales data: customers, orders, order lines, products and categories, payments, shipments, support cases, warehouses, suppliers, employees and teams. Orders have a status (completed, shipped, processing, refunded, cancelled), and orders run from 5 January 2024 to 30 September 2026.
 >
 > Also include:
 > - one or two questions the data cannot answer (the right response is to say so);
