@@ -1,10 +1,9 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft,
   CheckCircle2,
   Code2,
   Database,
-  LayoutDashboard,
   Loader2,
   Network,
   Plus,
@@ -19,7 +18,6 @@ import AddConnectionModal from '../components/demo/AddConnectionModal';
 import ConnectionSettingsModal from '../components/demo/ConnectionSettingsModal';
 import ConfirmationModal from '../components/demo/ConfirmationModal';
 import ERDiagram from '../components/demo/ERDiagram';
-import ReportStudio from '../components/report/ReportStudio';
 import SqlWorkbench from '../components/workbench/SqlWorkbench';
 import {
   deleteConnection,
@@ -34,7 +32,6 @@ const NAV_ITEMS = [
   { id: 'workbench', label: 'SQL workbench', icon: Code2, hint: 'Write SQL yourself or let AI draft it, then run it on this data source.' },
   { id: 'tables', label: 'Tables', icon: Table2, hint: 'Every table and column, with row counts and types.' },
   { id: 'relationships', label: 'ER diagram', icon: Network, hint: 'How the tables link to each other through their keys.' },
-  { id: 'dashboard', label: 'Report studio', icon: LayoutDashboard, hint: 'An AI agent builds a checked dashboard from your question. Filter it, ask for changes, and email it weekly or monthly.' },
 ];
 
 // In-memory persistent cache across component unmount/remount (0ms return)
@@ -49,7 +46,7 @@ const labMemoryState = {
   previewTable: null,
 };
 
-const VALID_SECTIONS = ['workbench', 'tables', 'relationships', 'dashboard'];
+const VALID_SECTIONS = ['workbench', 'tables', 'relationships'];
 
 function getInitialLabSection() {
   const path = (window.location.pathname || '').toLowerCase().replace(/\/+$/, '');
@@ -62,7 +59,6 @@ function getInitialLabSection() {
   const combined = `${path}/${hash}`;
   if (combined.includes('/tables') || combined.includes('tables')) return 'tables';
   if (combined.includes('/relationships') || combined.includes('relationships') || combined.includes('/er-diagram') || combined.includes('er-diagram')) return 'relationships';
-  if (combined.includes('/dashboard') || combined.includes('dashboard') || combined.includes('/ai-report-studio') || combined.includes('report-studio')) return 'dashboard';
   if (combined.includes('/workbench') || combined.includes('workbench')) return 'workbench';
   return VALID_SECTIONS.includes(labMemoryState.activeSection) ? labMemoryState.activeSection : 'workbench';
 }
@@ -113,20 +109,8 @@ export default function DatabaseCenterView({ setView, session, theme: propTheme,
   const [previewTable, setPreviewTable] = useState(labMemoryState.previewTable);
   const [latestResult, setLatestResult] = useState(labMemoryState.latestResult);
   const [latestSql, setLatestSql] = useState(labMemoryState.latestSql);
-  const [dashboardDirty, setDashboardDirty] = useState(false);
-  const dashboardSaveRef = useRef(null);
-
-  const confirmDashboardLeave = () => {
-    if (activeSection === 'dashboard' && dashboardDirty) {
-      const save = window.confirm('This report has unsaved changes. Save it to your account before leaving?');
-      if (save) dashboardSaveRef.current?.();
-    }
-    return true;
-  };
-
   const changeSection = (nextSection) => {
     if (nextSection === activeSection) return;
-    confirmDashboardLeave();
     setActiveSection(nextSection);
     const targetSlug = `/database-lab/${nextSection}`;
     if (window.location.pathname !== targetSlug) {
@@ -379,7 +363,6 @@ export default function DatabaseCenterView({ setView, session, theme: propTheme,
                         <select
                           value={selectedId}
                           onChange={(event) => {
-                            if (event.target.value !== selectedId) confirmDashboardLeave();
                             setSelectedId(event.target.value);
                             setExpandedId(event.target.value);
                           }}
@@ -545,15 +528,6 @@ export default function DatabaseCenterView({ setView, session, theme: propTheme,
                         </div>
                         <ERDiagram catalog={catalog} isDark={isDark} />
                       </section>
-                    )}
-
-                    {activeSection === 'dashboard' && (
-                      <ReportStudio
-                        connectionId={selectedId}
-                        isDark={isDark}
-                        onDirtyChange={setDashboardDirty}
-                        onRegisterSave={(save) => { dashboardSaveRef.current = save; }}
-                      />
                     )}
 
                   </>
