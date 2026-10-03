@@ -542,7 +542,7 @@ export default function ReportStudio({ connectionId, isDark = false, onDirtyChan
               </div>
             </div>
           ) : (
-            <div className="mt-4 max-h-[60vh] overflow-y-auto pr-1"><AgentTimeline steps={steps} running={building && stage === 'explore'} /></div>
+            <div data-scroll-box className="mt-4 max-h-[60vh] overflow-y-auto overscroll-contain scroll-smooth pr-1"><AgentTimeline steps={steps} running={building && stage === 'explore'} /></div>
           )}
           {error && <p className="mt-3 rounded-xl bg-rose-50 p-2.5 text-xs text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">{error}</p>}
         </aside>

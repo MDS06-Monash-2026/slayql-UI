@@ -563,7 +563,7 @@ function WaffleChart({ data, theme, format }) {
       <div className="grid aspect-square h-full max-h-48 shrink-0 grid-cols-10 gap-[3px]" role="img" aria-label={parts.map((p) => `${p.x} ${Math.round(p.share)}%`).join(', ')}>
         {cells.map((p, i) => <span key={i} className="rounded-[3px]" style={{ background: p.color }} title={`${p.x}: ${Math.round(p.share)}%`} />)}
       </div>
-      <ul className="min-w-[45%] flex-1 space-y-2.5">
+      <ul className="min-w-[45%] max-w-sm flex-1 space-y-2.5">
         {parts.map((p) => (
           <li key={p.x} className="flex items-baseline gap-2 text-xs" title={p.x}>
             <span className="h-2.5 w-2.5 shrink-0 translate-y-px rounded-sm" style={{ background: p.color }} />
