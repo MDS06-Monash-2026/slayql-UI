@@ -8,7 +8,7 @@ from backend.app.config import settings
 from backend.app.queries.executor import QueryExecutor
 from backend.app.verification import candidate_from_result, confidence, consensus, run_checks, verify
 
-TODAY = date(2026, 9, 24)  # the demo data ends on 28 June 2026
+TODAY = date(2026, 12, 20)  # the demo data ends on 30 September 2026
 
 CORRECT = "SELECT SUM(total_amount) FROM orders WHERE status = 'completed'"
 FAN_OUT = (
@@ -51,8 +51,8 @@ async def test_fan_out_join_is_blocking_with_measured_ratio():
     grain = [f for f in findings if f.check == "grain"]
     assert len(grain) == 1
     assert grain[0].severity == "blocking"
-    assert grain[0].data["rows"] == 337
-    assert grain[0].data["keys"] == 134
+    assert grain[0].data["rows"] == 10669
+    assert grain[0].data["keys"] == 4151
     assert "orders" in grain[0].repair_hint
 
 
@@ -81,7 +81,7 @@ async def test_relative_dates_after_the_data_ends_are_blocking():
     sql = "SELECT SUM(total_amount) FROM orders WHERE order_date >= date('now', '-1 month')"
     findings, _, _ = await _checks("Sales last month", sql)
     period = [f for f in findings if f.check == "period" and f.severity == "blocking"]
-    assert period and "2026-06-28" in period[0].repair_hint
+    assert period and "2026-09-30" in period[0].repair_hint
 
 
 @pytest.mark.asyncio
@@ -151,7 +151,7 @@ def test_threshold_follows_the_penalty():
 
 @pytest.mark.asyncio
 async def test_candidates_failing_a_blocking_check_do_not_outvote_a_correct_one():
-    may = "SELECT SUM(total_amount) FROM orders WHERE status = 'completed' AND order_date >= '2026-05-01' AND order_date < '2026-06-01'"
+    may = "SELECT SUM(total_amount) FROM orders WHERE status = 'completed' AND order_date >= '2026-08-01' AND order_date < '2026-09-01'"
     stale = "SELECT SUM(total_amount) FROM orders WHERE status = 'completed' AND order_date >= date('now', 'start of month', '-1 month') AND order_date < date('now', 'start of month')"
     candidates = [await _candidate("a", may), await _candidate("b", stale), await _candidate("c", stale)]
     result = await verify(
@@ -315,7 +315,7 @@ async def test_todays_date_in_select_is_not_a_period_problem():
 async def test_counting_rows_instead_of_distinct_entities_is_blocking():
     findings, _, _ = await _checks("How many customers have placed at least one order?", "SELECT COUNT(customer_id) AS customers FROM orders")
     counted = [f for f in findings if f.check == "grain"]
-    assert counted and counted[0].data == {"rows": 214, "distinct": 60, "entity": "customers"}
+    assert counted and counted[0].data == {"rows": 4597, "distinct": 361, "entity": "customers"}
     # Correct forms pass.
     for sql in ["SELECT COUNT(DISTINCT customer_id) FROM orders",
                 "SELECT COUNT(*) FROM customers WHERE id IN (SELECT customer_id FROM orders)"]:

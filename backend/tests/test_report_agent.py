@@ -293,3 +293,14 @@ def test_chart_rules_reject_charts_that_do_not_fit_their_data():
     assert "itself" in check("sankey", ["s", "v", "t"], [["a", 1, "a"], ["a", 2, "b"], ["b", 3, "c"]], series="t")
     assert "target" in check("bullet", ["r", "v"], [["north", 5]])
     assert "6 columns" in chart_rules.problem({"chart": "table"}, list("abcdefg"), [[1] * 7])
+
+
+@pytest.mark.asyncio
+async def test_a_detail_table_hides_an_unfilled_column_instead_of_failing():
+    ctx = await _context(llm=False)
+    table = {"id": "open-cases", "title": "Open cases", "question": "Which support cases are still open?", "chart": "table",
+             "sql": "SELECT id, subject, priority, resolution_time_hours FROM support_cases WHERE resolution_time_hours IS NULL LIMIT 20"}
+    checked = await trusted_report.run_item(table, "panel", ctx, repair=False)
+    assert checked["hidden_columns"] == ["resolution_time_hours"]
+    assert "resolution_time_hours" not in checked["columns"]
+    assert not any(f["title"].startswith("Column resolution_time_hours is empty") for f in checked["findings"])

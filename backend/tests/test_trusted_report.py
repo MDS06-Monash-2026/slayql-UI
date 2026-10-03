@@ -35,7 +35,7 @@ async def test_catalog_plan_reports_checked_figures_on_the_full_data():
     assert report["meta"]["planner"] == "catalog"
     total = next(k for k in report["kpis"] if k["id"] == "total")
     # The whole table, filtered to completed orders: not a 200-row preview, not an average.
-    assert total["value"] == pytest.approx(2159970.05)
+    assert total["value"] == pytest.approx(33589369.18)
     assert total["outcome"] == "confident"
     assert all(item["outcome"] in {"confident", "caveat"} for item in report["kpis"] + report["panels"])
     assert report["facts"] and report["narrative"]["source"] == "computed"

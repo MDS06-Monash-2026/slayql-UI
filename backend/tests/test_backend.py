@@ -39,7 +39,7 @@ def test_catalog_discovery():
 
     customers_tbl = catalog.tables["customers"]
     assert len(customers_tbl.columns) > 0
-    assert customers_tbl.row_count_estimate == 60
+    assert customers_tbl.row_count_estimate == 420
 
 
 def test_thinking_effort_profiles_scale_work_and_reasoning():
