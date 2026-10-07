@@ -556,6 +556,18 @@ export async function createAgentRun({ question, modelId, connectionId, conversa
   return res.json();
 }
 
+/** Recorded chat cases for presentations; empty when none are recorded for this data source. */
+export async function fetchDemoCases(connectionId) {
+  try {
+    const res = await fetch(`${API_BASE}/demo-cases?connection_id=${encodeURIComponent(connectionId || '')}`, {
+      headers: { ...getAuthHeaders() },
+    });
+    return res.ok ? res.json() : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function cancelAgentRun(runId) {
   const res = await fetch(`${API_BASE}/agent-runs/${runId}/cancel`, {
     method: 'POST',
