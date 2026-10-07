@@ -63,6 +63,7 @@ import {
   fetchConversation,
   deleteConversation,
   reportChatMessage,
+  fetchDemoCases,
 } from '../services/api';
 import { connectNewRunEventStream } from '../services/sse';
 
@@ -218,6 +219,7 @@ const ConversationAssistantMessage = React.memo(function ConversationAssistantMe
 
 // v2: the default moved to three compared queries, the setting the evaluation measured.
 const EFFORT_STORAGE_KEY = 'slayql_thinking_effort_v2';
+const DEMO_OUTCOME_DOT = { confident: 'bg-emerald-500', caveat: 'bg-amber-500', clarify: 'bg-sky-500', handoff: 'bg-slate-500' };
 
 function isLikelySqlTurn(text) {
   const normalized = String(text || '').toLowerCase();
@@ -325,6 +327,15 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
   const historyRefreshTimeoutRef = useRef(null);
   const chatBottomRef = useRef(null);
   const composerRef = useRef(null);
+  // Recorded demo questions (presentations): replayed in seconds, then fully interactive.
+  const [demoCases, setDemoCases] = useState([]);
+  const [demoOpen, setDemoOpen] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    if (!selectedConnectionId) { setDemoCases([]); return undefined; }
+    fetchDemoCases(selectedConnectionId).then((cases) => { if (!cancelled) setDemoCases(Array.isArray(cases) ? cases : []); });
+    return () => { cancelled = true; };
+  }, [selectedConnectionId]);
   const catalogRequestRef = useRef(0);
   const selectedConnectionRef = useRef(selectedConnectionId);
   const reasoningScrollRef = useRef(null);
@@ -616,7 +627,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
   }, [conversationId, loadingThreadId, loadCatalog]);
 
   // --- Send Query ---
-  const handleSendQuery = useCallback(async (promptToRun) => {
+  const handleSendQuery = useCallback(async (promptToRun, { demoCase = null } = {}) => {
     const queryText = (promptToRun || inputPrompt).trim();
     if (!queryText || isRunning) return;
     if (!selectedConnectionId) {
@@ -663,6 +674,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
         connectionId: selectedConnectionId,
         conversationId,
         thinkingEffort,
+        demoCase,
       }, {
         onCreated: (createdRunData) => {
           runData = createdRunData;
@@ -1315,9 +1327,38 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
         {/* ─── Floating Minimalist Prompt Composer (Claude Desktop / AI Studio Style) ─── */}
         <footer className="live-demo-composer-footer px-4 pb-4 pt-2 sm:px-6 lg:px-8 sm:pb-6 z-20">
           <div className="max-w-3xl lg:max-w-4xl mx-auto w-full">
+            {demoOpen && demoCases.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 px-1 mb-2" role="group" aria-label="Demo questions">
+                {demoCases.map((demo) => (
+                  <button
+                    key={demo.id}
+                    type="button"
+                    disabled={isRunning}
+                    onClick={() => handleSendQuery(demo.question, { demoCase: demo.id })}
+                    title={demo.question}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 shadow-sm transition hover:border-indigo-300 hover:text-indigo-700 disabled:cursor-wait disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                  >
+                    <span className={`h-1.5 w-1.5 rounded-full ${DEMO_OUTCOME_DOT[demo.outcome] || 'bg-slate-400'}`} aria-hidden="true" />
+                    {demo.label}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="flex items-center justify-between px-1 mb-2">
               <span className="text-[10px] text-slate-400">Natural language to safe, executable SQL</span>
-              <span className="hidden sm:inline text-[10px] text-slate-400">{isRunning ? 'Streaming response' : 'Ready when you are'}</span>
+              <span className="flex items-center gap-2">
+                {demoCases.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setDemoOpen((open) => !open)}
+                    aria-expanded={demoOpen}
+                    className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold transition ${demoOpen ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-200' : 'text-slate-400 hover:text-indigo-600'}`}
+                  >
+                    Demo
+                  </button>
+                )}
+                <span className="hidden sm:inline text-[10px] text-slate-400">{isRunning ? 'Streaming response' : 'Ready when you are'}</span>
+              </span>
             </div>
             <form
               onSubmit={(e) => {

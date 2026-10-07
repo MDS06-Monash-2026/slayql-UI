@@ -135,7 +135,7 @@ export function connectRunEventStream(runId, handlers) {
 }
 
 export function connectNewRunEventStream(
-  { question, modelId, connectionId, conversationId, thinkingEffort },
+  { question, modelId, connectionId, conversationId, thinkingEffort, demoCase },
   handlers,
 ) {
   const token = getSessionToken();
@@ -152,6 +152,7 @@ export function connectNewRunEventStream(
         connection_id: connectionId,
         conversation_id: conversationId || null,
         thinking_effort: thinkingEffort || 'medium',
+        ...(demoCase ? { demo_case: demoCase } : {}),
       }),
       signal,
     }),

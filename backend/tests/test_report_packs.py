@@ -59,9 +59,13 @@ def test_schedules_run_weekly_in_malaysia_time_and_are_claimed_once():
 
     schedule = schedule_store.create(owner_id="user_sched", connection_id="sqlite_demo", report={"title": "T", "kpis": []},
                                      recipients=["a@example.com"], weekday=0, hour=8)
-    due_time = datetime(2026, 10, 5, 0, 1, tzinfo=timezone.utc)
+    # The schedule's first run depends on today's date; claim it one minute after it falls due.
+    from datetime import timedelta
+    first_run = datetime.fromisoformat(schedule["next_run_at"].replace("Z", "+00:00"))
+    due_time = first_run + timedelta(minutes=1)
     claimed = [s for s in schedule_store.claim_due(due_time) if s["id"] == schedule["id"]]
-    assert len(claimed) == 1 and claimed[0]["next_run_at"] == "2026-10-12T00:00:00Z"
+    expected_next = (first_run + timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    assert len(claimed) == 1 and claimed[0]["next_run_at"] == expected_next
     assert not [s for s in schedule_store.claim_due(due_time) if s["id"] == schedule["id"]]
     assert schedule_store.delete(schedule["id"], "user_sched")
 

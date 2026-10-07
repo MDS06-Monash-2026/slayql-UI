@@ -21,6 +21,7 @@ from backend.app.catalog.discovery import CatalogService
 from backend.app.providers.llm_client import llm_client, ModelInfo
 from backend.app.agent.effort import DEFAULT_THINKING_EFFORT, ThinkingEffort
 from backend.app.agent.pipeline import SlayQLPipeline, RUN_METADATA_STORE
+from backend.app.agent import demo_replay
 from backend.app.queries.validator import SqlValidator
 from backend.app.queries.executor import QueryExecutor
 from backend.app.accounts.access import MIN_PASSWORD_LENGTH, RANK as ACCESS_RANK, access_store
@@ -177,6 +178,8 @@ class CreateRunRequest(BaseModel):
     connection_id: Optional[str] = None
     conversation_id: Optional[str] = None
     thinking_effort: ThinkingEffort = DEFAULT_THINKING_EFFORT
+    # A recorded demo case to replay quickly instead of calling the model (presentations only).
+    demo_case: Optional[str] = None
 
 class ExecuteSqlRequest(BaseModel):
     sql: str
@@ -1626,9 +1629,16 @@ async def create_agent_run(req: CreateRunRequest, request: Request):
     # calls, so run them in a worker thread instead of blocking FastAPI's loop.
     session = await asyncio.to_thread(_session_from_request, request)
     owner_id = session["user"]["id"] if session else "anonymous_demo"
+    demo_case = demo_replay.get_case(req.demo_case) if req.demo_case else None
+    if req.demo_case and not demo_case:
+        raise HTTPException(status_code=404, detail="Demo case not found.")
+    if demo_case:
+        req = req.model_copy(update={"question": demo_case["question"]})
     preflight = _fallback_chat_intent(req.question, [])
     is_fast_greeting = bool(preflight.get("fast_path"))
     connection_id = req.connection_id or default_connection_id()
+    if demo_case and connection_id != demo_case.get("connection_id"):
+        raise HTTPException(status_code=400, detail="Demo cases run only on the shared demo database.")
     if not connection_id:
         raise HTTPException(status_code=400, detail="Add and select a data source before running SQL generation.")
     if not await asyncio.to_thread(_connection_metadata, connection_id, owner_id):
@@ -1659,7 +1669,7 @@ async def create_agent_run(req: CreateRunRequest, request: Request):
                     else conversation_store.context_from_thread(existing_conversation, limit=8)
                 )
     credits_remaining = None
-    if session and not is_fast_greeting:
+    if session and not is_fast_greeting and not demo_case:
         profile = await asyncio.to_thread(account_store.consume_credit, session["user"]["id"], 1, "AI query")
         if not profile:
             raise HTTPException(status_code=402, detail="Not enough credits to run this query.")
@@ -1715,7 +1725,10 @@ async def create_agent_run(req: CreateRunRequest, request: Request):
 
     # Begin processing before the client opens SSE. Events are retained and
     # replayed, so a late stream connection remains complete and ordered.
-    SlayQLPipeline.start_run(run_response["run_id"])
+    if demo_case:
+        demo_replay.start(run_response["run_id"], demo_case)
+    else:
+        SlayQLPipeline.start_run(run_response["run_id"])
 
     initial_answer = _fast_greeting_answer(req.question) if is_fast_greeting else None
     return {
@@ -1724,6 +1737,12 @@ async def create_agent_run(req: CreateRunRequest, request: Request):
         "initial_answer": initial_answer,
         "initial_is_sql_query": False if initial_answer else None,
     }
+
+
+@app.get("/api/v1/demo-cases")
+async def list_demo_cases(connection_id: Optional[str] = None):
+    """Recorded chat cases for presentations (see backend/app/agent/demo_replay.py)."""
+    return demo_replay.list_cases(connection_id)
 
 
 @app.post("/api/v1/agent-runs/stream")
