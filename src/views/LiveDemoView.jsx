@@ -329,7 +329,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
   const composerRef = useRef(null);
   // Recorded demo questions (presentations): replayed in seconds, then fully interactive.
   const [demoCases, setDemoCases] = useState([]);
-  const [demoOpen, setDemoOpen] = useState(false);
+  const [demoOpen, setDemoOpen] = useState(true);
   useEffect(() => {
     let cancelled = false;
     if (!selectedConnectionId) { setDemoCases([]); return undefined; }
@@ -1352,9 +1352,9 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
                     type="button"
                     onClick={() => setDemoOpen((open) => !open)}
                     aria-expanded={demoOpen}
-                    className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold transition ${demoOpen ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-200' : 'text-slate-400 hover:text-indigo-600'}`}
+                    className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold transition ${demoOpen ? 'border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-500/40 dark:bg-indigo-500/15 dark:text-indigo-200' : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'}`}
                   >
-                    Demo
+                    {demoOpen ? 'Hide demo questions' : 'Demo questions'}
                   </button>
                 )}
                 <span className="hidden sm:inline text-[10px] text-slate-400">{isRunning ? 'Streaming response' : 'Ready when you are'}</span>
