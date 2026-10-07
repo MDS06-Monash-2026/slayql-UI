@@ -2,9 +2,10 @@
 
 A demo case is a real run recorded on the shared demo database (`demo_cases/*.json`, made by
 `backend/eval/record_demo_cases.py`). Replaying one creates a normal run (real run id, stored like
-any other run) and streams the recorded events in a few seconds instead of calling the language
-model. Because the run is stored with its result, everything after it works as usual: choosing a
-clarify option, saving a definition, the analyst review queue and editing the SQL all run for real.
+any other run) and streams the recorded events, paced so each step is visible, instead of calling
+the language model. Because the run is stored with its result, everything after it works as usual:
+choosing a clarify option, saving a definition, the analyst review queue and editing the SQL all run
+for real.
 
 Only used when a request names a `demo_case`; normal questions never reach this module.
 """
@@ -19,8 +20,37 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 CASES_DIR = Path(__file__).parent / "demo_cases"
-REPLAY_SECONDS = 4.0  # whole replay, start to answer
-MIN_SLEEP = 0.012     # merge smaller gaps so thousands of tiny sleeps don't slow the replay
+REPLAY_SECONDS = 12.0  # whole replay, start to answer
+MIN_SLEEP = 0.012      # merge smaller gaps so thousands of tiny sleeps don't slow the replay
+
+# Relative pause before each event. A live run finds and links tables in a split second and then
+# waits on the model, so the recorded timing would flash the interesting steps past. These weights
+# give every step time on screen (tables found, tables linked, values matched, the query being
+# written, each check); they are scaled so the whole replay takes REPLAY_SECONDS.
+PACE = {
+    "intent.validator_completed": 0.5,
+    "orchestrator.decision": 0.4,
+    ("schema_discovery", "stage.evidence"): 1.2,
+    ("schema_discovery", "stage.completed"): 1.2,
+    ("graph_expansion", "stage.started"): 0.3,
+    ("graph_expansion", "stage.evidence"): 0.9,
+    ("graph_expansion", "stage.completed"): 1.4,
+    ("value_grounding", "stage.evidence"): 0.9,
+    ("value_grounding", "stage.completed"): 1.0,
+    "provider.request_started": 0.3,
+    "provider.first_delta": 1.2,
+    "provider.reasoning_delta": 0.03,
+    "provider.content_delta": 0.08,
+    "sql.validation_check": 0.2,
+    "sql.semantic_validation_completed": 0.5,
+    "verification.started": 0.3,
+    "verification.check": 0.3,
+    "verification.consensus": 0.8,
+    "verification.decision": 0.6,
+    "execution.rows": 0.4,
+    "visualization.agent_completed": 0.3,
+}
+DEFAULT_PACE = 0.02
 
 
 def _load() -> Dict[str, Dict[str, Any]]:
@@ -61,15 +91,13 @@ def get_case(case_id: Optional[str]) -> Optional[Dict[str, Any]]:
 
 
 def _schedule(events: List[Dict[str, Any]], total: float) -> List[float]:
-    """Per-event delays (seconds) that keep the recorded rhythm but fit inside `total`."""
-    offsets = [float(e.get("t", 0.0)) for e in events]
-    span = (offsets[-1] - offsets[0]) if offsets else 0.0
-    scale = min(1.0, total / span) if span > 0 else 0.0
-    delays, previous = [], offsets[0] if offsets else 0.0
-    for offset in offsets:
-        delays.append(max(0.0, (offset - previous) * scale))
-        previous = offset
-    return delays
+    """Per-event delays (seconds): each step gets its PACE share of `total`."""
+    weights = [
+        PACE.get((e.get("stage"), e.get("type")), PACE.get(e.get("type"), DEFAULT_PACE)) if i else 0.0
+        for i, e in enumerate(events)
+    ]
+    scale = total / sum(weights) if sum(weights) > 0 else 0.0
+    return [w * scale for w in weights]
 
 
 async def replay(run_id: str, case: Dict[str, Any], seconds: float = REPLAY_SECONDS) -> None:
