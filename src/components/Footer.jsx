@@ -13,7 +13,7 @@ export default function Footer({ setView }) {
           <div className="col-span-2 md:col-span-2">
             <div className="flex items-center gap-2.5 mb-4 cursor-pointer group" onClick={() => setView('landing')}>
               <div className="w-10 h-10 rounded-xl overflow-hidden shadow-sm flex items-center justify-center group-hover:scale-105 transition-transform duration-200">
-                <img src="/SlayQLlogo.png" alt="SlayQL Logo" className="w-full h-full object-contain" />
+                <img src="/slayql-logo-192.webp" alt="SlayQL Logo" className="w-full h-full object-contain" />
               </div>
               <span className="slayql-logo is-dark text-2xl tracking-tight">
                 <span className="slay">Slay</span><span className="ql">QL</span>

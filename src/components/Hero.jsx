@@ -3,13 +3,18 @@ import { ArrowRight, BarChart3 } from 'lucide-react';
 import BrandLogo from './landing/BrandLogo';
 import { PROJECT } from '../content/projectInfo';
 
+// WebP at three widths (.pytest_tmp/images/build_images.py); the browser picks the smallest
+// that fills the screen. The first one is preloaded from index.html.
+const heroSrcSet = (n) => [768, 1280, 1916].map((w) => `/landing/hero-${n}-${w}.webp ${w}w`).join(', ');
 const HERO_IMAGES = [
   {
-    src: '/hero-section.png',
+    src: '/landing/hero-1-1916.webp',
+    srcSet: heroSrcSet(1),
     alt: 'Monash University Malaysia campus with SlayQL question-to-answer cognitive pipeline flow.',
   },
   {
-    src: '/hero-section-2.png',
+    src: '/landing/hero-2-1916.webp',
+    srcSet: heroSrcSet(2),
     alt: 'SlayQL data reasoning and verified answer checkpoints on campus.',
   },
 ];
@@ -18,13 +23,28 @@ const SLIDE_DURATION = 4500; // 4.5 seconds per image
 
 export default function Hero({ setView }) {
   const [currentSlide, setCurrentSlide] = useState(0);
+  // The other slides are fetched only after the page has loaded, and the slider starts once
+  // they are ready: the first view downloads one hero image, and no slide ever shows blank.
+  const [restRequested, setRestRequested] = useState(false);
+  const [restReady, setRestReady] = useState(0);
 
   useEffect(() => {
+    const request = () => setRestRequested(true);
+    if (document.readyState === 'complete') {
+      request();
+      return undefined;
+    }
+    window.addEventListener('load', request, { once: true });
+    return () => window.removeEventListener('load', request);
+  }, []);
+
+  useEffect(() => {
+    if (restReady < HERO_IMAGES.length - 1) return undefined;
     const timer = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % HERO_IMAGES.length);
     }, SLIDE_DURATION);
     return () => clearInterval(timer);
-  }, []);
+  }, [restReady]);
 
   const scrollToResults = (e) => {
     e.preventDefault();
@@ -38,14 +58,17 @@ export default function Hero({ setView }) {
       <div className="relative h-[45dvh] min-h-[260px] lg:absolute lg:inset-0 lg:h-auto overflow-hidden">
         <div className="hero-parallax h-full w-full relative">
           {HERO_IMAGES.map((img, index) => {
+            if (index > 0 && !restRequested) return null;
             const isActive = index === currentSlide;
             return (
               <img
                 key={img.src}
                 src={img.src}
+                srcSet={img.srcSet}
+                sizes="100vw"
                 alt={img.alt}
-                loading={index === 0 ? 'eager' : 'lazy'}
-                fetchPriority={index === 0 ? 'high' : 'auto'}
+                fetchPriority={index === 0 ? 'high' : 'low'}
+                onLoad={index > 0 ? () => setRestReady((n) => n + 1) : undefined}
                 className={`hero-slide-image absolute inset-0 h-full w-full object-cover object-[70%_50%] lg:object-[58%_30%] transition-all duration-1000 ease-in-out ${
                   isActive
                     ? 'opacity-100 scale-100 z-[1]'

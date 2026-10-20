@@ -9,6 +9,15 @@
 
     handle {
         root * /usr/share/caddy
+        # Build files have content hashes in their names, so they never change: cache for a
+        # year. Images and icons: a day. The page itself is always rechecked, so a deploy
+        # shows up on the next visit.
+        @hashed path /assets/*
+        header @hashed Cache-Control "public, max-age=31536000, immutable"
+        @media path *.webp *.png *.svg *.ico *.jpg *.jpeg *.woff2
+        header @media Cache-Control "public, max-age=86400"
+        @page not path /assets/* *.webp *.png *.svg *.ico *.jpg *.jpeg *.woff2
+        header @page Cache-Control "no-cache"
         try_files {path} /index.html
         file_server
     }

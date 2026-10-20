@@ -92,7 +92,7 @@ export default function ProfileView({ setView, session, onSessionUpdate, onLogou
     <div className={`live-demo-shell theme-${theme} min-h-screen flex bg-[#f7f9fc] text-slate-900`}>
       <aside className={`hidden md:flex w-64 shrink-0 flex-col border-r ${theme === 'dark' ? 'bg-[#151924] border-slate-800' : 'bg-white border-slate-200'}`}>
         <button onClick={() => setView('demo')} className="h-20 px-4 border-b border-slate-200/60 flex items-center gap-3 text-left">
-          <div className="w-10 h-10 rounded-xl overflow-hidden bg-white p-1 shadow-sm"><img src="/SlayQLlogo.png" alt="SlayQL" className="w-full h-full object-contain" /></div>
+          <div className="w-10 h-10 rounded-xl overflow-hidden bg-white p-1 shadow-sm"><img src="/slayql-logo-192.webp" alt="SlayQL" className="w-full h-full object-contain" /></div>
           <span className="slayql-logo text-xl tracking-tight">
             <span className="slay">Slay</span><span className="ql">QL</span>
           </span>
@@ -109,7 +109,7 @@ export default function ProfileView({ setView, session, onSessionUpdate, onLogou
 
       <main className="min-w-0 flex-1">
         <header className="h-16 px-4 sm:px-8 flex items-center justify-between border-b border-slate-200 bg-white/95">
-          <div className="flex items-center gap-3"><button onClick={() => setView('demo')} className="md:hidden w-9 h-9 rounded-lg flex items-center justify-center text-slate-500 hover:bg-slate-100"><ArrowLeft className="w-4 h-4" /></button><div className="md:hidden w-10 h-10 rounded-lg overflow-hidden bg-white p-1"><img src="/SlayQLlogo.png" alt="SlayQL" className="w-full h-full object-contain" /></div><div><h1 className="text-base font-bold text-slate-900">Profile and credits</h1><p className="text-[11px] text-slate-500">Manage your identity and workspace usage</p></div></div>
+          <div className="flex items-center gap-3"><button onClick={() => setView('demo')} className="md:hidden w-9 h-9 rounded-lg flex items-center justify-center text-slate-500 hover:bg-slate-100"><ArrowLeft className="w-4 h-4" /></button><div className="md:hidden w-10 h-10 rounded-lg overflow-hidden bg-white p-1"><img src="/slayql-logo-192.webp" alt="SlayQL" className="w-full h-full object-contain" /></div><div><h1 className="text-base font-bold text-slate-900">Profile and credits</h1><p className="text-[11px] text-slate-500">Manage your identity and workspace usage</p></div></div>
           <button onClick={() => setTheme((value) => value === 'light' ? 'dark' : 'light')} className="w-9 h-9 rounded-lg border border-slate-200 bg-white flex items-center justify-center text-slate-600" title="Change appearance">{theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}</button>
         </header>
 
