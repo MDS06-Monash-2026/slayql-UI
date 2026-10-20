@@ -175,7 +175,7 @@ export default function LoginView({ setView, onLoginSuccess }) {
         <div className="flex flex-1 items-center justify-center px-5 py-10 sm:px-10">
           <div className="w-full max-w-md">
             <div className="flex items-center gap-3">
-              <img src="/SlayQLlogo.png" alt="" className="h-11 w-11 rounded-xl object-contain shadow-sm" />
+              <img src="/slayql-logo-192.webp" alt="" className="h-11 w-11 rounded-xl object-contain shadow-sm" />
               <span className="slayql-logo text-2xl tracking-tight"><span className="slay">Slay</span><span className="ql">QL</span></span>
             </div>
             <h1 className="mt-8 text-3xl font-semibold tracking-[-0.03em] text-slate-950 sm:text-4xl">Try SlayQL</h1>

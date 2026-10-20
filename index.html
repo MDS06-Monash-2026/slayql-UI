@@ -18,7 +18,18 @@
   <meta name="twitter:card" content="summary_large_image" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="preload" as="image" href="/landing/hero-section.webp" media="(min-width: 1024px)" />
+  <script>
+    // Landing page only: start the first hero image now, not after the app bundle has run.
+    // Same srcset and sizes as the <img> in Hero.jsx, so the browser reuses this download.
+    if (location.pathname === '/') {
+      var hero = document.createElement('link');
+      hero.rel = 'preload'; hero.as = 'image'; hero.fetchPriority = 'high';
+      hero.href = '/landing/hero-1-1916.webp';
+      hero.imageSrcset = '/landing/hero-1-768.webp 768w, /landing/hero-1-1280.webp 1280w, /landing/hero-1-1916.webp 1916w';
+      hero.imageSizes = '100vw';
+      document.head.appendChild(hero);
+    }
+  </script>
 </head>
 <body class="bg-white font-sans text-slate-900 antialiased">
   <div id="root"></div>

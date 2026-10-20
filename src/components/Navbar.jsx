@@ -121,7 +121,7 @@ export default function Navbar({ setView, currentView }) {
             {/* Brand Logo & Name */}
             <div className="flex items-center gap-2.5 cursor-pointer group" onClick={() => setView('landing')}>
               <div className="brand-logo flex items-center justify-center w-10 h-10 rounded-xl overflow-hidden shadow-sm group-hover:scale-105 transition-transform duration-200">
-                <img src="/SlayQLlogo.png" alt="SlayQL Logo" className="w-full h-full object-contain" />
+                <img src="/slayql-logo-192.webp" alt="SlayQL Logo" className="w-full h-full object-contain" />
               </div>
               <div className="relative inline-flex flex-col">
                 <span className="slayql-logo text-2xl tracking-tight">

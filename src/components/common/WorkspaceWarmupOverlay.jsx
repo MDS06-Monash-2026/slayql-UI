@@ -24,7 +24,7 @@ export default function WorkspaceWarmupOverlay({ stage = WARMUP_STEPS[0] }) {
           <div className="relative h-20 w-20">
             <span aria-hidden="true" className="warmup-ring absolute -inset-1.5 rounded-[1.6rem]" />
             <div className="relative flex h-full w-full items-center justify-center rounded-[1.4rem] bg-white p-1.5 shadow-md dark:bg-slate-900">
-              <img src="/SlayQLlogo.png" alt="" className="h-full w-full object-contain" />
+              <img src="/slayql-logo-192.webp" alt="" className="h-full w-full object-contain" />
             </div>
           </div>
 
