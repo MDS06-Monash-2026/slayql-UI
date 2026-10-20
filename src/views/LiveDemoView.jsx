@@ -219,6 +219,10 @@ const ConversationAssistantMessage = React.memo(function ConversationAssistantMe
 
 // v2: the default moved to three compared queries, the setting the evaluation measured.
 const EFFORT_STORAGE_KEY = 'slayql_thinking_effort_v2';
+// Chats saved with the previous default model (until 20 October 2026) reopen on the current default:
+// an empty choice lets the model selector pick it.
+const RETIRED_DEFAULT_MODELS = new Set(['gpt-5.6-luna']);
+const restoredModelId = (id) => (RETIRED_DEFAULT_MODELS.has(id) ? '' : id);
 const DEMO_OUTCOME_DOT = { confident: 'bg-emerald-500', caveat: 'bg-amber-500', clarify: 'bg-sky-500', handoff: 'bg-slate-500' };
 
 function isLikelySqlTurn(text) {
@@ -586,7 +590,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
     const cached = threadCacheRef.current.get(id);
     if (cached) {
       setMessages(cached.messages);
-      if (cached.selected_model_id) setSelectedModelId(cached.selected_model_id);
+      if (cached.selected_model_id) setSelectedModelId(restoredModelId(cached.selected_model_id));
       if (cached.connection_id && cached.connection_id !== selectedConnectionRef.current) {
         setSelectedConnectionId(cached.connection_id);
         loadCatalog(cached.connection_id).catch(() => {});
@@ -612,7 +616,7 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
       });
 
       setMessages(formattedMessages);
-      if (thread.selected_model_id) setSelectedModelId(thread.selected_model_id);
+      if (thread.selected_model_id) setSelectedModelId(restoredModelId(thread.selected_model_id));
       if (thread.connection_id && thread.connection_id !== selectedConnectionRef.current) {
         setSelectedConnectionId(thread.connection_id);
         loadCatalog(thread.connection_id).catch(() => {});

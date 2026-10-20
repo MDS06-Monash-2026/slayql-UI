@@ -85,7 +85,7 @@ export function GapBars({ rows, play }) {
           </div>
         </div>
       ))}
-      <figcaption className="text-xs text-slate-500">BIRD dev, {RESEARCH_NAME} research runs (deepseek-v4-flash).</figcaption>
+      <figcaption className="text-xs text-slate-500">BIRD dev, {RESEARCH_NAME} research runs (DeepSeek V4 Flash).</figcaption>
     </figure>
   );
 }

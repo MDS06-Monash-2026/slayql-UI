@@ -78,6 +78,25 @@ def _fast_greeting_answer(question: str) -> Optional[str]:
     return answers[sum(ord(char) for char in question) % len(answers)]
 
 
+def _grounded_general_answer(catalog_summary: Optional[Dict[str, Any]]) -> str:
+    """A useful reply for a non-data question, built from the real tables (no model call)."""
+    tables = [str(t.get("name")) for t in (catalog_summary or {}).get("tables", []) if t.get("name")]
+    if not tables:
+        return (
+            "I answer questions from your connected database. Ask for a number, a list or a comparison, "
+            "for example \"How many orders were placed last month?\", or ask \"What tables are there?\" to see what's available."
+        )
+    # Prefer business-looking tables for the examples; fall back to whatever the database has.
+    preferred = [t for t in tables if re.search(r"order|sale|invoice|customer|product|payment|transaction", t, re.I)] or tables
+    first, second = preferred[0], (preferred[1] if len(preferred) > 1 else tables[-1])
+    names = ", ".join(f"`{t}`" for t in tables[:6]) + (f" and {len(tables) - 6} more" if len(tables) > 6 else "")
+    return (
+        f"I didn't run a query for that, since it doesn't ask for data. This database has {len(tables)} tables, including {names}. "
+        f"You could ask, for example: \"Show all {first.replace('_', ' ')}\", \"Describe the {second} table\", "
+        f"or \"How many rows are in each table?\""
+    )
+
+
 def _catalog_operation(question: str) -> str:
     normalized = re.sub(r"\s+", " ", question.strip().casefold())
     related_markers = (
@@ -428,12 +447,7 @@ class GeminiWorkbenchAgent:
                 "model": "slayql/local-response",
                 "mode": "local_heuristic",
             }
-        fallback_answers = [
-            "I can help you explore the connected database. Ask about its tables, row counts, trends, comparisons, or a specific business metric.",
-            "I can answer database questions and turn clear data requests into read-only SQL. Try asking what tables exist or which metric you want to analyze.",
-            "That is a general question, so I have not queried the database. Tell me what you would like to understand and I will guide you to the right analysis.",
-        ]
-        fallback = {"answer": fallback_answers[sum(ord(char) for char in question) % len(fallback_answers)]}
+        fallback = {"answer": _grounded_general_answer(catalog_summary)}
         schema = {
             "type": "object",
             "properties": {"answer": {"type": "string"}},

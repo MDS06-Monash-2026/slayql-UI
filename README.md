@@ -121,7 +121,7 @@ LOG_LEVEL=INFO
 
 # AI gateway (used for agentic SQL generation)
 LLM_PROVIDER=opentk                  # opentk (development default) or together
-OPENTK_KEY=your_opentk_key_here       # models: deepseek-v4.1-flash (default), glm-5.3
+OPENTK_KEY=your_opentk_key_here       # GPT models; see .env.example for the other keys
 TOGETHER_API_KEY=                     # when LLM_PROVIDER=together (TOGETHER_AI_KEY also works);
                                       # models: deepseek-ai/DeepSeek-V4-Flash-0731, moonshotai/Kimi-K3
 EXECUTION_MODEL=                      # optional; default is the provider's first model

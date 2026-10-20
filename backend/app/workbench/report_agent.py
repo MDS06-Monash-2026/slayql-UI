@@ -1,4 +1,4 @@
-"""SlayQL report agent: a LangGraph graph around the deep model (gpt-6.1-sol).
+"""SlayQL report agent: a LangGraph graph around the deep model (llm_client.DEEP_MODEL).
 
 The agent explores the database with tools before it plans, the way an analyst would:
 

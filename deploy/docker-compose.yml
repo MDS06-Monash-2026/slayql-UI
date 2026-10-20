@@ -12,6 +12,11 @@ services:
       - LLM_PROVIDER=${LLM_PROVIDER:-opentk}
       - OPENTK_KEY=${OPENTK_KEY}
       - TOGETHER_API_KEY=${TOGETHER_API_KEY}
+      - OPENTK_CHINESE=${OPENTK_CHINESE:-}
+      - XIMEI_1=${XIMEI_1:-}
+      - XIMEI_2=${XIMEI_2:-}
+      - XIMEI_3=${XIMEI_3:-}
+      - CLAUDE_XIMEI=${CLAUDE_XIMEI:-}
       - LLM_BASE_URL=${LLM_BASE_URL:-}
       - EXECUTION_MODEL=${EXECUTION_MODEL:-}
       - DEEP_MODEL=${DEEP_MODEL:-}

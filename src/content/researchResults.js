@@ -1,46 +1,46 @@
 // C-CaSE research figures shown on the landing page.
 //
-// Measured figures are copied from the C-CaSE repository's analysis output (run/pub_results/,
-// generated 26 September 2026: runs_summary.md, oracle_at_k.md, spider2_linking.md) and the
-// full Spider 2.0-Lite run (run/log_spider2_full_slayql). Model: deepseek-v4-flash.
-//
-// Entries marked `pending: true` belong to the BIRD dev ablation runs that are still running
-// (run/PUBLICATION_RUNBOOK.md, section 1.1). They render as "in progress" with no number. When the
-// results package arrives, run `python -m pub.run_analysis`, copy each EX and tokens figure from
-// pub_results/runs_summary.md, and remove `pending`.
+// Spider figures are copied from the C-CaSE repository's analysis output (run/pub_results/,
+// generated 26 September 2026: runs_summary.md, spider2_linking.md) and the full Spider 2.0-Lite
+// run (run/log_spider2_full_slayql). BIRD figures come from the final v1.9 run
+// (run/bird_dev_v19_full, aggregates/summary_metrics.json, October 2026): 904 of 1,534 correct,
+// zero execution errors. Model: DeepSeek V4 Flash (0731).
 
 export const BENCHMARKS = [
   { name: 'Spider 1.0', detail: 'test set', n: 2147, ex: 0.6539, note: '3 candidates' },
-  { name: 'BIRD', detail: 'dev set', n: 1534, ex: 0.5619, ci: [0.537, 0.587], note: '5 candidates' },
+  // 95% Wilson interval for 904 of 1,534.
+  { name: 'BIRD', detail: 'dev set', n: 1534, ex: 0.5893, ci: [0.5645, 0.6137], note: '5 candidates' },
   { name: 'Spider 2.0-Lite', detail: 'enterprise databases', n: 547, ex: 0.4589, note: '251 of 547' },
 ];
 
-// BIRD dev, pipeline versions 1.0 and 1.8 (same 1,534 questions).
+// BIRD dev, pipeline versions 1.0, 1.8 and 1.9 (same 1,534 questions). v1.9's provider reported
+// no cost, so none is claimed (costPerQuestion: null).
 export const VERSIONS = [
   { version: 'v1.0', ex: 0.4915, tokens: 37061, costPerQuestion: 0.0034 },
   { version: 'v1.8', ex: 0.5619, tokens: 50738, costPerQuestion: 0.0066 },
+  { version: 'v1.9', ex: 0.5893, tokens: 51595, costPerQuestion: null },
 ];
 
-// BIRD dev v1.8: is a correct query among the first k candidates (oracle), and does voting pick it.
+// BIRD dev v1.9: is a correct query among the first k of the 5 candidates (oracle)? Computed from
+// each question's correct_candidate_ids. SELECTED_EX is what SlayQL actually chose.
 export const ORACLE_AT_K = [
-  { k: 1, oracle: 0.5763, vote: 0.5763 },
-  { k: 2, oracle: 0.6213, vote: 0.5763 },
-  { k: 3, oracle: 0.6558, vote: 0.5874 },
-  { k: 4, oracle: 0.6747, vote: 0.5867 },
-  { k: 5, oracle: 0.6871, vote: 0.59 },
+  { k: 1, oracle: 0.5867 },
+  { k: 2, oracle: 0.6199 },
+  { k: 3, oracle: 0.6382 },
+  { k: 4, oracle: 0.6486 },
+  { k: 5, oracle: 0.6545 },
 ];
-export const SELECTED_EX = 0.5619;
+export const SELECTED_EX = 0.5893;
+// When a correct candidate existed, how often it was chosen: 1,004 such questions in v1.9, 100 missed.
+export const PICK_RATE = { before: 0.80, after: 0.9004, beforeVersion: 'v1.0', afterVersion: 'v1.9' };
 
 // Spider 2.0-Lite schema linking against the gold SQL (248 questions with a parsable gold query).
 export const LINKING = { n: 248, tableRecall: 0.955, columnRecall: 0.92 };
 
-// BIRD dev ablation (one candidate per question, all 1,534 questions). Still running.
-export const ABLATION = [
-  { id: 'ref', label: 'Full SlayQL Link', what: 'Reference for every comparison', pending: true },
-  { id: 'no_rbp', label: 'Without RBP', what: 'Relevance spread along foreign keys removed', pending: true },
-  { id: 'no_bm25', label: 'Without BM25 grounding', what: 'Value matching removed', pending: true },
-  { id: 'no_qoc', label: 'Without QOC', what: 'Strict output format removed', pending: true },
-  { id: 'itee_max', label: 'IT-EE at its most active', what: 'Early exit wherever allowed: tokens saved', pending: true },
-  { id: 'topn20', label: 'Top 20 columns', what: 'Tight schema retrieval', pending: true },
-  { id: 'topn50', label: 'Top 50 columns', what: 'Medium schema retrieval', pending: true },
+// What the study found (docs/presentation/QA_PREP.md; BIRD v1.9 summary for table recall).
+export const FINDINGS = [
+  { id: 'tables', label: 'Finding the tables is solved', value: '99.6%', what: 'of the tables each BIRD answer needs were in front of the AI' },
+  { id: 'picking', label: 'Picking is the hard part', value: '80% → 90%', what: 'how often the right query is chosen when one was written (v1.0 → v1.9)' },
+  { id: 'untuned', label: 'Not tuned to the test', value: '+6.0 pts', what: 'v1.9 over v1.0 on the 1,227 questions never used for tuning (p < 0.001)' },
+  { id: 'budget', label: 'A negative result, reported', value: 'No saving', what: 'the adaptive budget never shortened exploration: the AI stayed uncertain' },
 ];

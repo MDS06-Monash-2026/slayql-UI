@@ -345,8 +345,10 @@ async def test_llm_model_list():
     assert PROVIDER_ID == "opentk"
     ids = [m.id for m in models]
     # Everyday model first, difficult-work model second; every listed model is shown, available or not.
-    assert ids[:2] == ["gpt-5.6-luna", "gpt-6.1-sol"] and len(ids) == len(set(ids)) == 21
-    assert all(m.provider in {"OpenAI", "DeepSeek", "Zhipu AI", "Moonshot AI"} for m in models)
+    assert ids[:2] == ["deepseek-v4.1-flash-1017", "gpt-5.6-terra"] and len(ids) == len(set(ids)) == 26
+    assert all(m.provider in {"OpenAI", "DeepSeek", "Zhipu AI", "Moonshot AI", "Alibaba", "Anthropic"} for m in models)
+    # The Claude key also reaches Opus; it is never offered.
+    assert not any("opus" in model_id for model_id in ids)
     # A model that is listed but unavailable never runs: the default takes its place.
     unavailable = next(m.id for m in models if not m.is_available)
     assert llm_client.execution_model_id(unavailable) == DEFAULT_MODEL
@@ -381,7 +383,7 @@ async def test_llm_stream_is_parsed_priced_and_retried_without_reasoning():
     client = LLMClient()
     client.api_key = "test-key"
     client._http_client = httpx.AsyncClient(transport=httpx.MockTransport(together))
-    # Luna is sent the reasoning switch (V4 Pro, the default, never is; checked below).
+    # Luna is sent the reasoning switch (V4 Pro never is; checked below).
     switched = "gpt-5.6-luna"
     events = [e async for e in client.stream_sql(
         requested_model_id=switched, question="How many orders?", dialect="sqlite",
@@ -402,13 +404,10 @@ async def test_llm_stream_is_parsed_priced_and_retried_without_reasoning():
     assert requests[1]["stream_options"] == {"include_usage": True}
     assert switched in client._no_reasoning_param
 
-    # The default model is configured to run without the switch from the first request.
-    requests.clear()
-    _ = [e async for e in client.stream_sql(
-        requested_model_id=DEFAULT_MODEL, question="How many orders?", dialect="sqlite",
-        schema_context="TABLE orders (id)", grounding_hints="", retrieval_context="", reasoning_effort="medium",
-    )]
-    assert len(requests) == 1 and "reasoning" not in requests[0]
+    # V4 Pro is configured to run without the switch from the first request. The default model
+    # accepts it (checked against the provider on 20 October 2026), so it is sent.
+    assert "deepseek-v4-pro-0813" in client._no_reasoning_param
+    assert DEFAULT_MODEL not in client._no_reasoning_param
 
 
 @pytest.mark.asyncio
