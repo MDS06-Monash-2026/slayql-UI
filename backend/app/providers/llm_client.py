@@ -29,6 +29,17 @@ class ProviderError(RuntimeError):
     """A public-safe provider failure with no credential or upstream body."""
 
 
+BUSY_MESSAGE = "The AI service is busy right now; please try again in a minute."
+RATE_LIMITED_MESSAGE = "The AI provider is rate-limiting requests; try again shortly."
+# Failures that another key may not have: the next key is tried before giving up.
+CAPACITY_ERRORS = {BUSY_MESSAGE, RATE_LIMITED_MESSAGE}
+
+
+def _is_busy(detail: Any) -> bool:
+    """An upstream error that means "no capacity right now", not "bad request"."""
+    return bool(re.search(r"overload|rate.?limit|capacity|unavailable|busy|try again", str(detail), re.IGNORECASE))
+
+
 class ModelInfo(BaseModel):
     id: str
     name: str
@@ -43,6 +54,13 @@ class ModelInfo(BaseModel):
     tags: List[str] = Field(default_factory=list)
 
 
+# Extra keys on the OpenTK provider, one per group of models (see LLMClient._credentials).
+XIMEI_URL = "https://ximei.codes/v1"
+CHINESE_MODEL_PREFIXES = ("deepseek-", "glm-", "kimi-", "qwen")
+_OPENTK = settings.LLM_PROVIDER.lower() == "opentk"
+_CHINESE_KEY = bool(_OPENTK and settings.OPENTK_CHINESE)
+_CLAUDE_KEY = bool(_OPENTK and settings.CLAUDE_XIMEI)
+
 PROVIDERS: Dict[str, Dict[str, Any]] = {
     "opentk": {
         "label": "OpenTK",
@@ -51,25 +69,40 @@ PROVIDERS: Dict[str, Dict[str, Any]] = {
         # schema prompts (measured 1 October 2026); off, it took 5-8 s and answered the checks correctly.
         "no_reasoning": ["deepseek-v4-pro-0813"],
         "key_settings": ("OPENTK_KEY", "OPENTK_API_KEY"),
-        # First model: everyday work. Second: difficult work (High/Max effort, report planning).
-        # Prices: the gateway's model list (October 2026), USD per million tokens before the group rate.
-        # Availability as tested on 1 October 2026; unavailable models are listed but never run.
+        # The model tagged "default" runs everyday work; the one tagged "deep" runs difficult work
+        # (High/Max effort, report planning). Chosen in a speed and accuracy test on 20 October 2026:
+        # on eight hard business questions DeepSeek V4.1 Flash matched the best GPT models (7 of 8)
+        # in a third of the time (median 6 s against 18-21 s) and never hit an overload.
+        # Prices: the gateway's model list (October 2026), USD per million tokens before the group rate;
+        # 0 where none is published. Chinese and Claude models need their own key (see LLMClient._credentials).
         "models": [
-            ModelInfo(id="gpt-5.6-luna", name="GPT-5.6 Luna", provider="OpenAI",
-                      description="Everyday questions. Low cost.",
-                      input_price=0.2, output_price=1.2, cached_input_price=0.02, tags=["default", "fast"]),
-            ModelInfo(id="gpt-6.1-sol", name="GPT-6.1 Sol", provider="OpenAI",
-                      description="Difficult questions and report planning.",
-                      input_price=2.0, output_price=10.0, cached_input_price=0.1, tags=["deep", "fast"]),
+            ModelInfo(id="deepseek-v4.1-flash-1017", name="DeepSeek V4.1 Flash", provider="DeepSeek",
+                      description="Everyday questions. Fastest accurate model in our tests.",
+                      input_price=0.15, output_price=0.6, cached_input_price=0.003, tags=["default", "fast"],
+                      is_available=_CHINESE_KEY),
             ModelInfo(id="gpt-5.6-terra", name="GPT-5.6 Terra", provider="OpenAI",
-                      description="Balanced speed and depth.",
-                      input_price=2.0, output_price=12.0, cached_input_price=0.2, tags=["fast"]),
+                      description="Difficult questions and report planning.",
+                      input_price=2.0, output_price=12.0, cached_input_price=0.2, tags=["deep"]),
+            ModelInfo(id="gpt-5.6-luna", name="GPT-5.6 Luna", provider="OpenAI",
+                      description="Low cost. In October 2026 the gateway answered it with Terra.",
+                      input_price=0.2, output_price=1.2, cached_input_price=0.02, tags=[]),
+            ModelInfo(id="gpt-6.1-sol", name="GPT-6.1 Sol", provider="OpenAI",
+                      description="Deep reasoning; often overloaded.",
+                      input_price=2.0, output_price=10.0, cached_input_price=0.1, tags=["deep"]),
+            ModelInfo(id="gpt-6-sol", name="GPT-6 Sol", provider="OpenAI",
+                      description="Deep reasoning.",
+                      input_price=2.0, output_price=10.0, cached_input_price=0.2, tags=["deep"]),
+            ModelInfo(id="qwen3.8-max", name="Qwen 3.8 Max", provider="Alibaba",
+                      description="Large Qwen model.", tags=[], is_available=_CHINESE_KEY),
+            ModelInfo(id="qwen3.8-flash", name="Qwen 3.8 Flash", provider="Alibaba",
+                      description="Fast Qwen model.", tags=["fast"], is_available=_CHINESE_KEY),
             ModelInfo(id="glm-5.3", name="GLM-5.3", provider="Zhipu AI",
                       description="Strong open model.",
-                      input_price=1.4, output_price=4.4, cached_input_price=0.26, tags=["fast"]),
+                      input_price=1.4, output_price=4.4, cached_input_price=0.26, tags=[], is_available=_CHINESE_KEY),
             ModelInfo(id="glm-5.2", name="GLM-5.2", provider="Zhipu AI",
                       description="Previous GLM generation.",
-                      input_price=1.1792, output_price=4.1273, cached_input_price=0.2948, tags=[]),
+                      input_price=1.1792, output_price=4.1273, cached_input_price=0.2948, tags=[],
+                      is_available=_CHINESE_KEY),
             ModelInfo(id="gpt-5.5", name="GPT-5.5", provider="OpenAI",
                       description="General-purpose model.",
                       input_price=5.0, output_price=30.0, cached_input_price=0.5, tags=[]),
@@ -79,9 +112,6 @@ PROVIDERS: Dict[str, Dict[str, Any]] = {
             ModelInfo(id="gpt-5.6-sol", name="GPT-5.6 Sol", provider="OpenAI",
                       description="Deep reasoning.",
                       input_price=5.0, output_price=30.0, cached_input_price=0.5, tags=["deep"]),
-            ModelInfo(id="gpt-6-sol", name="GPT-6 Sol", provider="OpenAI",
-                      description="Deep reasoning.",
-                      input_price=2.0, output_price=10.0, cached_input_price=0.2, tags=["deep"]),
             ModelInfo(id="gpt-6-astra", name="GPT-6 Astra", provider="OpenAI",
                       description="Most capable, highest cost.",
                       input_price=10.0, output_price=50.0, cached_input_price=1.0, tags=["deep"]),
@@ -90,19 +120,26 @@ PROVIDERS: Dict[str, Dict[str, Any]] = {
                       input_price=0.2, output_price=1.2, cached_input_price=0.02, tags=[]),
             ModelInfo(id="glm-5.3-flash", name="GLM-5.3 Flash", provider="Zhipu AI",
                       description="Low-cost GLM.",
-                      input_price=0.15, output_price=0.5, cached_input_price=0.03, tags=[]),
+                      input_price=0.15, output_price=0.5, cached_input_price=0.03, tags=[], is_available=_CHINESE_KEY),
             ModelInfo(id="kimi-k3", name="Kimi K3", provider="Moonshot AI",
                       description="Long-context model.",
-                      input_price=2.9481, output_price=14.7403, cached_input_price=0.2948, tags=["deep"]),
+                      input_price=2.9481, output_price=14.7403, cached_input_price=0.2948, tags=[],
+                      is_available=_CHINESE_KEY),
             ModelInfo(id="deepseek-v4-pro-0813", name="DeepSeek V4 Pro", provider="DeepSeek",
-                      description="Fast and low cost. Not available right now.",
-                      input_price=0.15, output_price=0.6, cached_input_price=0.003, tags=[], is_available=False),
+                      description="Larger DeepSeek model.",
+                      input_price=0.15, output_price=0.6, cached_input_price=0.003, tags=[], is_available=_CHINESE_KEY),
             ModelInfo(id="deepseek-v4-flash-0731", name="DeepSeek V4 Flash", provider="DeepSeek",
-                      description="Not available right now.",
-                      input_price=0.15, output_price=0.6, cached_input_price=0.003, tags=[], is_available=False),
-            ModelInfo(id="deepseek-v4.1-flash", name="DeepSeek V4.1 Flash", provider="DeepSeek",
-                      description="Not available right now.",
-                      input_price=0.15, output_price=0.6, cached_input_price=0.003, tags=[], is_available=False),
+                      description="Previous DeepSeek Flash.",
+                      input_price=0.15, output_price=0.6, cached_input_price=0.003, tags=[], is_available=_CHINESE_KEY),
+            ModelInfo(id="deepseek-v4.1-flash", name="DeepSeek V4.1 Flash (latest alias)", provider="DeepSeek",
+                      description="Same model family as the default.",
+                      input_price=0.15, output_price=0.6, cached_input_price=0.003, tags=["fast"],
+                      is_available=_CHINESE_KEY),
+            # Sonnet only: the Claude key also reaches Opus, which is never offered (cost).
+            ModelInfo(id="claude-sonnet-5", name="Claude Sonnet 5", provider="Anthropic",
+                      description="Claude via ximei.codes.", tags=[], is_available=_CLAUDE_KEY),
+            ModelInfo(id="claude-sonnet-4-6", name="Claude Sonnet 4.6", provider="Anthropic",
+                      description="Claude via ximei.codes.", tags=[], is_available=_CLAUDE_KEY),
             ModelInfo(id="gpt-5.4", name="GPT-5.4", provider="OpenAI",
                       description="Not available on this plan.",
                       input_price=2.5, output_price=15.0, cached_input_price=0.25, tags=[], is_available=False),
@@ -142,10 +179,13 @@ PROVIDERS: Dict[str, Dict[str, Any]] = {
 # When a model fails before answering (rate limit, outage), try these next, in order.
 BUILT_IN_FALLBACKS: Dict[str, Dict[str, List[str]]] = {
     "opentk": {
-        "gpt-5.6-luna": ["gpt-5.6-terra", "glm-5.3"],
-        "gpt-6.1-sol": ["glm-5.3", "gpt-5.6-luna"],
-        "gpt-5.6-terra": ["gpt-5.6-luna"],
-        "glm-5.3": ["gpt-6.1-sol"],
+        # A backup on another key comes early, so one busy key does not stop a run.
+        "deepseek-v4.1-flash-1017": ["deepseek-v4.1-flash", "gpt-5.6-terra"],
+        "gpt-5.6-terra": ["gpt-6-sol", "deepseek-v4.1-flash-1017"],
+        "gpt-5.6-luna": ["gpt-5.6-terra", "deepseek-v4.1-flash-1017"],
+        "gpt-6.1-sol": ["gpt-6-sol", "gpt-5.6-terra"],
+        "gpt-6-sol": ["gpt-5.6-terra"],
+        "glm-5.3": ["deepseek-v4.1-flash-1017"],
     },
     "together": {
         "deepseek-ai/DeepSeek-V4-Flash-0731": ["moonshotai/Kimi-K3"],
@@ -164,8 +204,14 @@ for _configured, _role in ((settings.EXECUTION_MODEL, "everyday questions"), (se
                                         description=f"Configured for {_role}.", tags=[]))
 MODEL_IDS = {model.id for model in CURATED_MODELS if model.is_available}
 MODEL_COMPANY = {model.id: model.provider for model in CURATED_MODELS}
-DEFAULT_MODEL = settings.EXECUTION_MODEL or CURATED_MODELS[0].id
-ALTERNATE_MODEL = DEEP_MODEL = settings.DEEP_MODEL or CURATED_MODELS[1].id
+# The first offered model tagged "default" (or the first offered), and the first other offered
+# model tagged "deep" (or the next offered): without the Chinese key, the GPT models take over.
+_OFFERED = [model for model in CURATED_MODELS if model.is_available]
+DEFAULT_MODEL = settings.EXECUTION_MODEL or next((m.id for m in _OFFERED if "default" in m.tags), _OFFERED[0].id)
+ALTERNATE_MODEL = DEEP_MODEL = settings.DEEP_MODEL or next(
+    (m.id for m in _OFFERED if "deep" in m.tags and m.id != DEFAULT_MODEL),
+    next(m.id for m in _OFFERED if m.id != DEFAULT_MODEL),
+)
 TEST_EXECUTION_MODEL = DEFAULT_MODEL
 
 
@@ -276,6 +322,10 @@ class LLMClient:
         self.base_url = (settings.LLM_BASE_URL or PROVIDER["base_url"]).rstrip("/")
         self.execution_model = DEFAULT_MODEL
         self.deep_model = DEEP_MODEL
+        # Extra keys (OpenTK only), one per group of models: see _credentials.
+        self.chinese_key = settings.OPENTK_CHINESE if _OPENTK else None
+        self.claude_key = settings.CLAUDE_XIMEI if _OPENTK else None
+        self.backup_keys = [key for key in (settings.XIMEI_1, settings.XIMEI_2, settings.XIMEI_3) if key] if _OPENTK else []
         self._http_client: Optional[httpx.AsyncClient] = None
         # Models whose deployment rejected the reasoning switch, so it is not sent again.
         self._no_reasoning_param: set = set(PROVIDER.get("no_reasoning", [])) | {
@@ -294,6 +344,16 @@ class LLMClient:
         if requested_model_id in MODEL_IDS:
             return requested_model_id
         return self.execution_model
+
+    def _credentials(self, model_id: str) -> List[Tuple[str, str]]:
+        """(base URL, key) pairs to try for a model, in order. Chinese models use OpenTK's
+        Chinese-model key and Claude models the ximei.codes Claude key; GPT models use the
+        OpenTK key, then the ximei.codes keys (same models) when it is busy."""
+        if model_id.startswith(CHINESE_MODEL_PREFIXES) and self.chinese_key:
+            return [(self.base_url, self.chinese_key)]
+        if model_id.startswith("claude-") and self.claude_key:
+            return [(XIMEI_URL, self.claude_key)]
+        return [(self.base_url, self.api_key)] + [(XIMEI_URL, key) for key in self.backup_keys]
 
     def _client(self) -> httpx.AsyncClient:
         if self._http_client is None or self._http_client.is_closed:
@@ -585,7 +645,6 @@ class LLMClient:
             }
             return
 
-        headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
         payload: Dict[str, Any] = {
             "model": execution_model_id,
             "messages": messages,
@@ -615,76 +674,101 @@ class LLMClient:
         tool_calls: Dict[int, Dict[str, Any]] = {}
         think = ThinkSplitter()
 
-        try:
-            for attempt in range(2):
-                async with self._client().stream(
-                    "POST", f"{self.base_url}/chat/completions", headers=headers, json=payload,
-                ) as response:
-                    if response.status_code in {400, 422} and attempt == 0 and ("reasoning" in payload or "reasoning_effort" in payload):
-                        # This deployment does not accept the reasoning switch: remember and retry without it.
-                        self._no_reasoning_param.add(execution_model_id)
-                        payload.pop("reasoning", None)
-                        payload.pop("reasoning_effort", None)
-                        continue
-                    if response.status_code == 402:
-                        raise ProviderError("The AI provider account is out of credit.")
-                    if response.status_code == 429:
-                        raise ProviderError("The AI provider is rate-limiting requests; try again shortly.")
-                    response.raise_for_status()
-                    async for line in response.aiter_lines():
-                        if not line.startswith("data:"):
+        # One key per model group. A busy key hands over to the next before any output, so an
+        # answer is never stitched together from two keys.
+        credentials = self._credentials(execution_model_id)
+        if len(credentials) == 1:
+            # A single key gets a second try: the gateway sometimes drops every open connection at once.
+            credentials = credentials * 2
+        for key_index, (base_url, api_key) in enumerate(credentials):
+            headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+            think = ThinkSplitter()
+            last_key = key_index == len(credentials) - 1
+            try:
+                for attempt in range(2):
+                    async with self._client().stream(
+                        "POST", f"{base_url}/chat/completions", headers=headers, json=payload,
+                    ) as response:
+                        if response.status_code in {400, 422} and attempt == 0 and ("reasoning" in payload or "reasoning_effort" in payload):
+                            # This deployment does not accept the reasoning switch: remember and retry without it.
+                            self._no_reasoning_param.add(execution_model_id)
+                            payload.pop("reasoning", None)
+                            payload.pop("reasoning_effort", None)
                             continue
-                        raw = line[5:].strip()
-                        if not raw or raw == "[DONE]":
-                            continue
-                        try:
-                            chunk = json.loads(raw)
-                        except json.JSONDecodeError:
-                            continue
-                        if chunk.get("error"):
-                            detail = chunk["error"].get("message") if isinstance(chunk["error"], dict) else chunk["error"]
-                            logger.warning("Provider error from %s: %s", execution_model_id, str(detail)[:300])
-                            raise ProviderError("The AI provider rejected the request.")
-                        response_id = chunk.get("id") or response_id
-                        resolved_model_id = chunk.get("model") or resolved_model_id
-                        if isinstance(chunk.get("usage"), dict) and chunk["usage"]:
-                            usage = chunk["usage"]
-                        choices = chunk.get("choices") or []
-                        if not choices:
-                            continue
-                        choice = choices[0]
-                        finish_reason = choice.get("finish_reason") or finish_reason
-                        delta = choice.get("delta") or {}
-
-                        reasoning = delta.get("reasoning") or delta.get("reasoning_content")
-                        if reasoning:
-                            reasoning_parts.append(reasoning)
-                            yield {"type": "reasoning_delta", "delta": reasoning}
-                        if delta.get("content"):
-                            visible, hidden = think.feed(delta["content"])
-                            if hidden:
-                                reasoning_parts.append(hidden)
-                                yield {"type": "reasoning_delta", "delta": hidden}
-                            if visible:
-                                content_parts.append(visible)
-                                yield {"type": "content_delta", "delta": visible}
-
-                        for tool_delta in delta.get("tool_calls") or []:
+                        if response.status_code == 402:
+                            raise ProviderError("The AI provider account is out of credit.")
+                        if response.status_code == 429:
+                            raise ProviderError(RATE_LIMITED_MESSAGE)
+                        if response.status_code in {502, 503, 504}:
+                            raise ProviderError(BUSY_MESSAGE)
+                        response.raise_for_status()
+                        async for line in response.aiter_lines():
+                            if not line.startswith("data:"):
+                                continue
+                            raw = line[5:].strip()
+                            if not raw or raw == "[DONE]":
+                                continue
                             try:
-                                index = int(tool_delta.get("index", 0))
-                            except (TypeError, ValueError):
-                                index = 0
-                            current = tool_calls.setdefault(index, {"id": None, "name": "", "arguments": ""})
-                            current["id"] = tool_delta.get("id") or current["id"]
-                            function_delta = tool_delta.get("function") or {}
-                            current["name"] = function_delta.get("name") or current["name"]
-                            if function_delta.get("arguments"):
-                                current["arguments"] += str(function_delta["arguments"])
-                break
-        except ProviderError:
-            raise
-        except (httpx.HTTPError, OSError, ValueError) as exc:
-            raise ProviderError("The AI provider request failed.") from exc
+                                chunk = json.loads(raw)
+                            except json.JSONDecodeError:
+                                continue
+                            if chunk.get("error"):
+                                detail = chunk["error"].get("message") if isinstance(chunk["error"], dict) else chunk["error"]
+                                logger.warning("Provider error from %s: %s", execution_model_id, str(detail)[:300])
+                                raise ProviderError(BUSY_MESSAGE if _is_busy(detail) else "The AI provider rejected the request.")
+                            response_id = chunk.get("id") or response_id
+                            resolved_model_id = chunk.get("model") or resolved_model_id
+                            if isinstance(chunk.get("usage"), dict) and chunk["usage"]:
+                                usage = chunk["usage"]
+                            choices = chunk.get("choices") or []
+                            if not choices:
+                                continue
+                            choice = choices[0]
+                            finish_reason = choice.get("finish_reason") or finish_reason
+                            delta = choice.get("delta") or {}
+
+                            reasoning = delta.get("reasoning") or delta.get("reasoning_content")
+                            if reasoning:
+                                reasoning_parts.append(reasoning)
+                                yield {"type": "reasoning_delta", "delta": reasoning}
+                            if delta.get("content"):
+                                visible, hidden = think.feed(delta["content"])
+                                if hidden:
+                                    reasoning_parts.append(hidden)
+                                    yield {"type": "reasoning_delta", "delta": hidden}
+                                if visible:
+                                    content_parts.append(visible)
+                                    yield {"type": "content_delta", "delta": visible}
+
+                            for tool_delta in delta.get("tool_calls") or []:
+                                try:
+                                    index = int(tool_delta.get("index", 0))
+                                except (TypeError, ValueError):
+                                    index = 0
+                                current = tool_calls.setdefault(index, {"id": None, "name": "", "arguments": ""})
+                                current["id"] = tool_delta.get("id") or current["id"]
+                                function_delta = tool_delta.get("function") or {}
+                                current["name"] = function_delta.get("name") or current["name"]
+                                if function_delta.get("arguments"):
+                                    current["arguments"] += str(function_delta["arguments"])
+                    break
+            except ProviderError as error:
+                if content_parts or reasoning_parts or tool_calls or last_key or str(error) not in CAPACITY_ERRORS:
+                    raise
+                logger.warning("Key %d for %s is busy (%s); trying the next key", key_index + 1, execution_model_id, error)
+                if credentials[key_index + 1][1] == api_key:
+                    await asyncio.sleep(1.0)
+                continue
+            except httpx.TransportError as exc:
+                if content_parts or reasoning_parts or tool_calls or last_key:
+                    raise ProviderError("The AI provider request failed.") from exc
+                logger.warning("Key %d for %s dropped the connection (%s); trying again", key_index + 1, execution_model_id, type(exc).__name__)
+                if credentials[key_index + 1][1] == api_key:
+                    await asyncio.sleep(1.0)
+                continue
+            except (httpx.HTTPError, OSError, ValueError) as exc:
+                raise ProviderError("The AI provider request failed.") from exc
+            break
 
         visible, hidden = think.flush()
         if visible:

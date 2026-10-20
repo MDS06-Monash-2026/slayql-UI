@@ -31,6 +31,14 @@ class Settings(BaseSettings):
     OPENTK_API_KEY: Optional[str] = None
     TOGETHER_API_KEY: Optional[str] = None
     TOGETHER_AI_KEY: Optional[str] = None
+    # More keys for the OpenTK provider, one per group of models (see llm_client.LLMClient._credentials):
+    # OpenTK's Chinese-model group (DeepSeek, Qwen, GLM, Kimi); three ximei.codes keys for the same
+    # GPT models, tried when OpenTK is busy; and a ximei.codes key for Claude (Sonnet only).
+    OPENTK_CHINESE: Optional[str] = None
+    XIMEI_1: Optional[str] = None
+    XIMEI_2: Optional[str] = None
+    XIMEI_3: Optional[str] = None
+    CLAUDE_XIMEI: Optional[str] = None
     # Empty means the provider's own URL.
     LLM_BASE_URL: str = ""
     # Default model; empty means the provider's first model.
