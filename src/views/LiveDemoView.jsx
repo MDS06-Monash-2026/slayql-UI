@@ -447,6 +447,16 @@ export default function LiveDemoView({ setView, session, onLogout, onSessionUpda
         if (modelsData.length > 0 && !selectedModelId) {
           setSelectedModelId(modelsData[0].id);
         }
+        // The cached list opens instantly; a fresh one replaces it on this visit, so models
+        // changed on the server show up now, not on the next visit. A choice made from a stale
+        // list (none, or the retired default) moves to the current default.
+        fetchModels({ force: true })
+          .then((fresh) => {
+            if (!active || !Array.isArray(fresh) || !fresh.length) return;
+            setModels(fresh);
+            setSelectedModelId((current) => (!current || RETIRED_DEFAULT_MODELS.has(current) ? fresh[0].id : current));
+          })
+          .catch(() => {});
         const defaultConnection = connsData.find((connection) => connection.is_default) || connsData[0];
         if (defaultConnection) {
           setSelectedConnectionId(defaultConnection.id);

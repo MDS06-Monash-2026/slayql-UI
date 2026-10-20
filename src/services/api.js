@@ -166,7 +166,7 @@ export async function fetchHealth() {
   return res.json();
 }
 
-export async function fetchModels({ query = '' } = {}) {
+export async function fetchModels({ query = '', force = false } = {}) {
   const params = query ? `?q=${encodeURIComponent(query)}` : '';
   return cachedRequest(`models:${query}`, async () => {
     const res = await fetch(`${API_BASE}/models${params}`, {
@@ -174,7 +174,7 @@ export async function fetchModels({ query = '' } = {}) {
     });
     if (!res.ok) throw new Error('Failed to load models');
     return res.json();
-  }, 10 * 60 * 1000);
+  }, 10 * 60 * 1000, { force });
 }
 
 export async function fetchConnections({ force = false } = {}) {

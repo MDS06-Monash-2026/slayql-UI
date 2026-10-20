@@ -10,8 +10,8 @@ const COMPANY = {
   Alibaba: { logo: '/logos/models/qwen-color.svg' },
   Anthropic: { logo: '/logos/models/claude-color.svg' },
 };
-// The default model's company first.
-const COMPANY_ORDER = ['DeepSeek', 'OpenAI', 'Alibaba', 'Zhipu AI', 'Moonshot AI', 'Anthropic'];
+// The default model's company first, then Claude.
+const COMPANY_ORDER = ['DeepSeek', 'Anthropic', 'OpenAI', 'Alibaba', 'Zhipu AI', 'Moonshot AI'];
 const TAG_LABEL = { default: 'Default', deep: 'Deep thinking', fast: 'Fast' };
 
 function CompanyLogo({ company, isDark, size = 'h-5 w-5' }) {
@@ -51,9 +51,9 @@ export default function ModelSelector({ models = [], selectedModelId, onSelectMo
   const groups = useMemo(() => {
     const needle = query.trim().toLowerCase();
     const match = (m) => !needle || [m.name, m.id, m.provider, m.description].filter(Boolean).some((v) => v.toLowerCase().includes(needle));
+    // Only models that can run are listed.
     const byCompany = {};
-    for (const m of models.filter(match)) (byCompany[m.provider || 'Other'] ||= []).push(m);
-    for (const list of Object.values(byCompany)) list.sort((a, b) => Number(b.is_available !== false) - Number(a.is_available !== false));
+    for (const m of models.filter((m) => m.is_available !== false && match(m))) (byCompany[m.provider || 'Other'] ||= []).push(m);
     return Object.entries(byCompany).sort(([a], [b]) => {
       const ia = COMPANY_ORDER.indexOf(a); const ib = COMPANY_ORDER.indexOf(b);
       return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
@@ -135,11 +135,11 @@ export default function ModelSelector({ models = [], selectedModelId, onSelectMo
                             ))}
                         </span>
                         {model.description && <span className={`mt-0.5 block truncate text-xs ${tone.muted}`}>{model.description}</span>}
-                        <span className={`mt-0.5 block text-[11px] tabular-nums ${tone.muted}`}>
-                          {model.input_price || model.output_price
-                            ? `${price(model.input_price)} in · ${price(model.output_price)} out per million tokens`
-                            : 'Price not published'}
-                        </span>
+                        {(model.input_price || model.output_price) ? (
+                          <span className={`mt-0.5 block text-[11px] tabular-nums ${tone.muted}`}>
+                            {price(model.input_price)} in · {price(model.output_price)} out per million tokens
+                          </span>
+                        ) : null}
                       </span>
                       {selected && <Check className={`mt-1 h-4 w-4 shrink-0 ${isDark ? 'text-indigo-300' : 'text-indigo-600'}`} aria-hidden="true" />}
                     </button>
