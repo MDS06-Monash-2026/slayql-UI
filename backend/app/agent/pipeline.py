@@ -16,6 +16,7 @@ from backend.app.agent.effort import (
     ThinkingEffort,
     get_thinking_profile,
 )
+from backend.app.agent import catalog_routing
 from backend.app.agent.candidates import generate_variants
 from backend.app.agent.profile import data_profile
 from backend.app.agent.rbp import RBPGraphEngine
@@ -1104,8 +1105,10 @@ class SlayQLPipeline:
             # source. This keeps greetings fast even when the source is remote,
             # unavailable, or still being indexed.
             preflight = _fallback_chat_intent(question, metadata["conversation_messages"])
+            # Only chit-chat skips the catalog. A short request such as "customers" may name a
+            # table, so it is routed after the catalog is loaded (a few milliseconds).
             fast_non_sql = (
-                preflight["intent"] in {"unsupported", "clarification"}
+                preflight["intent"] == "unsupported"
                 or bool(preflight.get("fast_path"))
             )
             if fast_non_sql:
@@ -1184,6 +1187,23 @@ class SlayQLPipeline:
                 return
 
             intent_started = time.perf_counter()
+            # Questions that name a real table and have one exact answer (its structure, its rows, or
+            # the table list) are answered from the catalog: instant, and never a generic reply. They
+            # skip the model orchestrator, which could only add latency; follow-ups still use it.
+            catalog_route = catalog_routing.route(question, catalog)
+            local_decision = (
+                await gemini_workbench_agent.classify_chat_intent(
+                    question,
+                    SlayQLPipeline._intent_catalog_summary(catalog),
+                    metadata["conversation_messages"],
+                    use_model=False,
+                )
+                if catalog_route or not thinking_profile.use_model_intent
+                else None
+            )
+            use_model_intent = thinking_profile.use_model_intent and not (
+                catalog_route and not local_decision.get("is_follow_up")
+            )
             SlayQLPipeline._emit(
                 run_id,
                 "intent_validation",
@@ -1191,7 +1211,7 @@ class SlayQLPipeline:
                 {
                     "model": (
                         execution_model_id
-                        if thinking_profile.use_model_intent
+                        if use_model_intent
                         else "slayql/local-intent"
                     ),
                     "summary": "Checking whether this turn requires SQL or database metadata.",
@@ -1201,7 +1221,7 @@ class SlayQLPipeline:
             async def emit_orchestrator_event(event_type: str, payload: Dict[str, Any]) -> None:
                 SlayQLPipeline._emit(run_id, "orchestration", event_type, payload)
 
-            if thinking_profile.use_model_intent:
+            if use_model_intent:
                 intent_decision = await deepseek_orchestrator.orchestrate(
                     question=question,
                     catalog=catalog,
@@ -1210,12 +1230,9 @@ class SlayQLPipeline:
                     emit=emit_orchestrator_event,
                 )
             else:
-                intent_decision = await gemini_workbench_agent.classify_chat_intent(
-                    question,
-                    SlayQLPipeline._intent_catalog_summary(catalog),
-                    metadata["conversation_messages"],
-                    use_model=False,
-                )
+                intent_decision = local_decision
+            if catalog_route and not intent_decision.get("is_follow_up"):
+                intent_decision = catalog_routing.apply(intent_decision, catalog_route)
             SlayQLPipeline._emit(
                 run_id,
                 "intent_validation",
@@ -1310,9 +1327,12 @@ class SlayQLPipeline:
                     },
                 )
                 if intent_decision["intent"] == "schema_overview":
+                    operation = intent_decision.get("catalog_operation")
                     overview = (
-                        SlayQLPipeline._related_tables_overview(catalog, question)
-                        if intent_decision.get("catalog_operation") == "related_tables"
+                        catalog_routing.describe_tables(catalog, intent_decision.get("catalog_tables") or [])
+                        if operation == "describe_table"
+                        else SlayQLPipeline._related_tables_overview(catalog, question)
+                        if operation == "related_tables"
                         else SlayQLPipeline._schema_overview(catalog)
                     )
                     if not intent_decision.get("tool_call_emitted"):
@@ -1499,9 +1519,12 @@ class SlayQLPipeline:
             grounding_context = json.dumps(grounded_values, ensure_ascii=True, default=str)
             fallback_table = chain[0] if chain else next(iter(catalog.tables), "")
             fallback_sql = f'SELECT * FROM "{fallback_table}" LIMIT {min(100, settings.MAX_RESULT_ROWS)}'
+            browse_table = intent_decision.get("browse_table")
             deterministic_sql = (
                 SlayQLPipeline._row_count_sql(catalog, dialect)
                 if intent_decision["intent"] == "row_count_overview"
+                else catalog_routing.browse_sql(browse_table, dialect, settings.MAX_RESULT_ROWS)
+                if browse_table and browse_table in catalog.tables
                 else ""
             )
             definitions = await asyncio.to_thread(knowledge_store.approved_definitions, connection_id)
@@ -1779,6 +1802,11 @@ class SlayQLPipeline:
                     return
 
                 semantic_started = time.perf_counter()
+                # A direct table listing is SELECT * built from the catalog, so the model check
+                # would only add latency; the local check still runs.
+                use_model_semantics = thinking_profile.use_model_semantic_validation and not (
+                    browse_table and deterministic_sql
+                )
                 SlayQLPipeline._emit(
                     run_id,
                     "semantic_validation",
@@ -1787,7 +1815,7 @@ class SlayQLPipeline:
                         "attempt": attempt,
                         "model": (
                             GEMINI_WORKBENCH_MODEL
-                            if thinking_profile.use_model_semantic_validation
+                            if use_model_semantics
                             else "slayql/local-semantic-validator"
                         ),
                         "summary": "Checking whether the safe SQL answers the user's request.",
@@ -1799,7 +1827,7 @@ class SlayQLPipeline:
                     dialect=dialect,
                     catalog_summary=SlayQLPipeline._intent_catalog_summary(catalog),
                     recent_messages=metadata["conversation_messages"],
-                    use_model=thinking_profile.use_model_semantic_validation,
+                    use_model=use_model_semantics,
                 )
                 SlayQLPipeline._emit(
                     run_id,
@@ -1975,6 +2003,8 @@ class SlayQLPipeline:
             verification_payload: Optional[Dict[str, Any]] = None
             if verified_query:
                 verification_payload = SlayQLPipeline._verified_query_verification(verified_query, penalty)
+            elif browse_table and deterministic_sql:
+                verification_payload = catalog_routing.browse_verification(browse_table, penalty)
             elif thinking_profile.verify and not deterministic_sql:
                 verification_payload, final_sql, execution_result = await SlayQLPipeline._verify_answer(
                     run_id,
@@ -2047,6 +2077,8 @@ class SlayQLPipeline:
             )
 
             visualization_started = time.perf_counter()
+            # A plain table listing needs no model to pick its chart.
+            use_model_chart = thinking_profile.use_model_chart and not (browse_table and deterministic_sql)
             SlayQLPipeline._emit(
                 run_id,
                 "visualization",
@@ -2054,14 +2086,14 @@ class SlayQLPipeline:
                 {
                     "model": (
                         GEMINI_WORKBENCH_MODEL
-                        if thinking_profile.use_model_chart
+                        if use_model_chart
                         else "slayql/local-chart-planner"
                     ),
                     "summary": "Selecting a chart from the bounded result profile.",
                 },
             )
             chart = None
-            if not thinking_profile.use_model_chart:
+            if not use_model_chart:
                 chart = execution_result.chart_recommendation
                 if chart:
                     chart = {
@@ -2163,6 +2195,11 @@ class SlayQLPipeline:
                     local_answer = (
                         SlayQLPipeline._unconfirmed_answer(verification_payload)
                         if unconfirmed
+                        else catalog_routing.browse_answer(
+                            browse_table, catalog, len(execution_result.rows), execution_result.is_truncated,
+                            settings.MAX_RESULT_ROWS,
+                        )
+                        if browse_table and deterministic_sql
                         else SlayQLPipeline._fast_result_answer(
                             execution_result.columns,
                             execution_result.rows,

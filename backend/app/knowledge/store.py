@@ -26,6 +26,21 @@ def question_key(question: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", question.casefold()).strip()
 
 
+# Words that change how a question is phrased, never what it asks. Anything that can change the
+# answer (numbers, names, "how many", "per", "top", "not", dates, metrics) is deliberately kept.
+_FILLER = {
+    "a", "an", "the", "please", "can", "could", "would", "you", "me", "us", "i", "we", "our", "my",
+    "show", "list", "display", "give", "tell", "get", "find", "see", "want", "to", "know",
+    "what", "was", "were", "is", "are", "do", "does", "did", "of", "kindly",
+}
+
+
+def loose_question_key(question: str) -> str:
+    """question_key without filler words: "What were the total sales…" matches "Show total sales…"."""
+    words = [word for word in question_key(question).split() if word not in _FILLER]
+    return " ".join(words)
+
+
 class KnowledgeStore:
     def __init__(self, database: ControlDatabase) -> None:
         self.database = database
@@ -176,6 +191,20 @@ class KnowledgeStore:
                 .where(self.queries.c.connection_id == connection_id, self.queries.c.question_key == question_key(question))
                 .order_by(self.queries.c.created_at.desc())
             ).mappings().first()
+            if not row:
+                # Same question, different filler words. Compared on the stored question text, so
+                # queries saved before this rule existed match too. Requires at least two content
+                # words, so a vague question can't pick up an unrelated verified query.
+                loose = loose_question_key(question)
+                if len(loose.split()) >= 2:
+                    for candidate in conn.execute(
+                        select(self.queries)
+                        .where(self.queries.c.connection_id == connection_id)
+                        .order_by(self.queries.c.created_at.desc())
+                    ).mappings():
+                        if loose_question_key(candidate["question"]) == loose:
+                            row = candidate
+                            break
         if not row:
             return None
         record = dict(row)
