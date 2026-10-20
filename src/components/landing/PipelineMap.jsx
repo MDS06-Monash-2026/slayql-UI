@@ -32,7 +32,7 @@ const PHASES = [
     nodes: [
       {
         id: 'candidates', icon: Code2, title: 'Three candidate queries', short: 'Written independently',
-        text: 'The model writes three SQL candidates, each nudged to reason from scratch, so their agreement means something. Everyday work uses GPT-5.6 Luna and harder work GPT-6.1 Sol, with fallbacks.',
+        text: 'The model writes three SQL candidates, each nudged to reason from scratch, so their agreement means something. Everyday work uses DeepSeek V4.1 Flash and harder work GPT-5.6 Terra, with backup models and keys if a provider is busy.',
         code: ['backend/app/agent/candidates.py', 'backend/app/providers/llm_client.py'],
       },
       {

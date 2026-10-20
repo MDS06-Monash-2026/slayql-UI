@@ -1,7 +1,6 @@
 import React from 'react';
-import { Loader2 } from 'lucide-react';
 import { pct } from '../../services/useResearchSummary';
-import { ABLATION, BENCHMARKS } from '../../content/researchResults';
+import { BENCHMARKS, FINDINGS } from '../../content/researchResults';
 import { RESEARCH_NAME } from '../../content/projectInfo';
 import { RingStat } from './charts';
 import { GapChart, ResearchCards } from './ResearchGap';
@@ -21,36 +20,17 @@ function Benchmark({ bench, index }) {
   );
 }
 
-function AblationGrid() {
-  const running = ABLATION.some((a) => a.pending);
+function FindingsGrid() {
   return (
-    <div className="rounded-3xl border border-dashed border-indigo-200 bg-indigo-50/40 p-6 sm:p-8">
-      <div className="flex flex-wrap items-center gap-3">
-        <h3 className="text-lg font-semibold text-slate-950">What each research component adds</h3>
-        {running && (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-xs font-medium text-indigo-700 shadow-sm">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-            Running on all 1,534 BIRD dev questions
-          </span>
-        )}
-      </div>
-      <p className="mt-1 text-sm text-slate-500">Each run removes or changes one part of {RESEARCH_NAME}. Results appear here when the runs finish.</p>
+    <div className="rounded-3xl border border-indigo-100 bg-indigo-50/40 p-6 sm:p-8">
+      <h3 className="text-lg font-semibold text-slate-950">What the study found</h3>
+      <p className="mt-1 text-sm text-slate-500">Where accuracy is lost in an AI SQL pipeline, measured on all 1,534 BIRD dev questions.</p>
       <ul className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {ABLATION.map((a, i) => (
-          <Reveal as="li" key={a.id} delay={i * 70} className="rounded-2xl border border-white bg-white/80 p-4 shadow-[0_8px_24px_-18px_rgba(67,56,202,0.5)]">
-            <p className="text-sm font-semibold text-slate-900">{a.label}</p>
-            <p className="mt-0.5 text-xs text-slate-500">{a.what}</p>
-            {a.pending ? (
-              <div className="mt-4 space-y-2" aria-label="In progress">
-                <div className="h-6 w-20 animate-pulse rounded-md bg-indigo-100" />
-                <p className="text-[11px] font-medium text-indigo-700">In progress</p>
-              </div>
-            ) : (
-              <div className="mt-4">
-                <p className="text-2xl font-semibold text-slate-950">{pct(a.ex)}</p>
-                {a.tokens && <p className="text-[11px] text-slate-500">{a.tokens.toLocaleString()} tokens per question</p>}
-              </div>
-            )}
+        {FINDINGS.map((f, i) => (
+          <Reveal as="li" key={f.id} delay={i * 70} className="rounded-2xl border border-white bg-white/80 p-4 shadow-[0_8px_24px_-18px_rgba(67,56,202,0.5)]">
+            <p className="text-sm font-semibold text-slate-900">{f.label}</p>
+            <p className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">{f.value}</p>
+            <p className="mt-1 text-xs text-slate-500">{f.what}</p>
           </Reveal>
         ))}
       </ul>
@@ -70,12 +50,12 @@ export default function ResearchSection() {
         <div className="mt-14 grid gap-12 sm:grid-cols-3">
           {BENCHMARKS.map((bench, i) => <Benchmark key={bench.name} bench={bench} index={i} />)}
         </div>
-        <p className="mt-6 text-center text-xs text-slate-400">Execution accuracy: the query returns exactly the right result. Model: deepseek-v4-flash.</p>
+        <p className="mt-6 text-center text-xs text-slate-400">Execution accuracy: the query returns exactly the right result. Model: DeepSeek V4 Flash. BIRD is the final version, v1.9.</p>
 
         <Reveal variant="scale" className="mt-16"><GapChart /></Reveal>
         <div className="mt-4"><ResearchCards /></div>
 
-        <Reveal className="mt-4"><AblationGrid /></Reveal>
+        <Reveal className="mt-4"><FindingsGrid /></Reveal>
       </div>
     </section>
   );

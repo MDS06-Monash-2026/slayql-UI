@@ -7,8 +7,11 @@ const COMPANY = {
   DeepSeek: { logo: '/logos/models/deepseek-color.svg' },
   'Zhipu AI': { logo: '/logos/models/zhipu-color.svg' },
   'Moonshot AI': { logo: '/logos/models/kimi.svg', mono: true },
+  Alibaba: { logo: '/logos/models/qwen-color.svg' },
+  Anthropic: { logo: '/logos/models/claude-color.svg' },
 };
-const COMPANY_ORDER = ['OpenAI', 'Zhipu AI', 'Moonshot AI', 'DeepSeek'];
+// The default model's company first.
+const COMPANY_ORDER = ['DeepSeek', 'OpenAI', 'Alibaba', 'Zhipu AI', 'Moonshot AI', 'Anthropic'];
 const TAG_LABEL = { default: 'Default', deep: 'Deep thinking', fast: 'Fast' };
 
 function CompanyLogo({ company, isDark, size = 'h-5 w-5' }) {
@@ -133,7 +136,9 @@ export default function ModelSelector({ models = [], selectedModelId, onSelectMo
                         </span>
                         {model.description && <span className={`mt-0.5 block truncate text-xs ${tone.muted}`}>{model.description}</span>}
                         <span className={`mt-0.5 block text-[11px] tabular-nums ${tone.muted}`}>
-                          {price(model.input_price)} in · {price(model.output_price)} out per million tokens
+                          {model.input_price || model.output_price
+                            ? `${price(model.input_price)} in · ${price(model.output_price)} out per million tokens`
+                            : 'Price not published'}
                         </span>
                       </span>
                       {selected && <Check className={`mt-1 h-4 w-4 shrink-0 ${isDark ? 'text-indigo-300' : 'text-indigo-600'}`} aria-hidden="true" />}

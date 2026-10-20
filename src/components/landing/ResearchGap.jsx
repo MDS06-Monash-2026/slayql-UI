@@ -2,7 +2,7 @@ import React from 'react';
 import { ArrowUpRight } from 'lucide-react';
 import { Area, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { pct } from '../../services/useResearchSummary';
-import { LINKING, ORACLE_AT_K, SELECTED_EX, VERSIONS } from '../../content/researchResults';
+import { LINKING, ORACLE_AT_K, PICK_RATE, SELECTED_EX, VERSIONS } from '../../content/researchResults';
 import { AFTER, BEFORE } from './charts';
 import { Reveal, spotlight, useCountFromTo, useInView } from './motion';
 
@@ -26,8 +26,11 @@ const endLabel = (text, color) => function EndLabel({ x, y, index }) {
 export function GapChart() {
   const [ref, play] = useInView({ threshold: 0.3 });
   const last = ORACLE_AT_K[ORACLE_AT_K.length - 1];
-  const gap = last.oracle - last.vote;
-  const data = ORACLE_AT_K.map((p) => ({ k: p.k, oracle: p.oracle * 100, vote: p.vote * 100, gap: (p.oracle - p.vote) * 100 }));
+  const gap = last.oracle - SELECTED_EX;
+  // The shaded gap runs from what SlayQL chose up to the correct-query-written line.
+  const data = ORACLE_AT_K.map((p) => ({
+    k: p.k, oracle: p.oracle * 100, base: Math.min(p.oracle, SELECTED_EX) * 100, gap: Math.max(0, p.oracle - SELECTED_EX) * 100,
+  }));
 
   return (
     <figure ref={ref} className="stage-frame">
@@ -36,7 +39,7 @@ export function GapChart() {
 
         <figcaption className="relative">
           <h3 className="max-w-2xl text-2xl font-semibold tracking-[-0.02em] text-slate-950 sm:text-3xl">More candidates, more correct queries. Picking them is the hard part.</h3>
-          <p className="mt-2 max-w-2xl text-slate-600">BIRD dev, 1,534 questions. With k candidate queries, is a correct one among them, and does a majority vote choose it?</p>
+          <p className="mt-2 max-w-2xl text-slate-600">BIRD dev, 1,534 questions, final version (v1.9). With k candidate queries, is a correct one among them? The dashed line is how often SlayQL chose a correct one.</p>
         </figcaption>
 
         <dl className="relative mt-10 grid gap-8 sm:grid-cols-3">
@@ -45,8 +48,8 @@ export function GapChart() {
             <dd className="mt-1 text-5xl font-semibold tracking-[-0.04em] text-slate-950"><CountUp value={last.oracle} play={play} /></dd>
           </div>
           <div>
-            <dt className="text-sm text-slate-600">The majority vote picked it</dt>
-            <dd className="mt-1 text-5xl font-semibold tracking-[-0.04em] text-slate-950"><CountUp value={last.vote} play={play} /></dd>
+            <dt className="text-sm text-slate-600">SlayQL chose a correct one</dt>
+            <dd className="mt-1 text-5xl font-semibold tracking-[-0.04em] text-slate-950"><CountUp value={SELECTED_EX} play={play} /></dd>
           </div>
           <div className="rounded-2xl bg-white/80 p-4 shadow-[0_12px_30px_-20px_rgba(109,40,217,0.6)] ring-1 ring-violet-100">
             <dt className="text-sm font-medium text-violet-700">The gap: written, then not chosen</dt>
@@ -70,24 +73,26 @@ export function GapChart() {
                 <Tooltip
                   contentStyle={tooltipStyle}
                   labelFormatter={(k) => `${k} candidate${k > 1 ? 's' : ''}`}
-                  formatter={(v, name) => (name === 'gap' ? null : [`${v.toFixed(1)}%`, name === 'oracle' ? 'Correct query written' : 'Majority vote picked it'])}
+                  formatter={(v, name) => (name === 'oracle' ? [`${v.toFixed(1)}%`, 'Correct query written'] : null)}
                 />
-                {/* the gap: an invisible base up to the vote line, then the gap stacked on top */}
-                <Area type="monotone" dataKey="vote" stackId="g" stroke="none" fill="transparent" isAnimationActive={false} />
+                {/* the gap: an invisible base up to what SlayQL chose, then the gap stacked on top */}
+                <Area type="monotone" dataKey="base" stackId="g" stroke="none" fill="transparent" isAnimationActive={false} />
                 <Area type="monotone" dataKey="gap" stackId="g" stroke="none" fill="url(#gap-fill)" animationDuration={1800} animationBegin={600} />
-                <ReferenceLine y={SELECTED_EX * 100} stroke="#94a3b8" strokeDasharray="4 4" label={{ value: `Chosen today ${pct(SELECTED_EX)}`, fontSize: 11, fill: '#64748b', position: 'insideBottomRight' }} />
+                <ReferenceLine y={SELECTED_EX * 100} stroke={BEFORE} strokeWidth={2} strokeDasharray="6 4" label={{ value: `SlayQL chose ${pct(SELECTED_EX)}`, fontSize: 12, fontWeight: 600, fill: '#5b63d6', position: 'insideBottomRight' }} />
                 <Line type="monotone" dataKey="oracle" stroke={AFTER} strokeWidth={3} dot={{ r: 5, fill: '#fff', strokeWidth: 2.5 }} animationDuration={1600} label={endLabel('Correct query written', AFTER)} />
-                <Line type="monotone" dataKey="vote" stroke={BEFORE} strokeWidth={3} dot={{ r: 5, fill: '#fff', strokeWidth: 2.5 }} animationDuration={1600} animationBegin={300} label={endLabel('Majority vote picked it', '#5b63d6')} />
               </ComposedChart>
             </ResponsiveContainer>
           )}
         </div>
-        <p className="relative mt-2 text-sm text-slate-600">The shaded gap is what the trust layer works on: checking candidates against the data instead of trusting the vote.</p>
+        <p className="relative mt-2 text-sm text-slate-600">
+          The shaded gap is what the trust layer works on: checking candidates against the data instead of trusting a vote.
+          When a correct query was written, SlayQL now chooses it {pct(PICK_RATE.after, 0)} of the time, up from {pct(PICK_RATE.before, 0)} in {PICK_RATE.beforeVersion}.
+        </p>
 
         <table className="sr-only">
-          <caption>Correct query written versus chosen by vote, by number of candidates</caption>
-          <thead><tr><th>Candidates</th><th>Written</th><th>Voted</th></tr></thead>
-          <tbody>{ORACLE_AT_K.map((p) => <tr key={p.k}><td>{p.k}</td><td>{pct(p.oracle)}</td><td>{pct(p.vote)}</td></tr>)}</tbody>
+          <caption>Correct query written, by number of candidates; SlayQL chose a correct one for {pct(SELECTED_EX)}</caption>
+          <thead><tr><th>Candidates</th><th>Correct query written</th></tr></thead>
+          <tbody>{ORACLE_AT_K.map((p) => <tr key={p.k}><td>{p.k}</td><td>{pct(p.oracle)}</td></tr>)}</tbody>
         </table>
       </div>
     </figure>
@@ -113,19 +118,20 @@ function MiniRing({ value, label, play, delay = 0 }) {
 
 export function ResearchCards() {
   const [ref, play] = useInView({ threshold: 0.35 });
-  const [v10, v18] = VERSIONS;
+  const first = VERSIONS[0];
+  const latest = VERSIONS[VERSIONS.length - 1];
   const max = 0.7;
   return (
     <div ref={ref} className="grid gap-4 lg:grid-cols-2">
       <Reveal variant="left" className="spotlight rounded-[2rem] border border-slate-200 bg-white p-8 sm:p-10" onMouseMove={spotlight}>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h3 className="text-lg font-semibold text-slate-950">BIRD dev accuracy, pipeline v1.0 to v1.8</h3>
+            <h3 className="text-lg font-semibold text-slate-950">BIRD dev accuracy, pipeline {first.version} to {latest.version}</h3>
             <p className="mt-1 text-sm text-slate-500">Execution accuracy on the same 1,534 questions.</p>
           </div>
           <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-700">
             <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
-            +{((v18.ex - v10.ex) * 100).toFixed(1)} points
+            +{((latest.ex - first.ex) * 100).toFixed(1)} points
           </span>
         </div>
         <div className="mt-8 flex h-56 items-end justify-around gap-6 border-b border-slate-200" aria-hidden="true">
@@ -143,11 +149,11 @@ export function ResearchCards() {
           {VERSIONS.map((v) => (
             <p key={v.version} className="w-full max-w-[9rem] text-center">
               <span className="block text-sm font-semibold text-slate-800">{v.version}</span>
-              <span className="block text-xs text-slate-500">US${v.costPerQuestion.toFixed(4)} per question</span>
+              <span className="block text-xs text-slate-500">{v.costPerQuestion == null ? 'Cost not reported' : `US$${v.costPerQuestion.toFixed(4)} per question`}</span>
             </p>
           ))}
         </div>
-        <p className="sr-only">BIRD dev execution accuracy: v1.0 {pct(v10.ex)}, v1.8 {pct(v18.ex)}.</p>
+        <p className="sr-only">BIRD dev execution accuracy: {VERSIONS.map((v) => `${v.version} ${pct(v.ex)}`).join(', ')}.</p>
       </Reveal>
 
       <Reveal variant="right" delay={120} className="spotlight rounded-[2rem] border border-slate-200 bg-white p-8 sm:p-10" onMouseMove={spotlight}>
